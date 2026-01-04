@@ -16,9 +16,9 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
-  deleteDoc, // 新增 deleteDoc
+  deleteDoc, 
   onSnapshot,
-  collection // 新增 collection
+  collection 
 } from "firebase/firestore";
 
 // --- Firebase Configuration ---
@@ -196,7 +196,7 @@ const useFirebase = () => {
         loginAnonymous, 
         logout, 
         db: firestoreDB,
-        methods: { doc, getDoc, setDoc, updateDoc, onSnapshot, deleteDoc, collection }, // Add collection, deleteDoc
+        methods: { doc, getDoc, setDoc, updateDoc, onSnapshot, deleteDoc, collection }, 
         authError
     };
 };
@@ -356,7 +356,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     );
 };
 
-// 2. Calendar View (Cloud-Enabled & Enhanced UI)
+// 2. Calendar View
 const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
@@ -364,19 +364,15 @@ const CalendarView = ({ user, db, methods }) => {
     const [editingText, setEditingText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     
-    // Quick tags for rapid input
     const quickTags = ['胸部', '背部', '腿部', '肩膀', '手臂', '核心', '有氧', '休息日'];
 
-    // Real-time listener for user logs
     useEffect(() => {
         if (!user || !db) return;
-        
-        // Listen to the 'logs' subcollection
         const q = methods.collection(db, "users", user.uid, "logs");
         const unsubscribe = methods.onSnapshot(q, (snapshot) => {
             const newLogs = {};
             snapshot.forEach((doc) => {
-                newLogs[doc.id] = doc.data(); // { content: "...", tags: [] }
+                newLogs[doc.id] = doc.data(); 
             });
             setLogs(newLogs);
         });
@@ -387,7 +383,6 @@ const CalendarView = ({ user, db, methods }) => {
     const addTag = (tag) => {
         setEditingText(prev => {
             if (!prev) return `[${tag}] `;
-            // Add newline if there's text, otherwise just the tag
             return prev.endsWith(' ') || prev.endsWith('\n') ? prev + `[${tag}] ` : prev + `\n[${tag}] `;
         });
     };
@@ -400,7 +395,6 @@ const CalendarView = ({ user, db, methods }) => {
     const handleDateClick = (d) => { 
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
-        // Load existing content or empty string
         setEditingText(logs[dateStr]?.content || ""); 
     };
     
@@ -410,7 +404,6 @@ const CalendarView = ({ user, db, methods }) => {
         try {
             const docRef = methods.doc(db, "users", user.uid, "logs", selectedDate);
             if (!editingText.trim()) {
-                // If empty, delete the document to keep DB clean
                 await methods.deleteDoc(docRef);
             } else {
                 await methods.setDoc(docRef, { 
@@ -429,10 +422,8 @@ const CalendarView = ({ user, db, methods }) => {
 
     const renderCalendarGrid = () => {
         const days = [];
-        // Empty cells for offset
-        for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="h-24 bg-transparent"></div>);
+        for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
         
-        // Days
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
@@ -440,14 +431,14 @@ const CalendarView = ({ user, db, methods }) => {
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
             
             days.push(
-                <div key={day} onClick={() => handleDateClick(day)} className={`h-24 border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
+                <div key={day} onClick={() => handleDateClick(day)} className={`min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all flex flex-col justify-between ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
                     <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
                     
                     {hasLog && (
-                        <div className="mt-2">
+                        <div className="mt-1 overflow-hidden">
                             <div className="flex items-center gap-1 mb-1">
-                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <span className="text-[10px] text-emerald-400 font-bold">已安排</span>
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                                <span className="text-[10px] text-emerald-400 font-bold hidden md:inline">已安排</span>
                             </div>
                             <div className="text-[10px] text-slate-400 truncate opacity-70 leading-tight">
                                 {logData.content}
@@ -484,7 +475,7 @@ const CalendarView = ({ user, db, methods }) => {
             </div>
 
             {/* Grid */}
-            <div className="calendar-grid">{renderCalendarGrid()}</div>
+            <div className="grid grid-cols-7 gap-1 md:gap-2">{renderCalendarGrid()}</div>
 
             {/* Modal */}
             {selectedDate && (
@@ -972,7 +963,7 @@ const App = () => {
             <header className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">
                     <div className="bg-emerald-500 p-2 rounded-xl"><Icon name="dumbbell" className="text-black" /></div>
-                    <div><h1 className="text-xl font-bold">AI Coach <span className="text-emerald-500">Cloud</span></h1><p className="text-xs text-slate-500">{user.email || 'Guest'}</p></div>
+                    <div><h1 className="text-xl font-bold">AI Coach <span className="text-emerald-500">Cloud</span></h1><p className="text-xs text-slate-500">{user.email}</p></div>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={()=>setShowProfileModal(true)} className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-slate-300"><Icon name="user" className="w-5 h-5" /></button>

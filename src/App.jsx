@@ -16,7 +16,9 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
-  onSnapshot 
+  deleteDoc, // 新增 deleteDoc
+  onSnapshot,
+  collection // 新增 collection
 } from "firebase/firestore";
 
 // --- Firebase Configuration ---
@@ -37,7 +39,6 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
-  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -123,13 +124,11 @@ const useFirebase = () => {
             return;
         }
 
-        // 監聽 Firebase 狀態
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setLoading(false);
         });
 
-        // ⏳ 安全計時器
         const timer = setTimeout(() => {
             setLoading((prev) => {
                 if (prev) {
@@ -156,7 +155,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
+                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console -> Authentication -> Settings -> Authorized domains 將其加入白名單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -197,7 +196,7 @@ const useFirebase = () => {
         loginAnonymous, 
         logout, 
         db: firestoreDB,
-        methods: { doc, getDoc, setDoc, updateDoc, onSnapshot },
+        methods: { doc, getDoc, setDoc, updateDoc, onSnapshot, deleteDoc, collection }, // Add collection, deleteDoc
         authError
     };
 };
@@ -357,41 +356,178 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     );
 };
 
-// 2. Calendar View
-const CalendarView = () => {
+// 2. Calendar View (Cloud-Enabled & Enhanced UI)
+const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [logs, setLogs] = useState({});
     const [editingText, setEditingText] = useState("");
-    const quickTags = ['深蹲', '臥推', '硬舉', '肩推', '引體向上', '跑步', '核心', '瑜珈', '休息日', '5組x5次', '30分鐘'];
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Quick tags for rapid input
+    const quickTags = ['胸部', '背部', '腿部', '肩膀', '手臂', '核心', '有氧', '休息日'];
 
-    useEffect(() => { const savedLogs = localStorage.getItem('training_logs'); if (savedLogs) setLogs(JSON.parse(savedLogs)); }, []);
-    const addTag = (tag) => setEditingText(prev => prev ? (prev.slice(-1) === '\n' ? `${prev}- ${tag}` : `${prev}\n- ${tag}`) : `- ${tag}`);
+    // Real-time listener for user logs
+    useEffect(() => {
+        if (!user || !db) return;
+        
+        // Listen to the 'logs' subcollection
+        const q = methods.collection(db, "users", user.uid, "logs");
+        const unsubscribe = methods.onSnapshot(q, (snapshot) => {
+            const newLogs = {};
+            snapshot.forEach((doc) => {
+                newLogs[doc.id] = doc.data(); // { content: "...", tags: [] }
+            });
+            setLogs(newLogs);
+        });
+
+        return () => unsubscribe();
+    }, [user, db, methods]);
+
+    const addTag = (tag) => {
+        setEditingText(prev => {
+            if (!prev) return `[${tag}] `;
+            // Add newline if there's text, otherwise just the tag
+            return prev.endsWith(' ') || prev.endsWith('\n') ? prev + `[${tag}] ` : prev + `\n[${tag}] `;
+        });
+    };
+
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
     const formatDate = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const handleDateClick = (d) => { const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); setSelectedDate(dateStr); setEditingText(logs[dateStr] || ""); };
-    const saveLog = () => { const newLogs = { ...logs, [selectedDate]: editingText }; if (!editingText.trim()) delete newLogs[selectedDate]; setLogs(newLogs); localStorage.setItem('training_logs', JSON.stringify(newLogs)); setSelectedDate(null); };
+    
+    const handleDateClick = (d) => { 
+        const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
+        setSelectedDate(dateStr); 
+        // Load existing content or empty string
+        setEditingText(logs[dateStr]?.content || ""); 
+    };
+    
+    const saveLog = async () => { 
+        if (!user || !db || !selectedDate) return;
+        setIsLoading(true);
+        try {
+            const docRef = methods.doc(db, "users", user.uid, "logs", selectedDate);
+            if (!editingText.trim()) {
+                // If empty, delete the document to keep DB clean
+                await methods.deleteDoc(docRef);
+            } else {
+                await methods.setDoc(docRef, { 
+                    content: editingText, 
+                    updatedAt: new Date() 
+                }, { merge: true });
+            }
+            setSelectedDate(null); 
+        } catch (e) {
+            console.error("Save failed:", e);
+            alert("儲存失敗，請檢查網路連線");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const renderCalendarGrid = () => {
         const days = [];
+        // Empty cells for offset
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="h-24 bg-transparent"></div>);
+        
+        // Days
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
-            const hasLog = logs[dateStr];
+            const logData = logs[dateStr];
+            const hasLog = logData && logData.content && logData.content.trim().length > 0;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
-            days.push(<div key={day} onClick={() => handleDateClick(day)} className={`h-24 border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}><span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>{hasLog && <div className="mt-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mb-1"></div><div className="text-[10px] text-slate-400 truncate opacity-70">{logs[dateStr]}</div></div>}</div>);
+            
+            days.push(
+                <div key={day} onClick={() => handleDateClick(day)} className={`h-24 border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
+                    <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
+                    
+                    {hasLog && (
+                        <div className="mt-2">
+                            <div className="flex items-center gap-1 mb-1">
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                                <span className="text-[10px] text-emerald-400 font-bold">已安排</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate opacity-70 leading-tight">
+                                {logData.content}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {!hasLog && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Icon name="plus" className="w-4 h-4 text-emerald-500/50" />
+                        </div>
+                    )}
+                </div>
+            );
         }
         return days;
     };
 
     return (
         <div className="pb-24 max-w-5xl mx-auto">
-            <div className="flex items-center justify-between mb-8 bg-[#111] p-4 rounded-2xl border border-white/5"><button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"><Icon name="chevronleft" /></button><h2 className="text-xl font-bold text-white tracking-widest uppercase">{currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</h2><button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"><Icon name="chevronright" /></button></div>
-            <div className="grid grid-cols-7 gap-2 mb-2 text-center">{['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-xs text-slate-600 font-bold py-2">{d}</div>)}</div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8 bg-[#111] p-4 rounded-2xl border border-white/5 shadow-lg">
+                <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button>
+                <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
+                    <Icon name="calendar" className="w-5 h-5 text-emerald-500" />
+                    {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月
+                </h2>
+                <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button>
+            </div>
+
+            {/* Weekday Headers */}
+            <div className="grid grid-cols-7 gap-2 mb-2 text-center bg-[#111] p-3 rounded-xl border border-white/5">
+                {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-xs text-slate-500 font-bold">{d}</div>)}
+            </div>
+
+            {/* Grid */}
             <div className="calendar-grid">{renderCalendarGrid()}</div>
+
+            {/* Modal */}
             {selectedDate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"><div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-6 shadow-2xl"><div className="flex items-center justify-between mb-6"><div className="flex items-center gap-2 text-emerald-500 font-bold"><Icon name="calendar" className="w-5 h-5" /><span>{selectedDate}</span></div><button onClick={() => setSelectedDate(null)} className="text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button></div><div className="flex flex-wrap gap-2 mb-4">{quickTags.map(tag => <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-white/5 hover:bg-emerald-500 hover:text-black border border-white/10 rounded-lg text-xs font-medium transition-colors">+ {tag}</button>)}</div><textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="訓練內容..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none min-h-[150px] mb-6" autoFocus /><div className="flex gap-3"><button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5">取消</button><button onClick={saveLog} className="flex-1 bg-emerald-500 text-black py-3 rounded-xl font-bold">儲存</button></div></div></div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-6 shadow-2xl scale-in-95 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-2 text-emerald-500 font-bold">
+                                <Icon name="calendar" className="w-5 h-5" />
+                                <span>{selectedDate} 訓練計畫</span>
+                            </div>
+                            <button onClick={() => setSelectedDate(null)} className="text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
+                        </div>
+                        
+                        {/* Quick Tags */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {quickTags.map(tag => (
+                                <button 
+                                    key={tag} 
+                                    onClick={() => addTag(tag)} 
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all active:scale-95"
+                                >
+                                    + {tag}
+                                </button>
+                            ))}
+                        </div>
+
+                        <textarea 
+                            value={editingText} 
+                            onChange={(e) => setEditingText(e.target.value)} 
+                            placeholder="輸入今天的訓練課表..." 
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[150px] mb-6 resize-none" 
+                            autoFocus 
+                        />
+                        
+                        <div className="flex gap-3">
+                            <button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button>
+                            <button onClick={saveLog} disabled={isLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                {isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="save" className="w-4 h-4" />}
+                                {isLoading ? "儲存中..." : "儲存計畫"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -847,7 +983,7 @@ const App = () => {
 
             <main>
                 {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} />}
-                {currentTab === 'calendar' && <CalendarView />}
+                {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} />} {/* Fixed prop passing */}
                 {currentTab === 'analysis' && <AnalysisView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
                 {currentTab === 'tools' && <ToolsView />}
             </main>

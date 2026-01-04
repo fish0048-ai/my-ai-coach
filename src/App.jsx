@@ -113,7 +113,6 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
 };
 
 // --- Firebase Methods (Static) ---
-// ⚡ 核心修正：靜態定義方法，防止 React 無限迴圈讀取
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
 // --- Custom Hook: Firebase User Management ---
@@ -131,11 +130,9 @@ const useFirebase = () => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setLoading(false);
-            // 安全日誌：確認 Auth 狀態變更頻率
             console.log("👤 Firebase Auth State Changed:", u ? "User Logged In" : "User Logged Out");
         });
 
-        // ⏳ 安全計時器
         const timer = setTimeout(() => {
             setLoading((prev) => {
                 if (prev) {
@@ -203,7 +200,7 @@ const useFirebase = () => {
         loginAnonymous, 
         logout, 
         db: firestoreDB,
-        methods: firebaseMethods, // 使用靜態參考
+        methods: firebaseMethods,
         authError
     };
 };
@@ -261,7 +258,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     const [error, setError] = useState(null);
     const [copySuccess, setCopySuccess] = useState(false);
 
-    // Fetch previous plan from Firestore
     useEffect(() => {
         if (!db || !user) return;
         const fetchPlan = async () => {
@@ -364,31 +360,23 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     );
 };
 
-// 2. Calendar View (Updated for Structured Inputs)
+// 2. Calendar View
 const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [logs, setLogs] = useState({});
+    const [editingText, setEditingText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
-    const [logType, setLogType] = useState('general'); // general, run, weight
-    const [editingText, setEditingText] = useState("");
-    
-    // Run States
+    const [logType, setLogType] = useState('general'); 
     const [runData, setRunData] = useState({ time: '', pace: '', power: '' });
-    
-    // Weight States
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
-
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
 
     useEffect(() => {
         if (!user || !db) return;
         const q = methods.collection(db, "users", user.uid, "logs");
-        // 安全日誌：確認監聽器啟動
-        console.log("🔥 Firestore: Subscribing to user logs...");
-        
         const unsubscribe = methods.onSnapshot(q, (snapshot) => {
             const newLogs = {};
             snapshot.forEach((doc) => {
@@ -396,11 +384,7 @@ const CalendarView = ({ user, db, methods }) => {
             });
             setLogs(newLogs);
         });
-
-        return () => {
-             console.log("🛑 Firestore: Unsubscribing logs...");
-             unsubscribe();
-        }
+        return () => unsubscribe();
     }, [user, db, methods]);
 
     const addTag = (tag) => {
@@ -412,7 +396,6 @@ const CalendarView = ({ user, db, methods }) => {
 
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-
     const formatDate = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     
     const handleDateClick = (d) => { 
@@ -427,7 +410,6 @@ const CalendarView = ({ user, db, methods }) => {
         const content = logs[dateStr]?.content || "";
         setEditingText(content);
         
-        // Simple auto-detection could go here, but manual selection is safer for now
         if (content.includes('[跑步]')) setLogType('run');
         if (content.includes('[重訓]')) setLogType('weight');
     };
@@ -437,8 +419,6 @@ const CalendarView = ({ user, db, methods }) => {
         setIsLoading(true);
         try {
             let finalContent = editingText;
-            
-            // Format structured data into string if in specific modes
             if (logType === 'run' && (runData.time || runData.pace)) {
                 finalContent = `[跑步] ${runData.time ? `時間:${runData.time}分` : ''} ${runData.pace ? `| 配速:${runData.pace}` : ''} ${runData.power ? `| 功率:${runData.power}W` : ''}`;
             } else if (logType === 'weight' && weightData.action) {
@@ -449,10 +429,7 @@ const CalendarView = ({ user, db, methods }) => {
             if (!finalContent.trim()) {
                 await methods.deleteDoc(docRef);
             } else {
-                await methods.setDoc(docRef, { 
-                    content: finalContent, 
-                    updatedAt: new Date() 
-                }, { merge: true });
+                await methods.setDoc(docRef, { content: finalContent, updatedAt: new Date() }, { merge: true });
             }
             setSelectedDate(null); 
         } catch (e) {
@@ -466,49 +443,30 @@ const CalendarView = ({ user, db, methods }) => {
     const renderCalendarGrid = () => {
         const days = [];
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
-        
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
             const hasLog = logData && logData.content && logData.content.trim().length > 0;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
             
-            // Check log type for color coding
             let logColor = "text-slate-400";
             let dotColor = "bg-slate-500";
             if (hasLog) {
-                if (logData.content.includes('[跑步]')) {
-                    logColor = "text-sky-400";
-                    dotColor = "bg-sky-500";
-                } else if (logData.content.includes('[重訓]')) {
-                    logColor = "text-orange-400";
-                    dotColor = "bg-orange-500";
-                } else {
-                    logColor = "text-emerald-400";
-                    dotColor = "bg-emerald-500";
-                }
+                if (logData.content.includes('[跑步]')) { logColor = "text-sky-400"; dotColor = "bg-sky-500"; }
+                else if (logData.content.includes('[重訓]')) { logColor = "text-orange-400"; dotColor = "bg-orange-500"; }
+                else { logColor = "text-emerald-400"; dotColor = "bg-emerald-500"; }
             }
             
             days.push(
                 <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
                     <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
-                    
                     {hasLog && (
                         <div className="mt-1 overflow-hidden">
-                            <div className="flex items-center gap-1 mb-1">
-                                <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
-                            </div>
-                            <div className={`text-[10px] truncate leading-tight ${logColor}`}>
-                                {logData.content}
-                            </div>
+                            <div className="flex items-center gap-1 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div></div>
+                            <div className={`text-[10px] truncate leading-tight ${logColor}`}>{logData.content}</div>
                         </div>
                     )}
-                    
-                    {!hasLog && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Icon name="check" className="w-4 h-4 text-slate-600" />
-                        </div>
-                    )}
+                    {!hasLog && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="check" className="w-4 h-4 text-slate-600" /></div>}
                 </div>
             );
         }
@@ -517,81 +475,24 @@ const CalendarView = ({ user, db, methods }) => {
 
     return (
         <div className="pb-24 max-w-5xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8 bg-[#111] p-4 rounded-2xl border border-white/5 shadow-lg">
-                <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button>
-                <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
-                    <Icon name="calendar" className="w-5 h-5 text-emerald-500" />
-                    {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月
-                </h2>
-                <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button>
-            </div>
-
-            {/* Weekday Headers */}
-            <div className="grid grid-cols-7 gap-2 mb-2 text-center bg-[#111] p-3 rounded-xl border border-white/5">
-                {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-xs text-slate-500 font-bold">{d}</div>)}
-            </div>
-
-            {/* Grid */}
+            <div className="flex items-center justify-between mb-8 bg-[#111] p-4 rounded-2xl border border-white/5 shadow-lg"><button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button><h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2"><Icon name="calendar" className="w-5 h-5 text-emerald-500" />{currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</h2><button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button></div>
+            <div className="grid grid-cols-7 gap-2 mb-2 text-center bg-[#111] p-3 rounded-xl border border-white/5">{['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-xs text-slate-500 font-bold">{d}</div>)}</div>
             <div className="grid grid-cols-7 gap-1 md:gap-2">{renderCalendarGrid()}</div>
-
-            {/* Modal */}
             {selectedDate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
                     <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-6 shadow-2xl scale-in-95 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2 text-white font-bold">
-                                <span className='text-emerald-500'>{selectedDate}</span> 訓練紀錄
-                            </div>
-                            <button onClick={() => setSelectedDate(null)} className="text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
-                        </div>
-                        
-                        {/* Type Switcher */}
+                        <div className="flex items-center justify-between mb-6"><div className="flex items-center gap-2 text-white font-bold"><span className='text-emerald-500'>{selectedDate}</span> 訓練紀錄</div><button onClick={() => setSelectedDate(null)} className="text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button></div>
                         <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
                             <button onClick={() => setLogType('general')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${logType === 'general' ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="save" className="w-3 h-3" /> 一般</button>
                             <button onClick={() => setLogType('run')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${logType === 'run' ? 'bg-sky-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="activity" className="w-3 h-3" /> 跑步</button>
                             <button onClick={() => setLogType('weight')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${logType === 'weight' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-3 h-3" /> 重訓</button>
                         </div>
-
-                        {/* Dynamic Form Content */}
                         <div className="mb-6 space-y-4">
-                            {logType === 'general' && (
-                                <>
-                                    <div className="flex flex-wrap gap-2 mb-2">
-                                        {quickTags.map(tag => (
-                                            <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>
-                                        ))}
-                                    </div>
-                                    <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus />
-                                </>
-                            )}
-
-                            {logType === 'run' && (
-                                <div className="space-y-3">
-                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 30" /></div>
-                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/公里)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 5:30" /></div>
-                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (瓦特)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 200" /></div>
-                                </div>
-                            )}
-
-                            {logType === 'weight' && (
-                                <div className="space-y-3">
-                                    <div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 深蹲" /></div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 5" /></div>
-                                        <div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 100" /></div>
-                                    </div>
-                                </div>
-                            )}
+                            {logType === 'general' && (<><div className="flex flex-wrap gap-2 mb-2">{quickTags.map(tag => <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>)}</div><textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus /></>)}
+                            {logType === 'run' && (<div className="space-y-3"><div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/公里)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 5:30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (瓦特)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 200" /></div></div>)}
+                            {logType === 'weight' && (<div className="space-y-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 深蹲" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 5" /></div><div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 100" /></div></div></div>)}
                         </div>
-                        
-                        <div className="flex gap-3">
-                            <button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button>
-                            <button onClick={saveLog} disabled={isLoading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${logType === 'run' ? 'bg-sky-600 hover:bg-sky-500' : logType === 'weight' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
-                                {isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="check" className="w-4 h-4" />}
-                                {isLoading ? "儲存中..." : "確認儲存"}
-                            </button>
-                        </div>
+                        <div className="flex gap-3"><button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button><button onClick={saveLog} disabled={isLoading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${logType === 'run' ? 'bg-sky-600 hover:bg-sky-500' : logType === 'weight' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>{isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="check" className="w-4 h-4" />}{isLoading ? "儲存中..." : "確認儲存"}</button></div>
                     </div>
                 </div>
             )}
@@ -599,7 +500,7 @@ const CalendarView = ({ user, db, methods }) => {
     );
 };
 
-// 3. Analysis View
+// 3. Analysis View (Fixed Video Height + Min Height)
 const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
@@ -615,7 +516,6 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     const [detectedStats, setDetectedStats] = useState(null);
     const [synced, setSynced] = useState(false);
     
-    // Using refs instead of state for loop variables to avoid re-renders
     const detectorRef = useRef(null);
     const requestRef = useRef(null);
     const wristPathRef = useRef([]);
@@ -625,7 +525,6 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     useEffect(() => {
         const initModel = async () => {
             try {
-                // Load TensorFlow scripts dynamically from CDN
                 await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core');
                 await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter');
                 await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl');
@@ -840,7 +739,7 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
 
     const syncToProfile = () => {
         if (!detectedStats) return;
-        const today = new Date().toLocaleDateString('en-CA'); // 使用 ISO 格式但為當地時間 YYYY-MM-DD
+        const today = new Date().toISOString().split('T')[0];
         let note = "";
         let updates = {};
 
@@ -883,8 +782,8 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
 
             <div className="flex flex-col lg:flex-row gap-6 items-start">
                 
-                {/* 1. Video Container: Force 16:9 aspect ratio */}
-                <div className="relative w-full flex-1 aspect-video bg-black rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
+                {/* 1. Video Container: Force 16:9 aspect ratio and min height */}
+                <div className="relative w-full flex-1 aspect-video min-h-[300px] bg-black rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
                     {isLoading && <div className="loading-overlay"><div className="spinner mb-3"></div><span className="text-sm font-light text-white">載入 AI 模型中...</span></div>}
                     {!videoRef.current?.src && !isLoading && <p className="text-slate-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">請上傳影片以開始</p>}
                     <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain opacity-0" onLoadedMetadata={() => { canvasRef.current.width = videoRef.current.videoWidth; canvasRef.current.height = videoRef.current.videoHeight; resetAnalysis(); }} playsInline muted></video>
@@ -1049,7 +948,7 @@ const App = () => {
 
             <main>
                 {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} />}
-                {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} />} {/* Fixed prop passing */}
+                {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} />}
                 {currentTab === 'analysis' && <AnalysisView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
                 {currentTab === 'tools' && <ToolsView />}
             </main>

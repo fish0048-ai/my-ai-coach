@@ -37,6 +37,7 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
+  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -152,7 +153,8 @@ const useFirebase = () => {
             console.error(e);
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
-                msg = "網域未授權：請將下方顯示的網域加入 Firebase Console 的授權清單中。";
+                const domain = window.location.hostname;
+                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console → Authentication → Settings → Authorized domains 將其加入白名單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -170,7 +172,7 @@ const useFirebase = () => {
             console.error("Anonymous login failed:", e);
             let msg = "訪客登入失敗: " + e.message;
             if (e.code === 'auth/admin-restricted-operation') {
-                msg = "⛔ 訪客登入未啟用\n\n請前往 Firebase Console -> Authentication -> Sign-in method\n開啟「Anonymous (匿名)」登入選項。";
+                msg = "⛔ 訪客登入未啟用\n\n請前往 Firebase Console → Authentication → Sign-in method\n開啟「Anonymous (匿名)」登入選項。";
             }
             setAuthError(msg);
             alert(msg);
@@ -199,7 +201,6 @@ const useFirebase = () => {
 };
 
 // --- Components (Modals) ---
-
 const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
     const [inputKey, setInputKey] = useState(initialValue || '');
     return (
@@ -243,9 +244,8 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
     );
 };
 
-// --- Views (Main Features) ---
+// --- Views ---
 
-// 1. Generator View
 const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) => {
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
@@ -298,9 +298,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                 }
             );
             const data = await response.json();
-            
-            if (data.error) throw new Error(data.error.message || "Gemini API Error");
-            
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) { 
                 setPlan(text); 
@@ -321,12 +318,40 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         });
     };
 
-    const renderPlan = (text) => text.split('\n').map((line, i) => {
-        if (line.startsWith('## ')) return <h2 key={i} className="text-emerald-400 font-bold text-xl mt-6 mb-3 border-b border-emerald-500/20 pb-2">{line.replace('## ', '')}</h2>;
-        if (line.startsWith('### ')) return <h3 key={i} className="text-slate-100 font-bold text-lg mt-4 mb-2">{line.replace('### ', '')}</h3>;
-        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) return <li key={i} className="text-slate-300 ml-4 list-disc mb-1">{line.trim().substring(2)}</li>;
-        return <p key={i} className="text-slate-400 mb-2">{line}</p>;
-    });
+    // 格式化顯示 Helper
+    const renderPlan = (text) => {
+        // 粗體處理函數
+        const formatBold = (str) => {
+            const parts = str.split(/(\*\*.*?\*\*)/g);
+            return parts.map((part, index) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={index} className="text-white font-bold">{part.slice(2, -2)}</strong>;
+                }
+                return part;
+            });
+        };
+
+        return text.split('\n').map((line, i) => {
+            const trimmed = line.trim();
+            if (!trimmed) return <div key={i} className="h-2"></div>; // 空行增加間距
+
+            if (line.startsWith('## ')) {
+                // H2 大標題
+                return <h2 key={i} className="text-emerald-400 font-bold text-xl mt-6 mb-3 border-b border-emerald-500/20 pb-2">{line.replace('## ', '')}</h2>;
+            }
+            if (line.startsWith('### ')) {
+                // H3 小標題
+                return <h3 key={i} className="text-slate-100 font-bold text-lg mt-4 mb-2 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>{line.replace('### ', '')}</h3>;
+            }
+            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                // 列表項目
+                return <li key={i} className="text-slate-300 ml-4 list-disc mb-1 pl-1 marker:text-emerald-500/50">{formatBold(trimmed.substring(2))}</li>;
+            }
+            
+            // 一般內文
+            return <p key={i} className="text-slate-400 mb-2 leading-relaxed">{formatBold(line)}</p>;
+        });
+    };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">

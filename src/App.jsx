@@ -37,6 +37,7 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
+  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -127,6 +128,7 @@ const useFirebase = () => {
             setLoading(false);
         });
 
+        // ⏳ 安全計時器
         const timer = setTimeout(() => {
             setLoading((prev) => {
                 if (prev) {
@@ -153,7 +155,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
+                msg = `⛔ 網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -676,20 +678,23 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-grow canvas-container shadow-2xl relative">
+            <div className="flex flex-col lg:flex-row gap-6 items-start"> {/* items-start 確保高度不拉伸 */}
+                
+                {/* 1. Video Container: 強制 16:9 比例，避免過高 */}
+                <div className="relative w-full flex-1 aspect-video bg-black rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
                     {isLoading && <div className="loading-overlay"><div className="spinner mb-3"></div><span className="text-sm font-light text-white">載入 AI 模型中...</span></div>}
                     {!videoRef.current?.src && !isLoading && <p className="text-slate-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">請上傳影片以開始</p>}
-                    <video ref={videoRef} className="video-layer hidden" playsInline muted onLoadedMetadata={() => { canvasRef.current.width = videoRef.current.videoWidth; canvasRef.current.height = videoRef.current.videoHeight; resetAnalysis(); }}></video>
-                    <canvas ref={canvasRef} className="canvas-layer"></canvas>
+                    <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain opacity-0" onLoadedMetadata={() => { canvasRef.current.width = videoRef.current.videoWidth; canvasRef.current.height = videoRef.current.videoHeight; resetAnalysis(); }} playsInline muted></video>
+                    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-contain"></canvas>
                 </div>
-                <div className="w-full lg:w-96 flex-shrink-0 flex flex-col gap-4">
-                    <div className="bg-[#111] p-5 rounded-xl shadow-lg flex-grow border border-white/10 h-full min-h-[300px] overflow-y-auto max-h-[800px]">
+
+                {/* 2. Report Container: 固定最大高度，確保不會把畫面撐壞 */}
+                <div className="w-full lg:w-96 flex-shrink-0">
+                    <div className="bg-[#111] p-5 rounded-xl shadow-lg border border-white/10 h-[500px] lg:max-h-[600px] overflow-y-auto">
                         <h3 className="text-lg font-semibold text-white mb-4 border-b border-slate-800 pb-2 flex justify-between items-center">分析結果<span className={`text-xs px-2 py-1 rounded ${status.includes('中') ? 'bg-yellow-900 text-yellow-200 animate-pulse' : 'bg-slate-800 text-slate-300'}`}>{status}</span></h3>
                         {metricsHtml ? (
                             <>
                                 <div dangerouslySetInnerHTML={{ __html: metricsHtml }} />
-                                
                                 {detectedStats && (
                                     <button 
                                         onClick={syncToProfile} 
@@ -700,7 +705,6 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                                         {synced ? "已同步至個人檔案" : "同步數據至個人檔案"}
                                     </button>
                                 )}
-
                                 {!aiAnalysis && !isAiLoading && !aiError && (
                                     <button onClick={generateAiReport} className="w-full mt-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95">
                                         <Icon name="sparkles" className="w-4 h-4" /> 取得 AI 深度生物力學報告
@@ -735,17 +739,6 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                     </div>
                 </div>
             </div>
-        </div>
-    );
-};
-
-// --- 工具箱 (BMI) ---
-const ToolsView = () => {
-    const [height, setHeight] = useState(''); const [weight, setWeight] = useState(''); const [bmi, setBmi] = useState(null); const [status, setStatus] = useState('');
-    const calculateBMI = () => { if (!height || !weight) return; const h = parseFloat(height) / 100; const w = parseFloat(weight); const value = (w / (h * h)).toFixed(1); setBmi(value); if (value < 18.5) setStatus('體重過輕'); else if (value < 24) setStatus('健康體位'); else if (value < 27) setStatus('過重'); else setStatus('肥胖'); };
-    return (
-        <div className="pb-24 max-w-lg mx-auto">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl"><div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center"><Icon name="calculator" className="w-6 h-6" /><span className="text-xl text-white">BMI 計算機</span></div><div className="space-y-4 mb-6"><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身高 (cm)</label><input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">體重 (kg)</label><input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div></div><button onClick={calculateBMI} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-xl shadow-lg active:scale-95 mb-8">開始計算</button>{bmi && (<div className="text-center animate-in fade-in slide-in-from-bottom-4"><p className="text-slate-400 text-sm mb-1">您的 BMI 指數</p><div className="text-5xl font-black text-white mb-2">{bmi}</div><div className={`inline-block px-4 py-1 rounded-full text-sm font-bold ${status === '健康體位' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{status}</div></div>)}</div>
         </div>
     );
 };

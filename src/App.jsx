@@ -37,7 +37,6 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
-  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -154,7 +153,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console → Authentication → Settings → Authorized domains 將其加入白名單。`;
+                msg = `網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -172,7 +171,7 @@ const useFirebase = () => {
             console.error("Anonymous login failed:", e);
             let msg = "訪客登入失敗: " + e.message;
             if (e.code === 'auth/admin-restricted-operation') {
-                msg = "⛔ 訪客登入未啟用\n\n請前往 Firebase Console → Authentication → Sign-in method\n開啟「Anonymous (匿名)」登入選項。";
+                msg = "⛔ 訪客登入未啟用\n\n請前往 Firebase Console -> Authentication -> Sign-in method\n開啟「Anonymous (匿名)」登入選項。";
             }
             setAuthError(msg);
             alert(msg);
@@ -205,7 +204,7 @@ const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
     const [inputKey, setInputKey] = useState(initialValue || '');
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-2xl text-center relative">
+            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-2xl text-center relative max-h-[85vh] overflow-y-auto">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
                 <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6"><Icon name="key" className="w-8 h-8 text-emerald-500" /></div>
                 <h2 className="text-xl font-bold text-white mb-2">設定 API Key</h2>
@@ -222,7 +221,7 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
     const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative max-h-[85vh] overflow-y-auto">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
                 <div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center"><Icon name="usercircle" className="w-6 h-6" /><span className="text-xl text-white">基本資料</span></div>
                 <div className="space-y-4">
@@ -253,7 +252,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     const [error, setError] = useState(null);
     const [copySuccess, setCopySuccess] = useState(false);
 
-    // Fetch previous plan from Firestore
     useEffect(() => {
         if (!db || !user) return;
         const fetchPlan = async () => {
@@ -318,40 +316,12 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         });
     };
 
-    // 格式化顯示 Helper
-    const renderPlan = (text) => {
-        // 粗體處理函數
-        const formatBold = (str) => {
-            const parts = str.split(/(\*\*.*?\*\*)/g);
-            return parts.map((part, index) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    return <strong key={index} className="text-white font-bold">{part.slice(2, -2)}</strong>;
-                }
-                return part;
-            });
-        };
-
-        return text.split('\n').map((line, i) => {
-            const trimmed = line.trim();
-            if (!trimmed) return <div key={i} className="h-2"></div>; // 空行增加間距
-
-            if (line.startsWith('## ')) {
-                // H2 大標題
-                return <h2 key={i} className="text-emerald-400 font-bold text-xl mt-6 mb-3 border-b border-emerald-500/20 pb-2">{line.replace('## ', '')}</h2>;
-            }
-            if (line.startsWith('### ')) {
-                // H3 小標題
-                return <h3 key={i} className="text-slate-100 font-bold text-lg mt-4 mb-2 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>{line.replace('### ', '')}</h3>;
-            }
-            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                // 列表項目
-                return <li key={i} className="text-slate-300 ml-4 list-disc mb-1 pl-1 marker:text-emerald-500/50">{formatBold(trimmed.substring(2))}</li>;
-            }
-            
-            // 一般內文
-            return <p key={i} className="text-slate-400 mb-2 leading-relaxed">{formatBold(line)}</p>;
-        });
-    };
+    const renderPlan = (text) => text.split('\n').map((line, i) => {
+        if (line.startsWith('## ')) return <h2 key={i} className="text-emerald-400 font-bold text-xl mt-6 mb-3 border-b border-emerald-500/20 pb-2">{line.replace('## ', '')}</h2>;
+        if (line.startsWith('### ')) return <h3 key={i} className="text-slate-100 font-bold text-lg mt-4 mb-2">{line.replace('### ', '')}</h3>;
+        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) return <li key={i} className="text-slate-300 ml-4 list-disc mb-1">{line.trim().substring(2)}</li>;
+        return <p key={i} className="text-slate-400 mb-2">{line}</p>;
+    });
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
@@ -836,7 +806,7 @@ const App = () => {
                     <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
                     <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>
                     <div className="flex items-center gap-2 bg-black/50 p-2 rounded border border-slate-700">
-                        <code className="text-emerald-400 flex-1 overflow-x-auto whitespace-nowrap selection:bg-emerald-900">
+                        <code className="text-emerald-400 flex-1 overflow-x-auto whitespace-nowrap break-all">
                             {window.location.hostname}
                         </code>
                         <button 
@@ -844,7 +814,7 @@ const App = () => {
                                 navigator.clipboard.writeText(window.location.hostname);
                                 alert("網域已複製！請去 Firebase Console 貼上。");
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors shrink-0"
                         >
                             複製
                         </button>

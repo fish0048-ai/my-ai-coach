@@ -87,7 +87,11 @@ const ICONS = {
   calculator: <><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>,
   chevronleft: <path d="m15 18-6-6 6-6"/>,
   chevronright: <path d="m9 18 6-6-6-6"/>,
-  trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>
+  trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>,
+  timer: <><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></>,
+  zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
+  layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, // Added Fragment
+  scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></> // Added Fragment
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -155,7 +159,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console -> Authentication -> Settings -> Authorized domains 將其加入白名單。`;
+                msg = `⛔ 網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -356,15 +360,24 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     );
 };
 
-// 2. Calendar View
+// 2. Calendar View (Updated for Structured Inputs)
 const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [logs, setLogs] = useState({});
-    const [editingText, setEditingText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     
-    const quickTags = ['胸部', '背部', '腿部', '肩膀', '手臂', '核心', '有氧', '休息日'];
+    // Form States
+    const [logType, setLogType] = useState('general'); // general, run, weight
+    const [editingText, setEditingText] = useState("");
+    
+    // Run States
+    const [runData, setRunData] = useState({ time: '', pace: '', power: '' });
+    
+    // Weight States
+    const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
+
+    const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
 
     useEffect(() => {
         if (!user || !db) return;
@@ -395,19 +408,39 @@ const CalendarView = ({ user, db, methods }) => {
     const handleDateClick = (d) => { 
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
-        setEditingText(logs[dateStr]?.content || ""); 
+        
+        // Reset forms
+        setLogType('general');
+        setRunData({ time: '', pace: '', power: '' });
+        setWeightData({ action: '', sets: '', weight: '' });
+        
+        const content = logs[dateStr]?.content || "";
+        setEditingText(content);
+        
+        // Simple auto-detection could go here, but manual selection is safer for now
+        if (content.includes('[跑步]')) setLogType('run');
+        if (content.includes('[重訓]')) setLogType('weight');
     };
     
     const saveLog = async () => { 
         if (!user || !db || !selectedDate) return;
         setIsLoading(true);
         try {
+            let finalContent = editingText;
+            
+            // Format structured data into string if in specific modes
+            if (logType === 'run' && (runData.time || runData.pace)) {
+                finalContent = `[跑步] ${runData.time ? `時間:${runData.time}分` : ''} ${runData.pace ? `| 配速:${runData.pace}` : ''} ${runData.power ? `| 功率:${runData.power}W` : ''}`;
+            } else if (logType === 'weight' && weightData.action) {
+                finalContent = `[重訓] ${weightData.action} ${weightData.sets ? `| ${weightData.sets}組` : ''} ${weightData.weight ? `| ${weightData.weight}kg` : ''}`;
+            }
+
             const docRef = methods.doc(db, "users", user.uid, "logs", selectedDate);
-            if (!editingText.trim()) {
+            if (!finalContent.trim()) {
                 await methods.deleteDoc(docRef);
             } else {
                 await methods.setDoc(docRef, { 
-                    content: editingText, 
+                    content: finalContent, 
                     updatedAt: new Date() 
                 }, { merge: true });
             }
@@ -430,17 +463,32 @@ const CalendarView = ({ user, db, methods }) => {
             const hasLog = logData && logData.content && logData.content.trim().length > 0;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
             
+            // Check log type for color coding
+            let logColor = "text-slate-400";
+            let dotColor = "bg-slate-500";
+            if (hasLog) {
+                if (logData.content.includes('[跑步]')) {
+                    logColor = "text-sky-400";
+                    dotColor = "bg-sky-500";
+                } else if (logData.content.includes('[重訓]')) {
+                    logColor = "text-orange-400";
+                    dotColor = "bg-orange-500";
+                } else {
+                    logColor = "text-emerald-400";
+                    dotColor = "bg-emerald-500";
+                }
+            }
+            
             days.push(
-                <div key={day} onClick={() => handleDateClick(day)} className={`min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all flex flex-col justify-between ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
+                <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
                     <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
                     
                     {hasLog && (
                         <div className="mt-1 overflow-hidden">
                             <div className="flex items-center gap-1 mb-1">
-                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                                <span className="text-[10px] text-emerald-400 font-bold hidden md:inline">已安排</span>
+                                <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
                             </div>
-                            <div className="text-[10px] text-slate-400 truncate opacity-70 leading-tight">
+                            <div className={`text-[10px] truncate leading-tight ${logColor}`}>
                                 {logData.content}
                             </div>
                         </div>
@@ -448,7 +496,7 @@ const CalendarView = ({ user, db, methods }) => {
                     
                     {!hasLog && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Icon name="plus" className="w-4 h-4 text-emerald-500/50" />
+                            <Icon name="check" className="w-4 h-4 text-slate-600" />
                         </div>
                     )}
                 </div>
@@ -459,7 +507,6 @@ const CalendarView = ({ user, db, methods }) => {
 
     return (
         <div className="pb-24 max-w-5xl mx-auto">
-            {/* Header */}
             <div className="flex items-center justify-between mb-8 bg-[#111] p-4 rounded-2xl border border-white/5 shadow-lg">
                 <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button>
                 <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
@@ -469,52 +516,66 @@ const CalendarView = ({ user, db, methods }) => {
                 <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button>
             </div>
 
-            {/* Weekday Headers */}
             <div className="grid grid-cols-7 gap-2 mb-2 text-center bg-[#111] p-3 rounded-xl border border-white/5">
                 {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-xs text-slate-500 font-bold">{d}</div>)}
             </div>
 
-            {/* Grid */}
             <div className="grid grid-cols-7 gap-1 md:gap-2">{renderCalendarGrid()}</div>
 
-            {/* Modal */}
             {selectedDate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
                     <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-6 shadow-2xl scale-in-95 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2 text-emerald-500 font-bold">
-                                <Icon name="calendar" className="w-5 h-5" />
-                                <span>{selectedDate} 訓練計畫</span>
+                            <div className="flex items-center gap-2 text-white font-bold">
+                                <span className='text-emerald-500'>{selectedDate}</span> 訓練紀錄
                             </div>
                             <button onClick={() => setSelectedDate(null)} className="text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
                         </div>
                         
-                        {/* Quick Tags */}
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {quickTags.map(tag => (
-                                <button 
-                                    key={tag} 
-                                    onClick={() => addTag(tag)} 
-                                    className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all active:scale-95"
-                                >
-                                    + {tag}
-                                </button>
-                            ))}
+                        {/* Type Switcher */}
+                        <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
+                            <button onClick={() => setLogType('general')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${logType === 'general' ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="save" className="w-3 h-3" /> 一般</button>
+                            <button onClick={() => setLogType('run')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${logType === 'run' ? 'bg-sky-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="activity" className="w-3 h-3" /> 跑步</button>
+                            <button onClick={() => setLogType('weight')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${logType === 'weight' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-3 h-3" /> 重訓</button>
                         </div>
 
-                        <textarea 
-                            value={editingText} 
-                            onChange={(e) => setEditingText(e.target.value)} 
-                            placeholder="輸入今天的訓練課表..." 
-                            className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[150px] mb-6 resize-none" 
-                            autoFocus 
-                        />
+                        {/* Dynamic Form Content */}
+                        <div className="mb-6 space-y-4">
+                            {logType === 'general' && (
+                                <>
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {quickTags.map(tag => (
+                                            <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>
+                                        ))}
+                                    </div>
+                                    <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus />
+                                </>
+                            )}
+
+                            {logType === 'run' && (
+                                <div className="space-y-3">
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 30" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/公里)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 5:30" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (瓦特)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 200" /></div>
+                                </div>
+                            )}
+
+                            {logType === 'weight' && (
+                                <div className="space-y-3">
+                                    <div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 深蹲" /></div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 5" /></div>
+                                        <div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 100" /></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         
                         <div className="flex gap-3">
                             <button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button>
-                            <button onClick={saveLog} disabled={isLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                {isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="save" className="w-4 h-4" />}
-                                {isLoading ? "儲存中..." : "儲存計畫"}
+                            <button onClick={saveLog} disabled={isLoading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${logType === 'run' ? 'bg-sky-600 hover:bg-sky-500' : logType === 'weight' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
+                                {isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="check" className="w-4 h-4" />}
+                                {isLoading ? "儲存中..." : "確認儲存"}
                             </button>
                         </div>
                     </div>

@@ -39,7 +39,6 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
-  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -88,11 +87,7 @@ const ICONS = {
   calculator: <><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>,
   chevronleft: <path d="m15 18-6-6 6-6"/>,
   chevronright: <path d="m9 18 6-6-6-6"/>,
-  trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>,
-  timer: <><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></>,
-  zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
-  layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, 
-  scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></>
+  trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -117,8 +112,8 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
   );
 };
 
-// --- Firebase Methods (Static to prevent re-renders and read leaks) ---
-// ⚡ 關鍵修正：將這些方法移出 Hook，避免 useEffect 依賴改變導致無限迴圈
+// --- Firebase Methods (Static) ---
+// ⚡ 核心修正：靜態定義方法，防止 React 無限迴圈讀取
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
 // --- Custom Hook: Firebase User Management ---
@@ -136,8 +131,11 @@ const useFirebase = () => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setLoading(false);
+            // 安全日誌：確認 Auth 狀態變更頻率
+            console.log("👤 Firebase Auth State Changed:", u ? "User Logged In" : "User Logged Out");
         });
 
+        // ⏳ 安全計時器
         const timer = setTimeout(() => {
             setLoading((prev) => {
                 if (prev) {
@@ -254,9 +252,8 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
     );
 };
 
-// --- Views (Main Features) ---
+// --- Views ---
 
-// 1. Generator View
 const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) => {
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
@@ -389,6 +386,9 @@ const CalendarView = ({ user, db, methods }) => {
     useEffect(() => {
         if (!user || !db) return;
         const q = methods.collection(db, "users", user.uid, "logs");
+        // 安全日誌：確認監聽器啟動
+        console.log("🔥 Firestore: Subscribing to user logs...");
+        
         const unsubscribe = methods.onSnapshot(q, (snapshot) => {
             const newLogs = {};
             snapshot.forEach((doc) => {
@@ -397,7 +397,10 @@ const CalendarView = ({ user, db, methods }) => {
             setLogs(newLogs);
         });
 
-        return () => unsubscribe();
+        return () => {
+             console.log("🛑 Firestore: Unsubscribing logs...");
+             unsubscribe();
+        }
     }, [user, db, methods]);
 
     const addTag = (tag) => {
@@ -503,7 +506,7 @@ const CalendarView = ({ user, db, methods }) => {
                     
                     {!hasLog && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Icon name="plus" className="w-4 h-4 text-emerald-500/50" />
+                            <Icon name="check" className="w-4 h-4 text-slate-600" />
                         </div>
                     )}
                 </div>
@@ -837,7 +840,7 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
 
     const syncToProfile = () => {
         if (!detectedStats) return;
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA'); // 使用 ISO 格式但為當地時間 YYYY-MM-DD
         let note = "";
         let updates = {};
 
@@ -939,6 +942,17 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// --- 工具箱 (BMI) ---
+const ToolsView = () => {
+    const [height, setHeight] = useState(''); const [weight, setWeight] = useState(''); const [bmi, setBmi] = useState(null); const [status, setStatus] = useState('');
+    const calculateBMI = () => { if (!height || !weight) return; const h = parseFloat(height) / 100; const w = parseFloat(weight); const value = (w / (h * h)).toFixed(1); setBmi(value); if (value < 18.5) setStatus('體重過輕'); else if (value < 24) setStatus('健康體位'); else if (value < 27) setStatus('過重'); else setStatus('肥胖'); };
+    return (
+        <div className="pb-24 max-w-lg mx-auto">
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl"><div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center"><Icon name="calculator" className="w-6 h-6" /><span className="text-xl text-white">BMI 計算機</span></div><div className="space-y-4 mb-6"><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身高 (cm)</label><input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">體重 (kg)</label><input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div></div><button onClick={calculateBMI} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-xl shadow-lg active:scale-95 mb-8">開始計算</button>{bmi && (<div className="text-center animate-in fade-in slide-in-from-bottom-4"><p className="text-slate-400 text-sm mb-1">您的 BMI 指數</p><div className="text-5xl font-black text-white mb-2">{bmi}</div><div className={`inline-block px-4 py-1 rounded-full text-sm font-bold ${status === '健康體位' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{status}</div></div>)}</div>
         </div>
     );
 };

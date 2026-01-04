@@ -22,7 +22,7 @@ import {
 // --- Firebase Configuration ---
 // ⚠️ 重要：請務必將下方的字串替換為您自己的 Firebase Config ⚠️
 const firebaseConfig = {
-  apiKey: "AIzaSyAzu9c8N1AK_2OhbEafQ3ul2EpjzL4mQp0",
+   apiKey: "AIzaSyAzu9c8N1AK_2OhbEafQ3ul2EpjzL4mQp0",
   authDomain: "myaicoach-e38d7.firebaseapp.com",
   projectId: "myaicoach-e38d7",
   storageBucket: "myaicoach-e38d7.firebasestorage.app",
@@ -123,6 +123,7 @@ const useFirebase = () => {
             return;
         }
 
+        // 監聽 Firebase 狀態
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setLoading(false);
@@ -678,9 +679,9 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 items-start"> {/* items-start 確保高度不拉伸 */}
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
                 
-                {/* 1. Video Container: 強制 16:9 比例，避免過高 */}
+                {/* 1. Video Container: Force 16:9 aspect ratio */}
                 <div className="relative w-full flex-1 aspect-video bg-black rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
                     {isLoading && <div className="loading-overlay"><div className="spinner mb-3"></div><span className="text-sm font-light text-white">載入 AI 模型中...</span></div>}
                     {!videoRef.current?.src && !isLoading && <p className="text-slate-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">請上傳影片以開始</p>}
@@ -688,7 +689,7 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                     <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-contain"></canvas>
                 </div>
 
-                {/* 2. Report Container: 固定最大高度，確保不會把畫面撐壞 */}
+                {/* 2. Report Container: Fixed max height to prevent overflow */}
                 <div className="w-full lg:w-96 flex-shrink-0">
                     <div className="bg-[#111] p-5 rounded-xl shadow-lg border border-white/10 h-[500px] lg:max-h-[600px] overflow-y-auto">
                         <h3 className="text-lg font-semibold text-white mb-4 border-b border-slate-800 pb-2 flex justify-between items-center">分析結果<span className={`text-xs px-2 py-1 rounded ${status.includes('中') ? 'bg-yellow-900 text-yellow-200 animate-pulse' : 'bg-slate-800 text-slate-300'}`}>{status}</span></h3>
@@ -739,6 +740,17 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// --- 工具箱 (BMI) ---
+const ToolsView = () => {
+    const [height, setHeight] = useState(''); const [weight, setWeight] = useState(''); const [bmi, setBmi] = useState(null); const [status, setStatus] = useState('');
+    const calculateBMI = () => { if (!height || !weight) return; const h = parseFloat(height) / 100; const w = parseFloat(weight); const value = (w / (h * h)).toFixed(1); setBmi(value); if (value < 18.5) setStatus('體重過輕'); else if (value < 24) setStatus('健康體位'); else if (value < 27) setStatus('過重'); else setStatus('肥胖'); };
+    return (
+        <div className="pb-24 max-w-lg mx-auto">
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl"><div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center"><Icon name="calculator" className="w-6 h-6" /><span className="text-xl text-white">BMI 計算機</span></div><div className="space-y-4 mb-6"><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身高 (cm)</label><input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">體重 (kg)</label><input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div></div><button onClick={calculateBMI} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-xl shadow-lg active:scale-95 mb-8">開始計算</button>{bmi && (<div className="text-center animate-in fade-in slide-in-from-bottom-4"><p className="text-slate-400 text-sm mb-1">您的 BMI 指數</p><div className="text-5xl font-black text-white mb-2">{bmi}</div><div className={`inline-block px-4 py-1 rounded-full text-sm font-bold ${status === '健康體位' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{status}</div></div>)}</div>
         </div>
     );
 };
@@ -799,7 +811,7 @@ const App = () => {
                     <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
                     <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>
                     <div className="flex items-center gap-2 bg-black/50 p-2 rounded border border-slate-700">
-                        <code className="text-emerald-400 flex-1 overflow-x-auto whitespace-nowrap break-all">
+                        <code className="text-emerald-400 flex-1 overflow-x-auto whitespace-nowrap selection:bg-emerald-900">
                             {window.location.hostname}
                         </code>
                         <button 
@@ -807,7 +819,7 @@ const App = () => {
                                 navigator.clipboard.writeText(window.location.hostname);
                                 alert("網域已複製！請去 Firebase Console 貼上。");
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors shrink-0"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors"
                         >
                             複製
                         </button>

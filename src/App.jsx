@@ -39,6 +39,7 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
+  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -90,8 +91,8 @@ const ICONS = {
   trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>,
   timer: <><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></>,
   zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
-  layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, // Added Fragment
-  scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></> // Added Fragment
+  layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, 
+  scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -115,6 +116,10 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
     </svg>
   );
 };
+
+// --- Firebase Methods (Static to prevent re-renders and read leaks) ---
+// ⚡ 關鍵修正：將這些方法移出 Hook，避免 useEffect 依賴改變導致無限迴圈
+const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
 // --- Custom Hook: Firebase User Management ---
 const useFirebase = () => {
@@ -159,7 +164,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
+                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console -> Authentication -> Settings -> Authorized domains 將其加入白名單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -200,7 +205,7 @@ const useFirebase = () => {
         loginAnonymous, 
         logout, 
         db: firestoreDB,
-        methods: { doc, getDoc, setDoc, updateDoc, onSnapshot, deleteDoc, collection }, 
+        methods: firebaseMethods, // 使用靜態參考
         authError
     };
 };
@@ -249,8 +254,9 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
     );
 };
 
-// --- Views ---
+// --- Views (Main Features) ---
 
+// 1. Generator View
 const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) => {
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
@@ -258,6 +264,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
     const [error, setError] = useState(null);
     const [copySuccess, setCopySuccess] = useState(false);
 
+    // Fetch previous plan from Firestore
     useEffect(() => {
         if (!db || !user) return;
         const fetchPlan = async () => {
@@ -496,7 +503,7 @@ const CalendarView = ({ user, db, methods }) => {
                     
                     {!hasLog && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Icon name="check" className="w-4 h-4 text-slate-600" />
+                            <Icon name="plus" className="w-4 h-4 text-emerald-500/50" />
                         </div>
                     )}
                 </div>
@@ -507,6 +514,7 @@ const CalendarView = ({ user, db, methods }) => {
 
     return (
         <div className="pb-24 max-w-5xl mx-auto">
+            {/* Header */}
             <div className="flex items-center justify-between mb-8 bg-[#111] p-4 rounded-2xl border border-white/5 shadow-lg">
                 <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button>
                 <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
@@ -516,12 +524,15 @@ const CalendarView = ({ user, db, methods }) => {
                 <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button>
             </div>
 
+            {/* Weekday Headers */}
             <div className="grid grid-cols-7 gap-2 mb-2 text-center bg-[#111] p-3 rounded-xl border border-white/5">
                 {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="text-xs text-slate-500 font-bold">{d}</div>)}
             </div>
 
+            {/* Grid */}
             <div className="grid grid-cols-7 gap-1 md:gap-2">{renderCalendarGrid()}</div>
 
+            {/* Modal */}
             {selectedDate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
                     <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-6 shadow-2xl scale-in-95 animate-in zoom-in-95 duration-200">
@@ -932,17 +943,6 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     );
 };
 
-// --- 工具箱 (BMI) ---
-const ToolsView = () => {
-    const [height, setHeight] = useState(''); const [weight, setWeight] = useState(''); const [bmi, setBmi] = useState(null); const [status, setStatus] = useState('');
-    const calculateBMI = () => { if (!height || !weight) return; const h = parseFloat(height) / 100; const w = parseFloat(weight); const value = (w / (h * h)).toFixed(1); setBmi(value); if (value < 18.5) setStatus('體重過輕'); else if (value < 24) setStatus('健康體位'); else if (value < 27) setStatus('過重'); else setStatus('肥胖'); };
-    return (
-        <div className="pb-24 max-w-lg mx-auto">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl"><div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center"><Icon name="calculator" className="w-6 h-6" /><span className="text-xl text-white">BMI 計算機</span></div><div className="space-y-4 mb-6"><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身高 (cm)</label><input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">體重 (kg)</label><input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div></div><button onClick={calculateBMI} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-xl shadow-lg active:scale-95 mb-8">開始計算</button>{bmi && (<div className="text-center animate-in fade-in slide-in-from-bottom-4"><p className="text-slate-400 text-sm mb-1">您的 BMI 指數</p><div className="text-5xl font-black text-white mb-2">{bmi}</div><div className={`inline-block px-4 py-1 rounded-full text-sm font-bold ${status === '健康體位' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{status}</div></div>)}</div>
-        </div>
-    );
-};
-
 // --- App Root ---
 const App = () => {
     const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase(); // Added loginAnonymous
@@ -1024,7 +1024,7 @@ const App = () => {
             <header className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">
                     <div className="bg-emerald-500 p-2 rounded-xl"><Icon name="dumbbell" className="text-black" /></div>
-                    <div><h1 className="text-xl font-bold">AI Coach <span className="text-emerald-500">Cloud</span></h1><p className="text-xs text-slate-500">{user.email}</p></div>
+                    <div><h1 className="text-xl font-bold">AI Coach <span className="text-emerald-500">Cloud</span></h1><p className="text-xs text-slate-500">{user.email || 'Guest'}</p></div>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={()=>setShowProfileModal(true)} className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-slate-300"><Icon name="user" className="w-5 h-5" /></button>

@@ -39,6 +39,7 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
+  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -87,7 +88,12 @@ const ICONS = {
   calculator: <><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>,
   chevronleft: <path d="m15 18-6-6 6-6"/>,
   chevronright: <path d="m9 18 6-6-6-6"/>,
-  trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>
+  trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></>,
+  timer: <><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></>,
+  zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
+  layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, 
+  scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></>,
+  flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.2 1-2.4 1.5-3.2"/>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -365,11 +371,11 @@ const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [logs, setLogs] = useState({});
-    const [editingText, setEditingText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
     const [logType, setLogType] = useState('general'); 
+    const [editingText, setEditingText] = useState("");
     const [runData, setRunData] = useState({ time: '', pace: '', power: '' });
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
@@ -377,6 +383,9 @@ const CalendarView = ({ user, db, methods }) => {
     useEffect(() => {
         if (!user || !db) return;
         const q = methods.collection(db, "users", user.uid, "logs");
+        // 安全日誌：確認監聽器啟動
+        console.log("🔥 Firestore: Subscribing to user logs...");
+        
         const unsubscribe = methods.onSnapshot(q, (snapshot) => {
             const newLogs = {};
             snapshot.forEach((doc) => {
@@ -384,7 +393,11 @@ const CalendarView = ({ user, db, methods }) => {
             });
             setLogs(newLogs);
         });
-        return () => unsubscribe();
+
+        return () => {
+             console.log("🛑 Firestore: Unsubscribing logs...");
+             unsubscribe();
+        }
     }, [user, db, methods]);
 
     const addTag = (tag) => {
@@ -396,6 +409,7 @@ const CalendarView = ({ user, db, methods }) => {
 
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
     const formatDate = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     
     const handleDateClick = (d) => { 
@@ -406,35 +420,57 @@ const CalendarView = ({ user, db, methods }) => {
         setLogType('general');
         setRunData({ time: '', pace: '', power: '' });
         setWeightData({ action: '', sets: '', weight: '' });
-        
-        const content = logs[dateStr]?.content || "";
-        setEditingText(content);
-        
-        if (content.includes('[跑步]')) setLogType('run');
-        if (content.includes('[重訓]')) setLogType('weight');
+        setEditingText("");
+
+        const log = logs[dateStr];
+        if (log) {
+            setEditingText(log.content || "");
+            // Detect Type
+            if (log.type === 'run') {
+                setLogType('run');
+                setRunData(log.data || { time: '', pace: '', power: '' });
+            } else if (log.type === 'weight') {
+                setLogType('weight');
+                setWeightData(log.data || { action: '', sets: '', weight: '' });
+            } else {
+                setLogType('general');
+            }
+        }
     };
     
     const saveLog = async () => { 
         if (!user || !db || !selectedDate) return;
         setIsLoading(true);
         try {
-            let finalContent = editingText;
-            if (logType === 'run' && (runData.time || runData.pace)) {
-                finalContent = `[跑步] ${runData.time ? `時間:${runData.time}分` : ''} ${runData.pace ? `| 配速:${runData.pace}` : ''} ${runData.power ? `| 功率:${runData.power}W` : ''}`;
-            } else if (logType === 'weight' && weightData.action) {
-                finalContent = `[重訓] ${weightData.action} ${weightData.sets ? `| ${weightData.sets}組` : ''} ${weightData.weight ? `| ${weightData.weight}kg` : ''}`;
+            const docRef = methods.doc(db, "users", user.uid, "logs", selectedDate);
+            
+            // Prepare Data to Save
+            let dataToSave = { 
+                type: logType,
+                updatedAt: new Date()
+            };
+
+            if (logType === 'general') {
+                if (!editingText.trim()) {
+                    await methods.deleteDoc(docRef);
+                    setSelectedDate(null);
+                    setIsLoading(false);
+                    return;
+                }
+                dataToSave.content = editingText;
+            } else if (logType === 'run') {
+                dataToSave.data = runData;
+                dataToSave.content = `[跑步] ${runData.time}分 | ${runData.pace}/km | ${runData.power}W`;
+            } else if (logType === 'weight') {
+                dataToSave.data = weightData;
+                dataToSave.content = `[重訓] ${weightData.action} | ${weightData.sets}組 | ${weightData.weight}kg`;
             }
 
-            const docRef = methods.doc(db, "users", user.uid, "logs", selectedDate);
-            if (!finalContent.trim()) {
-                await methods.deleteDoc(docRef);
-            } else {
-                await methods.setDoc(docRef, { content: finalContent, updatedAt: new Date() }, { merge: true });
-            }
+            await methods.setDoc(docRef, dataToSave, { merge: true });
             setSelectedDate(null); 
         } catch (e) {
             console.error("Save failed:", e);
-            alert("儲存失敗，請檢查網路連線");
+            alert("儲存失敗");
         } finally {
             setIsLoading(false);
         }
@@ -443,30 +479,38 @@ const CalendarView = ({ user, db, methods }) => {
     const renderCalendarGrid = () => {
         const days = [];
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
+        
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
-            const hasLog = logData && logData.content && logData.content.trim().length > 0;
+            const hasLog = !!logData;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
             
             let logColor = "text-slate-400";
             let dotColor = "bg-slate-500";
+            
             if (hasLog) {
-                if (logData.content.includes('[跑步]')) { logColor = "text-sky-400"; dotColor = "bg-sky-500"; }
-                else if (logData.content.includes('[重訓]')) { logColor = "text-orange-400"; dotColor = "bg-orange-500"; }
+                if (logData.type === 'run') { logColor = "text-sky-400"; dotColor = "bg-sky-500"; }
+                else if (logData.type === 'weight') { logColor = "text-orange-400"; dotColor = "bg-orange-500"; }
                 else { logColor = "text-emerald-400"; dotColor = "bg-emerald-500"; }
             }
             
             days.push(
                 <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
                     <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
+                    
                     {hasLog && (
                         <div className="mt-1 overflow-hidden">
                             <div className="flex items-center gap-1 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div></div>
                             <div className={`text-[10px] truncate leading-tight ${logColor}`}>{logData.content}</div>
                         </div>
                     )}
-                    {!hasLog && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="check" className="w-4 h-4 text-slate-600" /></div>}
+                    
+                    {!hasLog && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Icon name="check" className="w-4 h-4 text-slate-600" />
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -489,8 +533,8 @@ const CalendarView = ({ user, db, methods }) => {
                         </div>
                         <div className="mb-6 space-y-4">
                             {logType === 'general' && (<><div className="flex flex-wrap gap-2 mb-2">{quickTags.map(tag => <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>)}</div><textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus /></>)}
-                            {logType === 'run' && (<div className="space-y-3"><div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/公里)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 5:30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (瓦特)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="e.g. 200" /></div></div>)}
-                            {logType === 'weight' && (<div className="space-y-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 深蹲" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 5" /></div><div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="e.g. 100" /></div></div></div>)}
+                            {logType === 'run' && (<div className="space-y-3"><div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/公里)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5:30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (瓦特)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="200" /></div></div>)}
+                            {logType === 'weight' && (<div className="space-y-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="深蹲" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="5" /></div><div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="100" /></div></div></div>)}
                         </div>
                         <div className="flex gap-3"><button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button><button onClick={saveLog} disabled={isLoading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${logType === 'run' ? 'bg-sky-600 hover:bg-sky-500' : logType === 'weight' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>{isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="check" className="w-4 h-4" />}{isLoading ? "儲存中..." : "確認儲存"}</button></div>
                     </div>
@@ -516,6 +560,7 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     const [detectedStats, setDetectedStats] = useState(null);
     const [synced, setSynced] = useState(false);
     
+    // Using refs instead of state for loop variables to avoid re-renders
     const detectorRef = useRef(null);
     const requestRef = useRef(null);
     const wristPathRef = useRef([]);
@@ -525,6 +570,7 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     useEffect(() => {
         const initModel = async () => {
             try {
+                // Load TensorFlow scripts dynamically from CDN
                 await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core');
                 await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter');
                 await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl');
@@ -845,13 +891,183 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     );
 };
 
-// --- 工具箱 (BMI) ---
+// --- 工具箱 (Multiple Tools) ---
 const ToolsView = () => {
-    const [height, setHeight] = useState(''); const [weight, setWeight] = useState(''); const [bmi, setBmi] = useState(null); const [status, setStatus] = useState('');
-    const calculateBMI = () => { if (!height || !weight) return; const h = parseFloat(height) / 100; const w = parseFloat(weight); const value = (w / (h * h)).toFixed(1); setBmi(value); if (value < 18.5) setStatus('體重過輕'); else if (value < 24) setStatus('健康體位'); else if (value < 27) setStatus('過重'); else setStatus('肥胖'); };
+    const [activeTool, setActiveTool] = useState('bmi');
+    
+    // BMI State
+    const [height, setHeight] = useState(''); 
+    const [weight, setWeight] = useState(''); 
+    const [bmi, setBmi] = useState(null); 
+    const [bmiStatus, setBmiStatus] = useState('');
+
+    // TDEE State
+    const [tdeeAge, setTdeeAge] = useState('');
+    const [tdeeGender, setTdeeGender] = useState('male');
+    const [tdeeHeight, setTdeeHeight] = useState('');
+    const [tdeeWeight, setTdeeWeight] = useState('');
+    const [activityLevel, setActivityLevel] = useState('1.2');
+    const [tdee, setTdee] = useState(null);
+
+    // 1RM State
+    const [liftWeight, setLiftWeight] = useState('');
+    const [reps, setReps] = useState('');
+    const [oneRm, setOneRm] = useState(null);
+
+    // BMI Calculation
+    const calculateBMI = () => { 
+        if (!height || !weight) return; 
+        const h = parseFloat(height) / 100; 
+        const w = parseFloat(weight); 
+        const value = (w / (h * h)).toFixed(1); 
+        setBmi(value); 
+        if (value < 18.5) setBmiStatus('體重過輕'); 
+        else if (value < 24) setBmiStatus('健康體位'); 
+        else if (value < 27) setBmiStatus('過重'); 
+        else setBmiStatus('肥胖'); 
+    };
+
+    // TDEE Calculation (Mifflin-St Jeor Equation)
+    const calculateTDEE = () => {
+        if (!tdeeAge || !tdeeHeight || !tdeeWeight) return;
+        const w = parseFloat(tdeeWeight);
+        const h = parseFloat(tdeeHeight);
+        const a = parseFloat(tdeeAge);
+        let bmr = (10 * w) + (6.25 * h) - (5 * a);
+        bmr = tdeeGender === 'male' ? bmr + 5 : bmr - 161;
+        setTdee(Math.round(bmr * parseFloat(activityLevel)));
+    };
+
+    // 1RM Calculation (Epley Formula)
+    const calculate1RM = () => {
+        if (!liftWeight || !reps) return;
+        const w = parseFloat(liftWeight);
+        const r = parseFloat(reps);
+        // Epley formula: 1RM = w * (1 + r/30)
+        setOneRm(Math.round(w * (1 + r / 30)));
+    };
+
     return (
         <div className="pb-24 max-w-lg mx-auto">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl"><div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center"><Icon name="calculator" className="w-6 h-6" /><span className="text-xl text-white">BMI 計算機</span></div><div className="space-y-4 mb-6"><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身高 (cm)</label><input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div><div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">體重 (kg)</label><input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg" placeholder="0" /></div></div><button onClick={calculateBMI} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-xl shadow-lg active:scale-95 mb-8">開始計算</button>{bmi && (<div className="text-center animate-in fade-in slide-in-from-bottom-4"><p className="text-slate-400 text-sm mb-1">您的 BMI 指數</p><div className="text-5xl font-black text-white mb-2">{bmi}</div><div className={`inline-block px-4 py-1 rounded-full text-sm font-bold ${status === '健康體位' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{status}</div></div>)}</div>
+             {/* Tool Selector Tabs */}
+             <div className="flex p-1 bg-white/5 border border-white/10 rounded-2xl mb-8">
+                <button onClick={() => setActiveTool('bmi')} className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTool === 'bmi' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white'}`}>
+                    <Icon name="scale" className="w-4 h-4" /> BMI
+                </button>
+                <button onClick={() => setActiveTool('tdee')} className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTool === 'tdee' ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20' : 'text-slate-400 hover:text-white'}`}>
+                    <Icon name="zap" className="w-4 h-4" /> TDEE
+                </button>
+                <button onClick={() => setActiveTool('1rm')} className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTool === '1rm' ? 'bg-sky-500 text-black shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white'}`}>
+                    <Icon name="dumbbell" className="w-4 h-4" /> 1RM
+                </button>
+            </div>
+
+            {/* BMI Calculator */}
+            {activeTool === 'bmi' && (
+                <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex items-center gap-2 mb-6 text-emerald-500 font-bold justify-center">
+                        <Icon name="scale" className="w-6 h-6" />
+                        <span className="text-xl text-white">BMI 計算機</span>
+                    </div>
+                    
+                    <div className="space-y-4 mb-6">
+                        <div>
+                            <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身高 (cm)</label>
+                            <input type="number" value={height} onChange={(e) => setHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg outline-none focus:ring-1 focus:ring-emerald-500" placeholder="175" />
+                        </div>
+                        <div>
+                            <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">體重 (kg)</label>
+                            <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg outline-none focus:ring-1 focus:ring-emerald-500" placeholder="70" />
+                        </div>
+                    </div>
+
+                    <button onClick={calculateBMI} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/10 active:scale-95 mb-8 transition-all">開始計算</button>
+
+                    {bmi && (
+                        <div className="text-center animate-in slide-in-from-bottom-2">
+                            <p className="text-slate-400 text-sm mb-1">您的 BMI 指數</p>
+                            <div className="text-6xl font-black text-white mb-2 tracking-tighter">{bmi}</div>
+                            <div className={`inline-block px-4 py-1.5 rounded-full text-sm font-bold ${bmiStatus === '健康體位' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{bmiStatus}</div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TDEE Calculator */}
+            {activeTool === 'tdee' && (
+                <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex items-center gap-2 mb-6 text-orange-500 font-bold justify-center">
+                        <Icon name="zap" className="w-6 h-6" />
+                        <span className="text-xl text-white">TDEE 熱量計算</span>
+                    </div>
+
+                    <div className="space-y-4 mb-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-slate-400 text-xs font-bold uppercase mb-2 block">性別</label><select value={tdeeGender} onChange={(e) => setTdeeGender(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white"><option value="male">男</option><option value="female">女</option></select></div>
+                            <div><label className="text-slate-400 text-xs font-bold uppercase mb-2 block">年齡</label><input type="number" value={tdeeAge} onChange={(e) => setTdeeAge(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-center" placeholder="25" /></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-slate-400 text-xs font-bold uppercase mb-2 block">身高 (cm)</label><input type="number" value={tdeeHeight} onChange={(e) => setTdeeHeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-center" placeholder="175" /></div>
+                            <div><label className="text-slate-400 text-xs font-bold uppercase mb-2 block">體重 (kg)</label><input type="number" value={tdeeWeight} onChange={(e) => setTdeeWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-center" placeholder="70" /></div>
+                        </div>
+                        <div>
+                            <label className="text-slate-400 text-xs font-bold uppercase mb-2 block">活動量</label>
+                            <select value={activityLevel} onChange={(e) => setActivityLevel(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-sm">
+                                <option value="1.2">久坐 (辦公室工作)</option>
+                                <option value="1.375">輕量活動 (每週運動1-3天)</option>
+                                <option value="1.55">中度活動 (每週運動3-5天)</option>
+                                <option value="1.725">高度活動 (每週運動6-7天)</option>
+                                <option value="1.9">超高度活動 (勞力工作/運動員)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onClick={calculateTDEE} className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-orange-500/10 active:scale-95 mb-8 transition-all">計算每日消耗</button>
+
+                    {tdee && (
+                        <div className="text-center animate-in slide-in-from-bottom-2">
+                            <p className="text-slate-400 text-sm mb-1">每日建議攝取熱量</p>
+                            <div className="text-6xl font-black text-white mb-2 tracking-tighter">{tdee} <span className="text-xl text-slate-500 font-normal">kcal</span></div>
+                            <div className="text-xs text-slate-500">此數值為維持體重所需熱量</div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 1RM Calculator */}
+            {activeTool === '1rm' && (
+                <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex items-center gap-2 mb-6 text-sky-500 font-bold justify-center">
+                        <Icon name="dumbbell" className="w-6 h-6" />
+                        <span className="text-xl text-white">1RM 最大肌力</span>
+                    </div>
+                    
+                    <div className="space-y-4 mb-6">
+                        <div>
+                            <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">訓練重量 (kg)</label>
+                            <input type="number" value={liftWeight} onChange={(e) => setLiftWeight(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg outline-none focus:ring-1 focus:ring-sky-500" placeholder="100" />
+                        </div>
+                        <div>
+                            <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">重複次數 (Reps)</label>
+                            <input type="number" value={reps} onChange={(e) => setReps(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-center text-lg outline-none focus:ring-1 focus:ring-sky-500" placeholder="5" />
+                        </div>
+                    </div>
+
+                    <button onClick={calculate1RM} className="w-full bg-sky-500 hover:bg-sky-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-sky-500/10 active:scale-95 mb-8 transition-all">計算極限重量</button>
+
+                    {oneRm && (
+                        <div className="text-center animate-in slide-in-from-bottom-2">
+                            <p className="text-slate-400 text-sm mb-1">預估最大肌力 (1RM)</p>
+                            <div className="text-6xl font-black text-white mb-2 tracking-tighter">{oneRm} <span className="text-xl text-slate-500 font-normal">kg</span></div>
+                            <div className="grid grid-cols-3 gap-2 mt-6 pt-6 border-t border-white/5">
+                                <div><div className="text-xs text-slate-500 mb-1">肌肥大 (8-12RM)</div><div className="font-bold text-sky-400">{Math.round(oneRm * 0.75)} kg</div></div>
+                                <div><div className="text-xs text-slate-500 mb-1">最大肌力 (1-5RM)</div><div className="font-bold text-sky-400">{Math.round(oneRm * 0.90)} kg</div></div>
+                                <div><div className="text-xs text-slate-500 mb-1">爆發力 (3-6RM)</div><div className="font-bold text-sky-400">{Math.round(oneRm * 0.60)} kg</div></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

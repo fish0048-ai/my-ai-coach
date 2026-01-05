@@ -112,49 +112,43 @@ const FirebaseSetup = ({ onComplete }) => {
         try {
             let cleanString = configJson.trim();
             
-            // 1. 嘗試提取大括號內的內容 (針對 const firebaseConfig = { ... };)
-            const jsonStartIndex = cleanString.indexOf('{');
-            const jsonEndIndex = cleanString.lastIndexOf('}');
+            // 1. 嘗試提取大括號內的內容
+            const firstBrace = cleanString.indexOf('{');
+            const lastBrace = cleanString.lastIndexOf('}');
             
-            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-                cleanString = cleanString.substring(jsonStartIndex, jsonEndIndex + 1);
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                cleanString = cleanString.substring(firstBrace, lastBrace + 1);
+            } else {
+                throw new Error("無法找到物件大括號 { }，請確認複製範圍。");
             }
 
-            // 2. 移除註解 (// ...)
-            cleanString = cleanString.replace(/\/\/.*$/gm, '');
-
-            // 3. 處理 JS 物件格式轉 JSON
-            // 將沒有引號的 key 加上雙引號 (例如 apiKey: -> "apiKey":)
-            let fixedString = cleanString.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":');
+            // 2. 使用 Function 建構子來解析 (最穩健，支援複製下來的 JS 物件格式)
+            // 先過濾潛在的危險字元，雖然這是 client-side self-pasted，但基本防護還是好的
+            // 但為了支援使用者的輸入，直接使用 new Function 是解析不標準 JSON (如 JS Object) 最可靠的方法
+            // 這裡我們假設使用者知道自己在貼什麼 (Firebase Config)
             
-            // 將單引號值的字串改為雙引號 (例如 'AIza...' -> "AIza...")
-            fixedString = fixedString.replace(/'([^']*)'/g, '"$1"');
-            
-            // 移除尾隨逗號 (例如 "appId": "..." , } -> "appId": "..." })
-            fixedString = fixedString.replace(/,(\s*})/g, '$1');
-
             let config;
             try {
-                // 嘗試解析處理後的字串
-                config = JSON.parse(fixedString);
-            } catch (e1) {
-                // 如果失敗，嘗試解析原始輸入（假設使用者貼的是純 JSON）
-                try {
-                    config = JSON.parse(cleanString);
-                } catch (e2) {
-                    console.error("Parsing error:", e1, e2);
-                    throw new Error("無法解析設定格式。請確認您複製的是 Firebase Console 中的完整物件內容 (包含大括號)。");
-                }
+                // 建構一個函式來回傳該物件
+                const parseFn = new Function(`return ${cleanString};`);
+                config = parseFn();
+            } catch (evalErr) {
+                // 如果直接執行失敗，嘗試做字串清理後再試 (例如處理 invisible chars)
+                // 替換所有非標準空白為標準空白
+                const sanitized = cleanString.replace(/[\u00A0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, ' ');
+                const parseFnRetry = new Function(`return ${sanitized};`);
+                config = parseFnRetry();
             }
             
-            if (!config.apiKey || !config.projectId) {
-                throw new Error("設定檔缺少必要欄位 (apiKey, projectId)");
+            if (!config || !config.apiKey || !config.projectId) {
+                throw new Error("設定檔解析成功，但缺少必要欄位 (apiKey, projectId)");
             }
 
             localStorage.setItem('firebase_config', JSON.stringify(config));
             onComplete();
         } catch (e) {
-            setError("設定失敗: " + e.message);
+            console.error(e);
+            setError("設定失敗: " + e.message + "\n請確認您複製的是完整的 const firebaseConfig = { ... } 內容");
         }
     };
 
@@ -179,7 +173,7 @@ const FirebaseSetup = ({ onComplete }) => {
                     />
                     {error && <div className="mt-3 p-3 bg-red-900/20 border border-red-500/30 rounded-lg flex items-start gap-2 text-red-400 text-xs">
                         <Icon name="alertcircle" className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{error}</span>
+                        <span className="whitespace-pre-wrap">{error}</span>
                     </div>}
                 </div>
 

@@ -95,7 +95,8 @@ const ICONS = {
   flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.2 1-2.4 1.5-3.2"/>,
   utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>,
   clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
-  hash: <><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></>
+  hash: <><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></>,
+  plus: <path d="M5 12h14M12 5v14" />
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -138,6 +139,7 @@ const useFirebase = () => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setLoading(false);
+            console.log("👤 Firebase Auth State Changed:", u ? "User Logged In" : "User Logged Out");
         });
 
         const timer = setTimeout(() => {
@@ -166,7 +168,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
+                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console -> Authentication -> Settings -> Authorized domains 將其加入白名單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -259,7 +261,7 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // --- Views ---
 
-const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, userLogs }) => { // Received userLogs
+const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, userLogs }) => { 
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
     const [loading, setLoading] = useState(false);
@@ -294,7 +296,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
 
         // Summarize recent logs
         if (userLogs && Object.keys(userLogs).length > 0) {
-            const sortedDates = Object.keys(userLogs).sort().reverse().slice(0, 7); // Last 7 days
+            const sortedDates = Object.keys(userLogs).sort().reverse().slice(0, 7); 
             logsSummary = "\n\n【最近 7 天訓練紀錄】(供參考)：\n" + sortedDates.map(date => `- ${date}: ${userLogs[date].content}`).join('\n');
         }
 
@@ -402,7 +404,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
                         <div className="p-8 md:p-10 prose max-w-none">{renderPlan(plan)}</div>
                     </div>
-                ) : !loading && <div className="h-full min-h-[400px] border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center p-8 opacity-30"><Icon name="sparkles" className="w-12 h-12 mb-4" /><p className="text-sm">在左側輸入目標，開始生成</p></div>}
+                ) : !loading && <div className="h-full min-h-[400px] border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center p-8 opacity-30"><Icon name={genType === 'workout' ? "dumbbell" : "utensils"} className="w-12 h-12 mb-4" /><p className="text-sm">在左側輸入目標，開始生成</p></div>}
                 {loading && <div className="h-full min-h-[400px] bg-white/5 border border-white/10 rounded-[2rem] flex flex-col items-center justify-center text-center p-8"><Icon name="loader2" className="w-16 h-16 animate-spin text-emerald-500 mb-4" /><p className="text-emerald-500 font-bold animate-pulse text-xs tracking-widest">AI 正在計算最佳路徑...</p></div>}
             </div>
         </div>
@@ -410,10 +412,10 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
 };
 
 // 2. Calendar View
-const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
+const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
-    // Remove internal logs state: const [logs, setLogs] = useState({});
+    const [logs, setLogs] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
@@ -421,9 +423,27 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
     const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); 
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
     const [editingText, setEditingText] = useState("");
+    const [weightExercises, setWeightExercises] = useState([]); // List of exercises
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
 
-    // Removed internal useEffect for fetching logs
+    useEffect(() => {
+        if (!user || !db) return;
+        const q = methods.collection(db, "users", user.uid, "logs");
+        console.log("🔥 Firestore: Subscribing to user logs...");
+        
+        const unsubscribe = methods.onSnapshot(q, (snapshot) => {
+            const newLogs = {};
+            snapshot.forEach((doc) => {
+                newLogs[doc.id] = doc.data(); 
+            });
+            setLogs(newLogs);
+        });
+
+        return () => {
+             console.log("🛑 Firestore: Unsubscribing logs...");
+             unsubscribe();
+        }
+    }, [user, db, methods]);
 
     const addTag = (tag) => {
         setEditingText(prev => {
@@ -432,7 +452,6 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
         });
     };
 
-    // Auto calculate run metrics (Same as before)
     const handleRunBlur = (field) => {
         let { distance, time, pace, power } = runData;
         let d = parseFloat(distance);
@@ -476,9 +495,11 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
         
+        // Reset forms
         setLogType('general');
         setRunData({ time: '', distance: '', pace: '', power: '' }); 
         setWeightData({ action: '', sets: '', weight: '' });
+        setWeightExercises([]);
         setEditingText("");
 
         const log = logs[dateStr];
@@ -489,11 +510,29 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
                 setRunData(log.data || { time: '', distance: '', pace: '', power: '' });
             } else if (log.type === 'weight') {
                 setLogType('weight');
-                setWeightData(log.data || { action: '', sets: '', weight: '' });
+                // Handle legacy object vs new array
+                if (Array.isArray(log.data)) {
+                    setWeightExercises(log.data);
+                } else if (log.data) {
+                    setWeightExercises([log.data]);
+                }
             } else {
                 setLogType('general');
             }
         }
+    };
+
+    const handleAddWeightExercise = () => {
+        if (!weightData.action) return;
+        const newExercise = { ...weightData };
+        setWeightExercises([...weightExercises, newExercise]);
+        setWeightData({ action: '', sets: '', weight: '' }); // Clear inputs
+    };
+
+    const handleRemoveWeightExercise = (index) => {
+        const newList = [...weightExercises];
+        newList.splice(index, 1);
+        setWeightExercises(newList);
     };
     
     const saveLog = async () => { 
@@ -523,8 +562,23 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
                 
                 dataToSave.content = parts.join(' | ') || '跑步訓練';
             } else if (logType === 'weight') {
-                dataToSave.data = weightData;
-                dataToSave.content = `${weightData.action} ${weightData.weight}kg x ${weightData.sets}組`;
+                // Auto-add pending input if user forgot to click Add
+                let currentExercises = [...weightExercises];
+                if (weightData.action) {
+                    currentExercises.push(weightData);
+                }
+
+                if (currentExercises.length === 0) {
+                     await methods.deleteDoc(methods.doc(db, "users", user.uid, "logs", selectedDate));
+                     setSelectedDate(null);
+                     setIsLoading(false);
+                     return;
+                }
+
+                dataToSave.data = currentExercises;
+                // Generate a summary string
+                const summary = currentExercises.map(ex => `${ex.action}`).join(', ');
+                dataToSave.content = `[重訓] ${summary}`;
             }
 
             await methods.setDoc(methods.doc(db, "users", user.uid, "logs", selectedDate), dataToSave, { merge: true });
@@ -540,20 +594,12 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
     const renderCalendarGrid = () => {
         const days = [];
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
+        
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
             const hasLog = !!logData;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
-            
-            let logColor = "text-slate-400";
-            let dotColor = "bg-slate-500";
-            
-            if (hasLog) {
-                if (logData.type === 'run') { logColor = "text-sky-400"; dotColor = "bg-sky-500"; }
-                else if (logData.type === 'weight') { logColor = "text-orange-400"; dotColor = "bg-orange-500"; }
-                else { logColor = "text-emerald-400"; dotColor = "bg-emerald-500"; }
-            }
             
             days.push(
                 <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
@@ -568,7 +614,7 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
                             ) : logData.type === 'weight' ? (
                                 <div className="bg-orange-500/20 text-orange-300 px-1.5 py-1 rounded text-[10px] font-bold flex items-center gap-1 truncate">
                                     <Icon name="dumbbell" className="w-3 h-3 flex-shrink-0" />
-                                    <span>{logData.content}</span>
+                                    <span>{logData.content.replace('[重訓] ', '')}</span>
                                 </div>
                             ) : (
                                 <div className="bg-slate-700/50 text-slate-300 px-1.5 py-1 rounded text-[10px] truncate border-l-2 border-slate-500">
@@ -577,7 +623,7 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
                             )}
                         </div>
                     )}
-                    {!hasLog && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="check" className="w-4 h-4 text-slate-600" /></div>}
+                    {!hasLog && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="plus" className="w-4 h-4 text-emerald-500/50" /></div>}
                 </div>
             );
         }
@@ -600,6 +646,7 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
                         </div>
                         <div className="mb-6 space-y-4">
                             {logType === 'general' && (<><div className="flex flex-wrap gap-2 mb-2">{quickTags.map(tag => <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>)}</div><textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus /></>)}
+                            
                             {logType === 'run' && (<div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div><label className="text-xs text-sky-400 font-bold block mb-1">總距離 (km)</label><input type="number" value={runData.distance} onChange={(e) => setRunData({...runData, distance: e.target.value})} onBlur={() => handleRunBlur('distance')} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5" /></div>
@@ -610,7 +657,27 @@ const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
                                     <div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (W)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="200" /></div>
                                 </div>
                             </div>)}
-                            {logType === 'weight' && (<div className="space-y-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="深蹲" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="5" /></div><div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="100" /></div></div></div>)}
+                            
+                            {logType === 'weight' && (
+                                <div className="space-y-4">
+                                    <div className="flex gap-2">
+                                        <div className="flex-1"><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="深蹲" /></div>
+                                        <div className="w-20"><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="5" /></div>
+                                        <div className="w-24"><label className="text-xs text-orange-400 font-bold block mb-1">重量(kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="100" /></div>
+                                        <div className="flex items-end"><button onClick={handleAddWeightExercise} className="bg-orange-500 hover:bg-orange-400 text-black p-3 rounded-xl"><Icon name="plus" className="w-5 h-5" /></button></div>
+                                    </div>
+                                    
+                                    {/* Added Exercises List */}
+                                    <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                                        {weightExercises.map((ex, i) => (
+                                            <div key={i} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
+                                                <span className="text-sm text-white">{ex.action} - <span className="text-orange-400">{ex.weight}kg</span> x {ex.sets}組</span>
+                                                <button onClick={() => handleRemoveWeightExercise(i)} className="text-slate-500 hover:text-red-400"><Icon name="trash2" className="w-4 h-4" /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-3"><button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button><button onClick={saveLog} disabled={isLoading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${logType === 'run' ? 'bg-sky-600 hover:bg-sky-500' : logType === 'weight' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>{isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="check" className="w-4 h-4" />}{isLoading ? "儲存中..." : "確認儲存"}</button></div>
                     </div>
@@ -1241,7 +1308,7 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
 
 // --- App Root ---
 const App = () => {
-    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase();
+    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase(); // Added loginAnonymous
     const [currentTab, setCurrentTab] = useState('generator');
     const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_key') || '');
     const [showKeyModal, setShowKeyModal] = useState(false);
@@ -1298,6 +1365,7 @@ const App = () => {
                     訪客試用 (無需登入)
                 </button>
 
+                {/* 增加未設定 Config 的提示 */}
                 {firebaseConfig.apiKey.includes("請填入") && (
                     <div className="mt-6 p-4 bg-red-900/30 border border-red-500/30 rounded-xl text-left">
                         <p className="text-red-400 text-xs font-bold mb-2 flex items-center gap-2"><Icon name="alertcircle" className="w-4 h-4" /> 設定未完成</p>
@@ -1305,6 +1373,7 @@ const App = () => {
                     </div>
                 )}
                  
+                 {/* Helper to copy current domain for Firebase Auth */}
                  <div className="mt-6 p-3 bg-slate-800 rounded-xl text-xs text-left border border-slate-700">
                     <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
                     <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>

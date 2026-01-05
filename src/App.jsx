@@ -39,6 +39,7 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
+  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -399,7 +400,7 @@ const CalendarView = ({ user, db, methods }) => {
     
     // Form States
     const [logType, setLogType] = useState('general'); 
-    const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); // Added distance
+    const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); 
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
     const [editingText, setEditingText] = useState("");
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
@@ -407,7 +408,6 @@ const CalendarView = ({ user, db, methods }) => {
     useEffect(() => {
         if (!user || !db) return;
         const q = methods.collection(db, "users", user.uid, "logs");
-        // 安全日誌：確認監聽器啟動
         console.log("🔥 Firestore: Subscribing to user logs...");
         
         const unsubscribe = methods.onSnapshot(q, (snapshot) => {
@@ -431,6 +431,42 @@ const CalendarView = ({ user, db, methods }) => {
         });
     };
 
+    // Auto calculate run metrics
+    const handleRunBlur = (field) => {
+        let { distance, time, pace, power } = runData;
+        let d = parseFloat(distance);
+        let t = parseFloat(time);
+        
+        // Parse pace (5:30 -> 5.5)
+        let p = 0;
+        if (pace && pace.includes(':')) {
+            const [min, sec] = pace.split(':').map(Number);
+            p = min + (sec / 60);
+        } else {
+            p = parseFloat(pace);
+        }
+
+        if (field === 'distance' || field === 'time') {
+            if (d > 0 && t > 0) {
+                const paceMin = Math.floor(t / d);
+                const paceSec = Math.round(((t / d) - paceMin) * 60);
+                pace = `${paceMin}:${paceSec.toString().padStart(2, '0')}`;
+            } else if (d > 0 && p > 0 && !t) {
+                t = d * p;
+                time = t.toFixed(1);
+            }
+        } else if (field === 'pace') {
+            if (d > 0 && p > 0) {
+                t = d * p;
+                time = t.toFixed(1);
+            } else if (t > 0 && p > 0 && !d) {
+                d = t / p;
+                distance = d.toFixed(2);
+            }
+        }
+        setRunData({ distance, time, pace, power });
+    };
+
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
 
@@ -442,17 +478,17 @@ const CalendarView = ({ user, db, methods }) => {
         
         // Reset forms
         setLogType('general');
-        setRunData({ time: '', distance: '', pace: '', power: '' }); // Added distance
+        setRunData({ time: '', distance: '', pace: '', power: '' }); 
         setWeightData({ action: '', sets: '', weight: '' });
         setEditingText("");
 
         const log = logs[dateStr];
         if (log) {
             setEditingText(log.content || "");
-            // Detect Type
+            // Detect Type and populate data
             if (log.type === 'run') {
                 setLogType('run');
-                setRunData(log.data || { time: '', distance: '', pace: '', power: '' }); // Added distance
+                setRunData(log.data || { time: '', distance: '', pace: '', power: '' });
             } else if (log.type === 'weight') {
                 setLogType('weight');
                 setWeightData(log.data || { action: '', sets: '', weight: '' });
@@ -482,7 +518,7 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = editingText;
             } else if (logType === 'run') {
                 dataToSave.data = runData;
-                // Beautified content string for display
+                // Beautified content string for display in calendar
                 const parts = [];
                 if (runData.distance) parts.push(`${runData.distance}km`);
                 if (runData.time) parts.push(`${runData.time}min`);
@@ -561,11 +597,11 @@ const CalendarView = ({ user, db, methods }) => {
                             {logType === 'general' && (<><div className="flex flex-wrap gap-2 mb-2">{quickTags.map(tag => <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>)}</div><textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus /></>)}
                             {logType === 'run' && (<div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總距離 (km)</label><input type="number" value={runData.distance} onChange={(e) => setRunData({...runData, distance: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5" /></div>
-                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="30" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總距離 (km)</label><input type="number" value={runData.distance} onChange={(e) => setRunData({...runData, distance: e.target.value})} onBlur={() => handleRunBlur('distance')} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} onBlur={() => handleRunBlur('time')} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="30" /></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/km)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5:30" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分:秒/km)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} onBlur={() => handleRunBlur('pace')} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5:30" /></div>
                                     <div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (W)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="200" /></div>
                                 </div>
                             </div>)}

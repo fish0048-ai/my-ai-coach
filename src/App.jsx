@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // --- Firebase Imports ---
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -341,29 +341,56 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
-    // Dynamic Stats Range
+    // Dynamic Stats Range with Offset
     const [statsRange, setStatsRange] = useState('week'); // 'week', 'month', 'year'
+    const [dateOffset, setDateOffset] = useState(0);
 
-    const totalLogs = Object.keys(userLogs).length;
+    // Reset offset when changing range type
+    const handleRangeChange = (type) => {
+        setStatsRange(type);
+        setDateOffset(0);
+    };
+
+    const handlePrev = () => setDateOffset(prev => prev - 1);
+    const handleNext = () => setDateOffset(prev => prev + 1);
+
+    // Calculate Date Range & Label
+    const { startDate, endDate, dateLabel } = useMemo(() => {
+        const now = new Date();
+        let start, end, label;
+
+        if (statsRange === 'week') {
+            // Monday based
+            const currentDay = now.getDay();
+            const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Monday
+            const monday = new Date(now);
+            monday.setDate(diff + (dateOffset * 7));
+            monday.setHours(0,0,0,0);
+            
+            start = new Date(monday);
+            end = new Date(monday);
+            end.setDate(end.getDate() + 7);
+            
+            // For display label
+            const endDisp = new Date(end);
+            endDisp.setDate(endDisp.getDate() - 1);
+            
+            label = `${start.getMonth()+1}/${start.getDate()} - ${endDisp.getMonth()+1}/${endDisp.getDate()}`;
+        } else if (statsRange === 'month') {
+            start = new Date(now.getFullYear(), now.getMonth() + dateOffset, 1);
+            end = new Date(now.getFullYear(), now.getMonth() + dateOffset + 1, 1);
+            label = `${start.getFullYear()}年 ${start.getMonth()+1}月`;
+        } else { // year
+            start = new Date(now.getFullYear() + dateOffset, 0, 1);
+            end = new Date(now.getFullYear() + dateOffset + 1, 0, 1);
+            label = `${start.getFullYear()}年`;
+        }
+        return { startDate: start, endDate: end, dateLabel: label };
+    }, [statsRange, dateOffset]);
+
+    // Calculate Stats based on range
+    const totalLogs = Object.keys(userLogs).length; // Total ever
     const sortedDates = Object.keys(userLogs).sort();
-    
-    // Filter dates based on statsRange
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (statsRange === 'week') {
-        // Start of current week (Monday)
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
-        startDate.setDate(diff);
-        startDate.setHours(0,0,0,0);
-    } else if (statsRange === 'month') {
-        // Start of current month
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else if (statsRange === 'year') {
-        // Start of current year
-        startDate = new Date(now.getFullYear(), 0, 1);
-    }
 
     let periodCount = 0;
     let periodRunDistance = 0;
@@ -373,8 +400,8 @@ const DashboardView = ({ userLogs, userProfile }) => {
         const log = userLogs[dateStr];
         const logDate = new Date(dateStr);
         
-        // Check if log is within the selected range
-        if (logDate >= startDate) {
+        // Check if log is within the selected range [start, end)
+        if (logDate >= startDate && logDate < endDate) {
             periodCount++;
             
             if (log.type === 'run' && log.data?.distance) {
@@ -390,16 +417,6 @@ const DashboardView = ({ userLogs, userProfile }) => {
     const bmiValue = userProfile?.height && userProfile?.weight 
         ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
         : '--';
-    
-    // Helper to get range label
-    const getRangeLabel = () => {
-        switch(statsRange) {
-            case 'week': return '本週';
-            case 'month': return '本月';
-            case 'year': return '今年';
-            default: return '本週';
-        }
-    };
 
     const renderRunChart = () => {
         if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
@@ -437,22 +454,29 @@ const DashboardView = ({ userLogs, userProfile }) => {
     return (
         <div className="pb-24 max-w-lg mx-auto">
             {/* Range Selector */}
-            <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl mb-6">
+            <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl mb-4">
                 {['week', 'month', 'year'].map(r => (
                     <button 
                         key={r}
-                        onClick={() => setStatsRange(r)} 
+                        onClick={() => handleRangeChange(r)} 
                         className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${statsRange === r ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                     >
-                        {r === 'week' ? '本週' : r === 'month' ? '本月' : '今年'}
+                        {r === 'week' ? '週' : r === 'month' ? '月' : '年'}
                     </button>
                 ))}
+            </div>
+
+            {/* Date Navigator */}
+            <div className="flex items-center justify-between mb-6 bg-black/40 rounded-xl p-2 border border-white/5">
+                <button onClick={handlePrev} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button>
+                <span className="text-sm font-bold text-white tracking-wider">{dateLabel}</span>
+                <button onClick={handleNext} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-[#111] border border-white/10 rounded-2xl p-4 shadow-xl">
                     <div className="flex items-center gap-2 text-emerald-400 mb-2 font-bold text-xs uppercase tracking-wider">
-                        <Icon name="activity" className="w-4 h-4" /> {getRangeLabel()}訓練
+                        <Icon name="activity" className="w-4 h-4" /> 期間訓練
                     </div>
                     <div className="text-3xl font-black text-white">{periodCount} <span className="text-sm font-normal text-slate-500">次</span></div>
                 </div>
@@ -467,7 +491,7 @@ const DashboardView = ({ userLogs, userProfile }) => {
             <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl mb-6">
                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-sky-400 font-bold">
-                        <Icon name="linechart" className="w-5 h-5" /> 累積跑步里程 ({getRangeLabel()})
+                        <Icon name="linechart" className="w-5 h-5" /> 跑步里程 ({dateLabel})
                     </div>
                     <span className="text-2xl font-black text-white">{periodRunDistance.toFixed(1)} <span className="text-sm text-slate-500">km</span></span>
                  </div>
@@ -476,7 +500,7 @@ const DashboardView = ({ userLogs, userProfile }) => {
 
              <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl">
                 <div className="text-slate-400 font-bold mb-4 text-xs uppercase tracking-wider">歷史活動紀錄</div>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                     {sortedDates.slice().reverse().map(date => (
                         <div key={date} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
                             <span className="text-emerald-500 font-bold text-xs shrink-0 mr-4">{date}</span>

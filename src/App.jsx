@@ -92,7 +92,8 @@ const ICONS = {
   zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
   layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, 
   scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></>,
-  flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.2 1-2.4 1.5-3.2"/>
+  flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.2 1-2.4 1.5-3.2"/>,
+  utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -257,7 +258,9 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // --- Views ---
 
+// 1. Generator View (Updated with Diet Option)
 const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) => {
+    const [genType, setGenType] = useState('workout'); // workout | diet
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
     const [loading, setLoading] = useState(false);
@@ -268,15 +271,19 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         if (!db || !user) return;
         const fetchPlan = async () => {
             try {
+                // Fetch correct plan based on type
+                const fieldName = genType === 'workout' ? 'latestPlan' : 'latestDiet';
                 const docRef = methods.doc(db, "users", user.uid);
                 const docSnap = await methods.getDoc(docRef);
-                if (docSnap.exists() && docSnap.data().latestPlan) {
-                    setPlan(docSnap.data().latestPlan);
+                if (docSnap.exists() && docSnap.data()[fieldName]) {
+                    setPlan(docSnap.data()[fieldName]);
+                } else {
+                    setPlan('');
                 }
             } catch (e) { console.error("Error fetching plan:", e); }
         };
         fetchPlan();
-    }, [db, user, methods]);
+    }, [db, user, methods, genType]); // Re-fetch when type changes
 
     const generatePlan = async () => {
         const currentKey = apiKey ? apiKey.trim() : "";
@@ -288,13 +295,16 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         if (userProfile) {
             const { gender, age, height, weight, notes, bench1rm, runSpm, tdee } = userProfile;
             profilePrompt = `【使用者資料】性別:${gender}, 年齡:${age}, 身高:${height}cm, 體重:${weight}kg
-            ${bench1rm ? `- 實測臥推1RM: ${bench1rm}kg` : ''}
-            ${runSpm ? `- 實測跑步步頻: ${runSpm} SPM` : ''}
-            ${tdee ? `- 每日熱量消耗(TDEE): ${tdee} kcal` : ''}
-            - 備註/傷病:${notes||"無"}
-            請依此調整強度。`;
+            ${bench1rm ? `- 1RM:${bench1rm}kg` : ''} ${tdee ? `- TDEE:${tdee}kcal` : ''}
+            - 備註:${notes||"無"}`;
         }
-        const systemPrompt = `你是一位專業健身教練。請根據目標與資料提供結構清晰的週課表(##標題, ###子標題, 條列式)。使用繁體中文。`;
+
+        let systemPrompt = "";
+        if (genType === 'workout') {
+            systemPrompt = `你是一位專業健身教練。請根據資料設計一週訓練課表。格式要求：使用 Markdown，包含 ## 標題。`;
+        } else {
+            systemPrompt = `你是一位專業營養師。請根據資料(特別是TDEE)設計一日三餐飲食建議與熱量分配。目標：${goal}。格式要求：使用 Markdown，包含 ## 標題，列出熱量與營養素估算。`;
+        }
 
         try {
             const response = await fetch(
@@ -313,9 +323,10 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
             if (text) { 
                 setPlan(text); 
                 if (db && user) {
-                    await methods.updateDoc(methods.doc(db, "users", user.uid), { latestPlan: text });
+                    const fieldName = genType === 'workout' ? 'latestPlan' : 'latestDiet';
+                    await methods.updateDoc(methods.doc(db, "users", user.uid), { [fieldName]: text });
                 }
-            } else { throw new Error("AI 無法生成課表"); }
+            } else { throw new Error("AI 無法生成內容"); }
         } catch (err) {
             setError(String(err.message));
             if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(() => requireKey(), 2000);
@@ -340,27 +351,37 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sticky top-8">
-                    <div className="flex items-center gap-2 mb-4"><div className="bg-emerald-500 p-2 rounded-lg"><Icon name="sparkles" className="w-4 h-4 text-black" /></div><h2 className="text-slate-200 text-sm font-bold uppercase tracking-wider">目標設定</h2></div>
+                    {/* Toggle Switch */}
+                    <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
+                        <button onClick={() => setGenType('workout')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'workout' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-4 h-4" /> 運動課表</button>
+                        <button onClick={() => setGenType('diet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'diet' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="utensils" className="w-4 h-4" /> 飲食菜單</button>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className={`p-2 rounded-lg ${genType === 'workout' ? 'bg-emerald-500' : 'bg-orange-500'}`}>
+                            <Icon name={genType === 'workout' ? "sparkles" : "flame"} className="w-4 h-4 text-black" />
+                        </div>
+                        <h2 className="text-slate-200 text-sm font-bold uppercase tracking-wider">{genType === 'workout' ? '訓練目標' : '飲食目標'}</h2>
+                    </div>
                     {userProfile && (
                         <div className="mb-4 text-xs text-slate-500 bg-black/20 p-3 rounded-xl border border-white/5 flex flex-wrap gap-2">
                             {userProfile.gender !== '未設定' && <span>{userProfile.gender}</span>}
-                            {userProfile.age && <span>{userProfile.age}歲</span>}
                             {userProfile.bench1rm && <span className="text-emerald-400">1RM:{userProfile.bench1rm}kg</span>}
-                            {userProfile.runSpm && <span className="text-emerald-400">SPM:{userProfile.runSpm}</span>}
+                            {userProfile.tdee && <span className="text-orange-400">TDEE:{userProfile.tdee}</span>}
                         </div>
                     )}
-                    <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="例如：增肌減脂、半馬訓練..." className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] mb-4" />
-                    <button onClick={generatePlan} disabled={loading || !goal.trim()} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500 text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 active:scale-95">{loading ? <Icon name="loader2" className="animate-spin w-5 h-5" /> : <Icon name="sparkles" className="w-5 h-5" />}<span>{loading ? "分析中..." : "開始生成"}</span></button>
+                    <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={genType === 'workout' ? "例如：增肌減脂、半馬訓練..." : "例如：低碳飲食、增肌高蛋白..."} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] mb-4" />
+                    <button onClick={generatePlan} disabled={loading || !goal.trim()} className={`w-full text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-colors ${genType === 'workout' ? 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/10' : 'bg-orange-500 hover:bg-orange-400 shadow-orange-500/10'}`}>{loading ? <Icon name="loader2" className="animate-spin w-5 h-5" /> : <Icon name="sparkles" className="w-5 h-5" />}<span>{loading ? "分析中..." : "開始生成"}</span></button>
                 </div>
             </div>
             <div className="lg:col-span-8">
                 {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬週計畫</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
+                        <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
                         <div className="p-8 md:p-10 prose max-w-none">{renderPlan(plan)}</div>
                     </div>
-                ) : !loading && <div className="h-full min-h-[400px] border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center p-8 opacity-30"><Icon name="sparkles" className="w-12 h-12 mb-4" /><p className="text-sm">在左側輸入目標，開始生成課表</p></div>}
+                ) : !loading && <div className="h-full min-h-[400px] border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center p-8 opacity-30"><Icon name={genType === 'workout' ? "dumbbell" : "utensils"} className="w-12 h-12 mb-4" /><p className="text-sm">在左側輸入目標，開始生成</p></div>}
                 {loading && <div className="h-full min-h-[400px] bg-white/5 border border-white/10 rounded-[2rem] flex flex-col items-center justify-center text-center p-8"><Icon name="loader2" className="w-16 h-16 animate-spin text-emerald-500 mb-4" /><p className="text-emerald-500 font-bold animate-pulse text-xs tracking-widest">AI 正在計算最佳路徑...</p></div>}
             </div>
         </div>
@@ -372,13 +393,13 @@ const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [logs, setLogs] = useState({});
-    const [editingText, setEditingText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
     const [logType, setLogType] = useState('general'); 
     const [runData, setRunData] = useState({ time: '', pace: '', power: '' });
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
+    const [editingText, setEditingText] = useState("");
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
 
     useEffect(() => {
@@ -893,6 +914,10 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
 // --- 工具箱 (Multiple Tools) ---
 const ToolsView = ({ userProfile, onUpdateProfile }) => {
     const [activeTool, setActiveTool] = useState('bmi');
+    const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(60); // 預設 60 秒
+    const [timerType, setTimerType] = useState('rest'); // 'rest' | 'tabata'
+    const timerRef = useRef(null);
     
     // BMI State
     const [height, setHeight] = useState(''); 
@@ -928,6 +953,32 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
             if (userProfile.gender) setTdeeGender(userProfile.gender === '女' ? 'female' : 'male');
         }
     }, [userProfile]);
+
+    // Timer Logic
+    useEffect(() => {
+        if (isTimerRunning && timeLeft > 0) {
+            timerRef.current = setInterval(() => {
+                setTimeLeft((prev) => prev - 1);
+            }, 1000);
+        } else if (timeLeft === 0) {
+            setIsTimerRunning(false);
+            if (timerRef.current) clearInterval(timerRef.current);
+            // 可以加入音效提示
+            alert("時間到！");
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [isTimerRunning, timeLeft]);
+
+    const toggleTimer = () => {
+        setIsTimerRunning(!isTimerRunning);
+    };
+
+    const resetTimer = (seconds) => {
+        setIsTimerRunning(false);
+        setTimeLeft(seconds);
+    };
 
     // BMI Calculation
     const calculateBMI = () => { 
@@ -989,7 +1040,37 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
                 <button onClick={() => setActiveTool('1rm')} className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTool === '1rm' ? 'bg-sky-500 text-black shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white'}`}>
                     <Icon name="dumbbell" className="w-4 h-4" /> 1RM
                 </button>
+                 <button onClick={() => setActiveTool('timer')} className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTool === 'timer' ? 'bg-purple-500 text-black shadow-lg shadow-purple-500/20' : 'text-slate-400 hover:text-white'}`}>
+                    <Icon name="timer" className="w-4 h-4" /> Timer
+                </button>
             </div>
+
+            {/* Timer Tool */}
+            {activeTool === 'timer' && (
+                <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300 text-center">
+                    <div className="flex items-center gap-2 mb-6 text-purple-500 font-bold justify-center">
+                        <Icon name="timer" className="w-6 h-6" />
+                        <span className="text-xl text-white">訓練計時器</span>
+                    </div>
+
+                    <div className="text-8xl font-black text-white mb-8 tracking-tighter tabular-nums">
+                        {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mb-8">
+                        <button onClick={() => resetTimer(30)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-xl text-sm font-bold">30s</button>
+                        <button onClick={() => resetTimer(60)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-xl text-sm font-bold">60s</button>
+                        <button onClick={() => resetTimer(90)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-xl text-sm font-bold">90s</button>
+                    </div>
+
+                    <button 
+                        onClick={toggleTimer} 
+                        className={`w-full font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all ${isTimerRunning ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-purple-500 text-black hover:bg-purple-400'}`}
+                    >
+                        {isTimerRunning ? "暫停計時" : "開始計時"}
+                    </button>
+                </div>
+            )}
 
             {/* BMI Calculator */}
             {activeTool === 'bmi' && (

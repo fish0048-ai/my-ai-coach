@@ -22,6 +22,7 @@ import {
 } from "firebase/firestore";
 
 // --- Global Variables (Dynamic Init) ---
+// 這些變數會在使用者輸入設定後動態初始化
 let app = null;
 let auth = null;
 let db = null;
@@ -99,75 +100,87 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
   );
 };
 
-// --- Firebase Methods (Static) ---
+// --- Firebase Methods (Static - 解決讀取洩漏) ---
+// 這裡定義一個物件來包裝方法，但實際的 db 實例會在 useFirebase 中動態注入
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
-// --- Setup Screen ---
+// --- Setup Screen: 第一次使用時設定 Firebase ---
 const FirebaseSetup = ({ onComplete }) => {
     const [configJson, setConfigJson] = useState('');
     const [error, setError] = useState(null);
 
     const handleSave = () => {
         try {
-            // 嘗試解析 JSON，如果使用者貼上的是完整的 const firebaseConfig = {...}，嘗試擷取 JSON 部分
+            // 嘗試從貼上的內容中提取 JSON
             let jsonString = configJson;
+            // 如果使用者貼上的是完整的 const firebaseConfig = {...}
             if (jsonString.includes('const firebaseConfig =')) {
                 const match = jsonString.match(/\{[\s\S]*\}/);
                 if (match) jsonString = match[0];
             }
+            // 如果使用者貼上的是 export const ...
+            if (jsonString.includes('export const')) {
+                const match = jsonString.match(/\{[\s\S]*\}/);
+                if (match) jsonString = match[0];
+            }
             
-            // 處理非標準 JSON (例如 key 沒有引號)
-            // 這裡做簡單的格式化嘗試，或者提示使用者
-            // 最安全的方式是直接貼上 JSON 物件內容
+            // 簡單處理 key 沒有引號的情況 (常見於直接複製 JS 物件)
+            // 這不是完美的 parser 但能處理常見情況
+            const fixedJson = jsonString.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2": ').replace(/'/g, '"');
             
-            const config = JSON.parse(jsonString);
+            let config;
+            try {
+                config = JSON.parse(jsonString); // 先試試看標準 JSON
+            } catch {
+                try {
+                    config = JSON.parse(fixedJson); // 再試試看修復後的
+                } catch (e2) {
+                    throw new Error("無法解析設定檔，請確保複製的是完整的 { ... } 區塊");
+                }
+            }
             
-            if (!config.apiKey || !config.authDomain || !config.projectId) {
-                throw new Error("缺少必要的 Firebase 設定欄位 (apiKey, authDomain, projectId)");
+            if (!config.apiKey || !config.projectId) {
+                throw new Error("設定檔缺少必要欄位 (apiKey, projectId)");
             }
 
             localStorage.setItem('firebase_config', JSON.stringify(config));
-            onComplete(config);
+            onComplete();
         } catch (e) {
-            setError("格式錯誤：請確保貼上的是正確的 JSON 格式。\n" + e.message);
+            setError("設定失敗: " + e.message);
         }
     };
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-black p-4">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 max-w-lg w-full shadow-2xl">
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 duration-300">
                 <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500">
                         <Icon name="zap" className="w-8 h-8" />
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-2">連接您的資料庫</h1>
-                    <p className="text-slate-400 text-sm">為了保護隱私，請貼上您的 Firebase Config。<br/>這些資料只會儲存在您的瀏覽器中。</p>
+                    <p className="text-slate-400 text-sm">請貼上您的 Firebase Config 物件內容。</p>
                 </div>
 
                 <div className="mb-6">
-                    <label className="block text-slate-300 text-xs font-bold uppercase mb-2">Firebase Config (JSON)</label>
+                    <label className="block text-slate-300 text-xs font-bold uppercase mb-2">Firebase Config</label>
                     <textarea 
                         value={configJson}
                         onChange={(e) => setConfigJson(e.target.value)}
                         className="w-full h-48 bg-black/50 border border-white/10 rounded-xl p-4 text-xs font-mono text-emerald-400 outline-none focus:border-emerald-500 transition-colors resize-none"
-                        placeholder={`{
-  "apiKey": "AIza...",
-  "authDomain": "...",
-  "projectId": "...",
-  "storageBucket": "...",
-  "messagingSenderId": "...",
-  "appId": "..."
-}`}
+                        placeholder={`const firebaseConfig = {\n  apiKey: "...",\n  authDomain: "...",\n  projectId: "...",\n  ...\n};`}
                     />
-                    {error && <p className="text-red-400 text-xs mt-2 whitespace-pre-wrap">{error}</p>}
+                    {error && <div className="mt-3 p-3 bg-red-900/20 border border-red-500/30 rounded-lg flex items-start gap-2 text-red-400 text-xs">
+                        <Icon name="alertcircle" className="w-4 h-4 mt-0.5 shrink-0" />
+                        <span>{error}</span>
+                    </div>}
                 </div>
 
-                <button onClick={handleSave} disabled={!configJson.trim()} className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-500 text-black font-bold py-4 rounded-xl transition-all">
-                    儲存並啟動
+                <button onClick={handleSave} disabled={!configJson.trim()} className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-500 text-black font-bold py-4 rounded-xl transition-all shadow-lg shadow-orange-500/20">
+                    儲存並啟動 App
                 </button>
                 
                 <div className="mt-6 text-center">
-                    <a href="https://console.firebase.google.com/" target="_blank" className="text-xs text-slate-500 hover:text-white flex items-center justify-center gap-1">
+                    <a href="https://console.firebase.google.com/" target="_blank" className="text-xs text-slate-500 hover:text-white flex items-center justify-center gap-1 transition-colors">
                         如何取得? 前往 Firebase Console <Icon name="chevronright" className="w-3 h-3" />
                     </a>
                 </div>
@@ -183,23 +196,23 @@ const useFirebase = () => {
     const [authError, setAuthError] = useState(null);
     const [isConfigured, setIsConfigured] = useState(false);
 
-    // Initialize Firebase
+    // Initialize Firebase Dynamically
     useEffect(() => {
         const savedConfig = localStorage.getItem('firebase_config');
         if (savedConfig) {
             try {
                 const config = JSON.parse(savedConfig);
+                // Check if already initialized to prevent duplicates
                 if (!getApps().length) {
                     app = initializeApp(config);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    googleProvider = new GoogleAuthProvider();
                 } else {
                     app = getApp();
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    googleProvider = new GoogleAuthProvider();
                 }
+                
+                auth = getAuth(app);
+                db = getFirestore(app);
+                googleProvider = new GoogleAuthProvider();
+                
                 setIsConfigured(true);
             } catch (e) {
                 console.error("Firebase Init Error:", e);
@@ -217,9 +230,10 @@ const useFirebase = () => {
         if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
+            console.log("👤 Auth State:", u ? "Logged In" : "Logged Out");
         });
         return () => unsubscribe();
-    }, [isConfigured]);
+    }, [isConfigured]); // Re-run when config status changes
 
     const login = async () => {
         setAuthError(null);
@@ -232,6 +246,8 @@ const useFirebase = () => {
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
                 msg = `網域未授權：請複製 ${domain} 至 Firebase Console。`;
+            } else if (e.code === 'auth/popup-closed-by-user') {
+                return;
             }
             setAuthError(msg);
             alert(msg);
@@ -269,16 +285,16 @@ const useFirebase = () => {
         login, 
         loginAnonymous, 
         logout, 
-        db,
+        db, // Export db instance
         methods: firebaseMethods,
         authError,
         isConfigured,
-        setIsConfigured, // To manually trigger re-render if needed
+        setIsConfigured, 
         resetConfig
     };
 };
 
-// --- Components (Modals) ---
+// --- Components (Modals & Views) ---
 const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
     const [inputKey, setInputKey] = useState(initialValue || '');
     const handleClearKey = () => {
@@ -333,8 +349,6 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
         </div>
     );
 };
-
-// --- Views ---
 
 // 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
@@ -1460,24 +1474,22 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
 
 // --- App Root ---
 const App = () => {
-    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase(); // Added loginAnonymous
+    const { user, loading, login, loginAnonymous, logout, db, methods, authError, isConfigured, resetConfig } = useFirebase();
     const [currentTab, setCurrentTab] = useState('generator');
     const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_key') || '');
     const [showKeyModal, setShowKeyModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userProfile, setUserProfile] = useState(null);
-    const [userLogs, setUserLogs] = useState({}); // New State for Logs
+    const [userLogs, setUserLogs] = useState({});
 
     useEffect(() => {
         if (!user || !db) return;
         
-        // 1. Fetch Profile
         const unsubProfile = methods.onSnapshot(methods.doc(db, "users", user.uid), (doc) => {
             if (doc.exists()) setUserProfile(doc.data());
             else methods.setDoc(methods.doc(db, "users", user.uid), { email: user.isAnonymous ? 'guest' : user.email, joined: new Date() });
         });
 
-        // 2. Fetch Logs (Lifted State)
         const q = methods.collection(db, "users", user.uid, "logs");
         const unsubLogs = methods.onSnapshot(q, (snapshot) => {
             const newLogs = {};
@@ -1502,6 +1514,11 @@ const App = () => {
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-black"><Icon name="loader2" className="w-10 h-10 text-emerald-500 animate-spin" /></div>;
+
+    // Show setup screen if not configured
+    if (!isConfigured) {
+        return <FirebaseSetup onComplete={() => window.location.reload()} />;
+    }
     
     if (!user) return (
         <div className="min-h-screen flex items-center justify-center bg-black/90 p-4">
@@ -1516,34 +1533,7 @@ const App = () => {
                 <button onClick={loginAnonymous} className="w-full bg-slate-800 text-slate-300 font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-700 transition-all text-sm">
                     訪客試用 (無需登入)
                 </button>
-
-                {/* 增加未設定 Config 的提示 */}
-                {typeof firebaseConfig !== 'undefined' && firebaseConfig?.apiKey?.includes("請填入") && (
-                    <div className="mt-6 p-4 bg-red-900/30 border border-red-500/30 rounded-xl text-left">
-                        <p className="text-red-400 text-xs font-bold mb-2 flex items-center gap-2"><Icon name="alertcircle" className="w-4 h-4" /> 設定未完成</p>
-                        <p className="text-red-300 text-xs leading-relaxed">請打開 <code>src/App.jsx</code>，將 <code>firebaseConfig</code> 內的內容替換為您 Firebase 專案的設定。</p>
-                    </div>
-                )}
-                 
-                 {/* Helper to copy current domain for Firebase Auth */}
-                 <div className="mt-6 p-3 bg-slate-800 rounded-xl text-xs text-left border border-slate-700">
-                    <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
-                    <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>
-                    <div className="flex items-center gap-2 bg-black/50 p-2 rounded border border-slate-700">
-                        <code className="text-emerald-400 flex-1 overflow-x-auto whitespace-nowrap selection:bg-emerald-900">
-                            {window.location.hostname}
-                        </code>
-                        <button 
-                            onClick={() => {
-                                navigator.clipboard.writeText(window.location.hostname);
-                                alert("網域已複製！請去 Firebase Console 貼上。");
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors"
-                        >
-                            複製
-                        </button>
-                    </div>
-                </div>
+                <button onClick={resetConfig} className="mt-4 text-xs text-slate-500 hover:text-red-400 underline">重置資料庫設定</button>
             </div>
         </div>
     );
@@ -1567,7 +1557,7 @@ const App = () => {
             <main>
                 {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} userLogs={userLogs} />}
                 {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} logs={userLogs} />}
-                {currentTab === 'dashboard' && <DashboardView userLogs={userLogs} userProfile={userProfile} />} {/* New Dashboard View */}
+                {currentTab === 'dashboard' && <DashboardView userLogs={userLogs} userProfile={userProfile} />}
                 {currentTab === 'analysis' && <AnalysisView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
                 {currentTab === 'tools' && <ToolsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
             </main>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // --- Firebase Imports ---
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -21,35 +21,11 @@ import {
   collection 
 } from "firebase/firestore";
 
-// --- Firebase Configuration ---
-// ⚠️ 重要：請務必將下方的字串替換為您自己的 Firebase Config ⚠️
-const firebaseConfig = {
-  apiKey: "AIzaSyAzu9c8N1AK_2OhbEafQ3ul2EpjzL4mQp0",
-  authDomain: "myaicoach-e38d7.firebaseapp.com",
-  projectId: "myaicoach-e38d7",
-  storageBucket: "myaicoach-e38d7.firebasestorage.app",
-  messagingSenderId: "901069370570",
-  appId: "1:901069370570:web:58cd94f587c923b8c07033"
-};
-
-// 初始化 Firebase 全域變數
+// --- Global Variables (Dynamic Init) ---
 let app = null;
 let auth = null;
-let firestoreDB = null;
+let db = null;
 let googleProvider = null;
-
-try {
-  if (!firebaseConfig.apiKey.includes("請填入")) {
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      firestoreDB = getFirestore(app);
-      googleProvider = new GoogleAuthProvider();
-  } else {
-      console.warn("Firebase Config 尚未設定");
-  }
-} catch (e) {
-  console.error("Firebase 初始化失敗:", e);
-}
 
 // --- Helper: Dynamic Script Loader ---
 const loadScript = (src) => {
@@ -97,7 +73,8 @@ const ICONS = {
   clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
   hash: <><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></>,
   plus: <path d="M5 12h14M12 5v14" />,
-  linechart: <><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></>
+  linechart: <><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></>,
+  code: <><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -125,43 +102,128 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
 // --- Firebase Methods (Static) ---
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
+// --- Setup Screen ---
+const FirebaseSetup = ({ onComplete }) => {
+    const [configJson, setConfigJson] = useState('');
+    const [error, setError] = useState(null);
+
+    const handleSave = () => {
+        try {
+            // 嘗試解析 JSON，如果使用者貼上的是完整的 const firebaseConfig = {...}，嘗試擷取 JSON 部分
+            let jsonString = configJson;
+            if (jsonString.includes('const firebaseConfig =')) {
+                const match = jsonString.match(/\{[\s\S]*\}/);
+                if (match) jsonString = match[0];
+            }
+            
+            // 處理非標準 JSON (例如 key 沒有引號)
+            // 這裡做簡單的格式化嘗試，或者提示使用者
+            // 最安全的方式是直接貼上 JSON 物件內容
+            
+            const config = JSON.parse(jsonString);
+            
+            if (!config.apiKey || !config.authDomain || !config.projectId) {
+                throw new Error("缺少必要的 Firebase 設定欄位 (apiKey, authDomain, projectId)");
+            }
+
+            localStorage.setItem('firebase_config', JSON.stringify(config));
+            onComplete(config);
+        } catch (e) {
+            setError("格式錯誤：請確保貼上的是正確的 JSON 格式。\n" + e.message);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-8 max-w-lg w-full shadow-2xl">
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500">
+                        <Icon name="zap" className="w-8 h-8" />
+                    </div>
+                    <h1 className="text-2xl font-bold text-white mb-2">連接您的資料庫</h1>
+                    <p className="text-slate-400 text-sm">為了保護隱私，請貼上您的 Firebase Config。<br/>這些資料只會儲存在您的瀏覽器中。</p>
+                </div>
+
+                <div className="mb-6">
+                    <label className="block text-slate-300 text-xs font-bold uppercase mb-2">Firebase Config (JSON)</label>
+                    <textarea 
+                        value={configJson}
+                        onChange={(e) => setConfigJson(e.target.value)}
+                        className="w-full h-48 bg-black/50 border border-white/10 rounded-xl p-4 text-xs font-mono text-emerald-400 outline-none focus:border-emerald-500 transition-colors resize-none"
+                        placeholder={`{
+  "apiKey": "AIza...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}`}
+                    />
+                    {error && <p className="text-red-400 text-xs mt-2 whitespace-pre-wrap">{error}</p>}
+                </div>
+
+                <button onClick={handleSave} disabled={!configJson.trim()} className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-500 text-black font-bold py-4 rounded-xl transition-all">
+                    儲存並啟動
+                </button>
+                
+                <div className="mt-6 text-center">
+                    <a href="https://console.firebase.google.com/" target="_blank" className="text-xs text-slate-500 hover:text-white flex items-center justify-center gap-1">
+                        如何取得? 前往 Firebase Console <Icon name="chevronright" className="w-3 h-3" />
+                    </a>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Custom Hook: Firebase User Management ---
 const useFirebase = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(null);
+    const [isConfigured, setIsConfigured] = useState(false);
 
+    // Initialize Firebase
     useEffect(() => {
-        if (!auth) {
-            setLoading(false);
-            return;
+        const savedConfig = localStorage.getItem('firebase_config');
+        if (savedConfig) {
+            try {
+                const config = JSON.parse(savedConfig);
+                if (!getApps().length) {
+                    app = initializeApp(config);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    googleProvider = new GoogleAuthProvider();
+                } else {
+                    app = getApp();
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    googleProvider = new GoogleAuthProvider();
+                }
+                setIsConfigured(true);
+            } catch (e) {
+                console.error("Firebase Init Error:", e);
+                localStorage.removeItem('firebase_config'); // Clear bad config
+                setIsConfigured(false);
+            }
+        } else {
+            setIsConfigured(false);
         }
+        setLoading(false);
+    }, []);
 
+    // Auth Listener
+    useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
-            setLoading(false);
-            console.log("👤 Firebase Auth State Changed:", u ? "User Logged In" : "User Logged Out");
         });
-
-        const timer = setTimeout(() => {
-            setLoading((prev) => {
-                if (prev) {
-                    console.warn("Auth listener timeout - forcing loading false");
-                    return false;
-                }
-                return prev;
-            });
-        }, 2500);
-
-        return () => {
-            unsubscribe();
-            clearTimeout(timer);
-        };
-    }, []);
+        return () => unsubscribe();
+    }, [isConfigured]);
 
     const login = async () => {
         setAuthError(null);
-        if (!auth) return alert("Firebase 設定未填寫正確，請檢查程式碼。");
+        if (!auth) return;
         try {
             await signInWithPopup(auth, googleProvider);
         } catch (e) {
@@ -169,9 +231,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console -> Authentication -> Settings -> Authorized domains 將其加入白名單。`;
-            } else if (e.code === 'auth/popup-closed-by-user') {
-                return;
+                msg = `網域未授權：請複製 ${domain} 至 Firebase Console。`;
             }
             setAuthError(msg);
             alert(msg);
@@ -180,17 +240,12 @@ const useFirebase = () => {
 
     const loginAnonymous = async () => {
         setAuthError(null);
-        if (!auth) return alert("Firebase 設定未填寫正確。");
+        if (!auth) return;
         try {
             await signInAnonymously(auth);
         } catch (e) {
-            console.error("Anonymous login failed:", e);
-            let msg = "訪客登入失敗: " + e.message;
-            if (e.code === 'auth/admin-restricted-operation') {
-                msg = "⛔ 訪客登入未啟用\n\n請前往 Firebase Console -> Authentication -> Sign-in method\n開啟「Anonymous (匿名)」登入選項。";
-            }
-            setAuthError(msg);
-            alert(msg);
+            setAuthError(e.message);
+            alert("訪客登入失敗: " + e.message);
         }
     };
 
@@ -198,8 +253,13 @@ const useFirebase = () => {
         if (!auth) return;
         try {
             await signOut(auth);
-        } catch (e) {
-            console.error(e);
+        } catch (e) { console.error(e); }
+    };
+
+    const resetConfig = () => {
+        if(confirm("確定要清除 Firebase 設定嗎？這將會登出並重置應用程式。")) {
+            localStorage.removeItem('firebase_config');
+            window.location.reload();
         }
     };
 
@@ -209,24 +269,37 @@ const useFirebase = () => {
         login, 
         loginAnonymous, 
         logout, 
-        db: firestoreDB,
+        db,
         methods: firebaseMethods,
-        authError
+        authError,
+        isConfigured,
+        setIsConfigured, // To manually trigger re-render if needed
+        resetConfig
     };
 };
 
 // --- Components (Modals) ---
 const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
     const [inputKey, setInputKey] = useState(initialValue || '');
+    const handleClearKey = () => {
+        localStorage.removeItem('gemini_key');
+        setInputKey('');
+        onSave('');
+        alert("API Key 已清除");
+    };
+
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-2xl text-center relative max-h-[85vh] overflow-y-auto">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
                 <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6"><Icon name="key" className="w-8 h-8 text-emerald-500" /></div>
-                <h2 className="text-xl font-bold text-white mb-2">設定 API Key</h2>
-                <p className="text-slate-400 text-sm mb-6 leading-relaxed">請輸入您的 Google Gemini API Key 以啟用 AI 功能。<br/><a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-emerald-500 hover:underline">前往取得免費 Key →</a></p>
-                <input type="password" value={inputKey} onChange={(e) => setInputKey(e.target.value)} placeholder="貼上你的 API Key (以 AIza 開頭)" className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 mb-4 text-center" />
-                <button onClick={() => onSave(inputKey)} disabled={!inputKey.trim()} className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-black font-bold py-3 rounded-xl transition-all">儲存設定</button>
+                <h2 className="text-xl font-bold text-white mb-2">設定 Gemini API Key</h2>
+                <p className="text-slate-400 text-sm mb-6 leading-relaxed">請輸入您的 Google Gemini API Key 以啟用 AI 功能。</p>
+                <input type="password" value={inputKey} onChange={(e) => setInputKey(e.target.value)} placeholder="貼上 API Key (AIza...)" className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 mb-4 text-center" />
+                <div className="flex gap-2">
+                    <button onClick={handleClearKey} className="flex-1 bg-red-900/30 text-red-400 hover:bg-red-900/50 font-bold py-3 rounded-xl transition-all text-sm">清除 Key</button>
+                    <button onClick={() => onSave(inputKey)} disabled={!inputKey.trim()} className="flex-[2] bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-600 text-black font-bold py-3 rounded-xl transition-all">儲存設定</button>
+                </div>
             </div>
         </div>
     );
@@ -263,13 +336,11 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // --- Views ---
 
-// 1. Dashboard View (New)
+// 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
-    // Basic Calculations
     const totalLogs = Object.keys(userLogs).length;
     const sortedDates = Object.keys(userLogs).sort();
     
-    // Calculate Stats
     let totalRunDistance = 0;
     const runTrend = [];
 
@@ -288,7 +359,6 @@ const DashboardView = ({ userLogs, userProfile }) => {
         ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
         : '--';
 
-    // Simple SVG Line Chart Logic
     const renderRunChart = () => {
         if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
         
@@ -302,7 +372,6 @@ const DashboardView = ({ userLogs, userProfile }) => {
         return (
             <div className="relative h-24 w-full mt-4">
                 <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-                    {/* Gradient Line */}
                     <defs>
                         <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
                             <stop offset="0%" stopColor="#34d399" />
@@ -350,7 +419,6 @@ const DashboardView = ({ userLogs, userProfile }) => {
                  {renderRunChart()}
             </div>
 
-             {/* Recent Activity List */}
              <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl">
                 <div className="text-slate-400 font-bold mb-4 text-xs uppercase tracking-wider">近期活動</div>
                 <div className="space-y-3">
@@ -482,6 +550,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sticky top-8">
+                     {/* Toggle Switch */}
                     <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
                         <button onClick={() => setGenType('workout')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'workout' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-4 h-4" /> 運動課表</button>
                         <button onClick={() => setGenType('diet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'diet' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="utensils" className="w-4 h-4" /> 飲食菜單</button>
@@ -1449,7 +1518,7 @@ const App = () => {
                 </button>
 
                 {/* 增加未設定 Config 的提示 */}
-                {firebaseConfig.apiKey.includes("請填入") && (
+                {typeof firebaseConfig !== 'undefined' && firebaseConfig?.apiKey?.includes("請填入") && (
                     <div className="mt-6 p-4 bg-red-900/30 border border-red-500/30 rounded-xl text-left">
                         <p className="text-red-400 text-xs font-bold mb-2 flex items-center gap-2"><Icon name="alertcircle" className="w-4 h-4" /> 設定未完成</p>
                         <p className="text-red-300 text-xs leading-relaxed">請打開 <code>src/App.jsx</code>，將 <code>firebaseConfig</code> 內的內容替換為您 Firebase 專案的設定。</p>

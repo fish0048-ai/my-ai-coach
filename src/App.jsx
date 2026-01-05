@@ -45,7 +45,7 @@ const loadScript = (src) => {
 // --- 內建圖標系統 ---
 const ICONS = {
   dumbbell: <path d="m6.5 6.5 11 11m-12.01-1.01 1 1m16.01-16.01-1-1m-4 18 4-4m-19.01-4.99 4-4m-3 8 7-7m7 14 7-7" />,
-  sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />,
+  sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />,
   calendar: <><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></>,
   activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
   wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />,
@@ -475,12 +475,12 @@ const DashboardView = ({ userLogs, userProfile }) => {
             </div>
 
              <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl">
-                <div className="text-slate-400 font-bold mb-4 text-xs uppercase tracking-wider">近期活動</div>
-                <div className="space-y-3">
-                    {sortedDates.slice(-3).reverse().map(date => (
-                        <div key={date} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
-                            <span className="text-emerald-500 font-bold text-xs">{date}</span>
-                            <span className="text-slate-300 text-xs truncate max-w-[150px]">{userLogs[date].content}</span>
+                <div className="text-slate-400 font-bold mb-4 text-xs uppercase tracking-wider">歷史活動紀錄</div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                    {sortedDates.slice().reverse().map(date => (
+                        <div key={date} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                            <span className="text-emerald-500 font-bold text-xs shrink-0 mr-4">{date}</span>
+                            <span className="text-slate-300 text-xs truncate flex-1 text-right">{userLogs[date].content}</span>
                         </div>
                     ))}
                     {sortedDates.length === 0 && <div className="text-center text-slate-600 text-xs py-2">尚無紀錄</div>}

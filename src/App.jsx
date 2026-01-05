@@ -96,7 +96,8 @@ const ICONS = {
   utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>,
   clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
   hash: <><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></>,
-  plus: <path d="M5 12h14M12 5v14" />
+  plus: <path d="M5 12h14M12 5v14" />,
+  linechart: <><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -232,7 +233,7 @@ const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
 };
 
 const ProfileModal = ({ onSave, initialData, onClose }) => {
-    const [formData, setFormData] = useState(initialData || { gender: '未設定', age: '', height: '', weight: '', notes: '', supplements: '', bench1rm: '', runSpm: '', tdee: '' }); // Added supplements
+    const [formData, setFormData] = useState(initialData || { gender: '未設定', age: '', height: '', weight: '', notes: '', supplements: '', bench1rm: '', runSpm: '', tdee: '' });
     const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
@@ -251,10 +252,7 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
                         <div><label className="block text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">跑步步頻 (SPM)</label><input type="number" name="runSpm" value={formData.runSpm} onChange={handleChange} className="w-full bg-slate-800/50 border border-emerald-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500" placeholder="尚未測量" /></div>
                     </div>
                     <div><label className="block text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">每日消耗 TDEE (kcal)</label><input type="number" name="tdee" value={formData.tdee} onChange={handleChange} className="w-full bg-slate-800/50 border border-orange-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="尚未測量" /></div>
-                    
-                    {/* 新增：藥物與補品欄位 */}
                     <div><label className="block text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">目前使用的藥物與補品</label><textarea name="supplements" value={formData.supplements} onChange={handleChange} placeholder="例如：乳清蛋白、肌酸、綜合維他命..." className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-purple-500 min-h-[60px]" /></div>
-
                     <div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身體狀況 / 備註</label><textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="例如：左膝蓋曾受傷..." className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[80px]" /></div>
                 </div>
                 <button onClick={() => onSave(formData)} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all mt-6 shadow-lg shadow-emerald-500/20 active:scale-95">儲存資料</button>
@@ -265,7 +263,112 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // --- Views ---
 
-const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, userLogs }) => { 
+// 1. Dashboard View (New)
+const DashboardView = ({ userLogs, userProfile }) => {
+    // Basic Calculations
+    const totalLogs = Object.keys(userLogs).length;
+    const sortedDates = Object.keys(userLogs).sort();
+    
+    // Calculate Stats
+    let totalRunDistance = 0;
+    const runTrend = [];
+
+    sortedDates.forEach(date => {
+        const log = userLogs[date];
+        if (log.type === 'run' && log.data?.distance) {
+            const dist = parseFloat(log.data.distance);
+            if (!isNaN(dist)) {
+                totalRunDistance += dist;
+                runTrend.push(dist);
+            }
+        }
+    });
+
+    const bmiValue = userProfile?.height && userProfile?.weight 
+        ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
+        : '--';
+
+    // Simple SVG Line Chart Logic
+    const renderRunChart = () => {
+        if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
+        
+        const maxVal = Math.max(...runTrend);
+        const points = runTrend.map((val, idx) => {
+            const x = (idx / (runTrend.length - 1)) * 100;
+            const y = 100 - (val / maxVal) * 100;
+            return `${x},${y}`;
+        }).join(' ');
+
+        return (
+            <div className="relative h-24 w-full mt-4">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                    {/* Gradient Line */}
+                    <defs>
+                        <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#34d399" />
+                            <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                    </defs>
+                    <polyline
+                        fill="none"
+                        stroke="url(#lineGradient)"
+                        strokeWidth="3"
+                        points={points}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="drop-shadow-lg"
+                    />
+                </svg>
+            </div>
+        );
+    };
+
+    return (
+        <div className="pb-24 max-w-lg mx-auto">
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-[#111] border border-white/10 rounded-2xl p-4 shadow-xl">
+                    <div className="flex items-center gap-2 text-emerald-400 mb-2 font-bold text-xs uppercase tracking-wider">
+                        <Icon name="activity" className="w-4 h-4" /> 本週訓練
+                    </div>
+                    <div className="text-3xl font-black text-white">{totalLogs} <span className="text-sm font-normal text-slate-500">次</span></div>
+                </div>
+                <div className="bg-[#111] border border-white/10 rounded-2xl p-4 shadow-xl">
+                    <div className="flex items-center gap-2 text-orange-400 mb-2 font-bold text-xs uppercase tracking-wider">
+                        <Icon name="scale" className="w-4 h-4" /> BMI 指數
+                    </div>
+                    <div className="text-3xl font-black text-white">{bmiValue}</div>
+                </div>
+            </div>
+
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl mb-6">
+                 <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-sky-400 font-bold">
+                        <Icon name="linechart" className="w-5 h-5" /> 跑步里程趨勢
+                    </div>
+                    <span className="text-2xl font-black text-white">{totalRunDistance.toFixed(1)} <span className="text-sm text-slate-500">km</span></span>
+                 </div>
+                 {renderRunChart()}
+            </div>
+
+             {/* Recent Activity List */}
+             <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl">
+                <div className="text-slate-400 font-bold mb-4 text-xs uppercase tracking-wider">近期活動</div>
+                <div className="space-y-3">
+                    {sortedDates.slice(-3).reverse().map(date => (
+                        <div key={date} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
+                            <span className="text-emerald-500 font-bold text-xs">{date}</span>
+                            <span className="text-slate-300 text-xs truncate max-w-[150px]">{userLogs[date].content}</span>
+                        </div>
+                    ))}
+                    {sortedDates.length === 0 && <div className="text-center text-slate-600 text-xs py-2">尚無紀錄</div>}
+                </div>
+             </div>
+        </div>
+    );
+};
+
+// 2. Generator View
+const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, userLogs }) => {
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
     const [loading, setLoading] = useState(false);
@@ -298,7 +401,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         let profilePrompt = "";
         let logsSummary = "";
 
-        // Summarize recent logs
         if (userLogs && Object.keys(userLogs).length > 0) {
             const sortedDates = Object.keys(userLogs).sort().reverse().slice(0, 7); 
             logsSummary = "\n\n【最近 7 天訓練紀錄】(供參考)：\n" + sortedDates.map(date => `- ${date}: ${userLogs[date].content}`).join('\n');
@@ -380,7 +482,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sticky top-8">
-                     {/* Toggle Switch */}
                     <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
                         <button onClick={() => setGenType('workout')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'workout' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-4 h-4" /> 運動課表</button>
                         <button onClick={() => setGenType('diet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'diet' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="utensils" className="w-4 h-4" /> 飲食菜單</button>
@@ -417,11 +518,10 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
     );
 };
 
-// 2. Calendar View
-const CalendarView = ({ user, db, methods }) => {
+// 3. Calendar View
+const CalendarView = ({ user, db, methods, logs }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
-    const [logs, setLogs] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
@@ -429,28 +529,8 @@ const CalendarView = ({ user, db, methods }) => {
     const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); 
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
     const [editingText, setEditingText] = useState("");
-    const [weightExercises, setWeightExercises] = useState([]); // List of exercises
+    const [weightExercises, setWeightExercises] = useState([]);
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
-
-    useEffect(() => {
-        if (!user || !db) return;
-        const q = methods.collection(db, "users", user.uid, "logs");
-        // 安全日誌：確認監聽器啟動
-        console.log("🔥 Firestore: Subscribing to user logs...");
-        
-        const unsubscribe = methods.onSnapshot(q, (snapshot) => {
-            const newLogs = {};
-            snapshot.forEach((doc) => {
-                newLogs[doc.id] = doc.data(); 
-            });
-            setLogs(newLogs);
-        });
-
-        return () => {
-             console.log("🛑 Firestore: Unsubscribing logs...");
-             unsubscribe();
-        }
-    }, [user, db, methods]);
 
     const addTag = (tag) => {
         setEditingText(prev => {
@@ -502,7 +582,6 @@ const CalendarView = ({ user, db, methods }) => {
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
         
-        // Reset forms
         setLogType('general');
         setRunData({ time: '', distance: '', pace: '', power: '' }); 
         setWeightData({ action: '', sets: '', weight: '' });
@@ -517,7 +596,6 @@ const CalendarView = ({ user, db, methods }) => {
                 setRunData(log.data || { time: '', distance: '', pace: '', power: '' });
             } else if (log.type === 'weight') {
                 setLogType('weight');
-                // Handle legacy object vs new array
                 if (Array.isArray(log.data)) {
                     setWeightExercises(log.data);
                 } else if (log.data) {
@@ -533,7 +611,7 @@ const CalendarView = ({ user, db, methods }) => {
         if (!weightData.action) return;
         const newExercise = { ...weightData };
         setWeightExercises([...weightExercises, newExercise]);
-        setWeightData({ action: '', sets: '', weight: '' }); // Clear inputs
+        setWeightData({ action: '', sets: '', weight: '' }); 
     };
 
     const handleRemoveWeightExercise = (index) => {
@@ -562,7 +640,6 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = editingText;
             } else if (logType === 'run') {
                 dataToSave.data = runData;
-                // Beautified content string for display in calendar
                 const parts = [];
                 if (runData.distance) parts.push(`${runData.distance}km`);
                 if (runData.time) parts.push(`${runData.time}min`);
@@ -570,7 +647,6 @@ const CalendarView = ({ user, db, methods }) => {
                 
                 dataToSave.content = parts.join(' | ') || '跑步訓練';
             } else if (logType === 'weight') {
-                // Auto-add pending input if user forgot to click Add
                 let currentExercises = [...weightExercises];
                 if (weightData.action) {
                     currentExercises.push(weightData);
@@ -584,7 +660,6 @@ const CalendarView = ({ user, db, methods }) => {
                 }
 
                 dataToSave.data = currentExercises;
-                // Generate a summary string
                 const summary = currentExercises.map(ex => `${ex.action}`).join(', ');
                 dataToSave.content = `[重訓] ${summary}`;
             }
@@ -695,7 +770,7 @@ const CalendarView = ({ user, db, methods }) => {
     );
 };
 
-// 3. Analysis View (Fixed Video Height + Min Height)
+// 4. Analysis View (Fixed Video Height + Min Height)
 const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
@@ -1423,6 +1498,7 @@ const App = () => {
             <main>
                 {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} userLogs={userLogs} />}
                 {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} logs={userLogs} />}
+                {currentTab === 'dashboard' && <DashboardView userLogs={userLogs} userProfile={userProfile} />} {/* New Dashboard View */}
                 {currentTab === 'analysis' && <AnalysisView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
                 {currentTab === 'tools' && <ToolsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
             </main>
@@ -1430,6 +1506,7 @@ const App = () => {
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-white/10 p-2 rounded-2xl flex gap-4 shadow-2xl backdrop-blur-md z-40">
                 <button onClick={()=>setCurrentTab('generator')} className={`p-3 rounded-xl transition-all ${currentTab==='generator'?'text-emerald-500 bg-white/10':'text-slate-500'}`}><Icon name="sparkles" /></button>
                 <button onClick={()=>setCurrentTab('calendar')} className={`p-3 rounded-xl transition-all ${currentTab==='calendar'?'text-emerald-500 bg-white/10':'text-slate-500'}`}><Icon name="calendar" /></button>
+                <button onClick={()=>setCurrentTab('dashboard')} className={`p-3 rounded-xl transition-all ${currentTab==='dashboard'?'text-emerald-500 bg-white/10':'text-slate-500'}`}><Icon name="linechart" /></button>
                 <button onClick={()=>setCurrentTab('analysis')} className={`p-3 rounded-xl transition-all ${currentTab==='analysis'?'text-emerald-500 bg-white/10':'text-slate-500'}`}><Icon name="activity" /></button>
                 <button onClick={()=>setCurrentTab('tools')} className={`p-3 rounded-xl transition-all ${currentTab==='tools'?'text-emerald-500 bg-white/10':'text-slate-500'}`}><Icon name="wrench" /></button>
             </div>

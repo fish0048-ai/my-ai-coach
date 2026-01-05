@@ -22,7 +22,6 @@ import {
 } from "firebase/firestore";
 
 // --- Global Variables (Dynamic Init) ---
-// 這些變數會在使用者輸入設定後動態初始化
 let app = null;
 let auth = null;
 let db = null;
@@ -282,8 +281,7 @@ const useFirebase = () => {
     };
 };
 
-// --- Components ---
-
+// --- Components (Modals & Views) ---
 const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
     const [inputKey, setInputKey] = useState(initialValue || '');
     const handleClearKey = () => {
@@ -339,16 +337,37 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
     );
 };
 
+// --- Views ---
+
 // 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
+    // Basic Calculations
     const totalLogs = Object.keys(userLogs).length;
     const sortedDates = Object.keys(userLogs).sort();
     
     let totalRunDistance = 0;
     const runTrend = [];
 
-    sortedDates.forEach(date => {
-        const log = userLogs[date];
+    // Correctly calculate this week's logs
+    const now = new Date();
+    // Get Monday of current week
+    const monday = new Date(now);
+    const day = monday.getDay(); // 0 is Sun, 1 is Mon
+    const diff = monday.getDate() - day + (day === 0 ? -6 : 1); 
+    monday.setDate(diff);
+    monday.setHours(0,0,0,0);
+
+    let weeklyCount = 0;
+
+    sortedDates.forEach(dateStr => {
+        const log = userLogs[dateStr];
+        const logDate = new Date(dateStr);
+        
+        // Calculate weekly count
+        if (logDate >= monday) {
+            weeklyCount++;
+        }
+
         if (log.type === 'run' && log.data?.distance) {
             const dist = parseFloat(log.data.distance);
             if (!isNaN(dist)) {
@@ -402,7 +421,7 @@ const DashboardView = ({ userLogs, userProfile }) => {
                     <div className="flex items-center gap-2 text-emerald-400 mb-2 font-bold text-xs uppercase tracking-wider">
                         <Icon name="activity" className="w-4 h-4" /> 本週訓練
                     </div>
-                    <div className="text-3xl font-black text-white">{totalLogs} <span className="text-sm font-normal text-slate-500">次</span></div>
+                    <div className="text-3xl font-black text-white">{weeklyCount} <span className="text-sm font-normal text-slate-500">次</span></div>
                 </div>
                 <div className="bg-[#111] border border-white/10 rounded-2xl p-4 shadow-xl">
                     <div className="flex items-center gap-2 text-orange-400 mb-2 font-bold text-xs uppercase tracking-wider">
@@ -415,7 +434,7 @@ const DashboardView = ({ userLogs, userProfile }) => {
             <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl mb-6">
                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-sky-400 font-bold">
-                        <Icon name="linechart" className="w-5 h-5" /> 跑步里程趨勢
+                        <Icon name="linechart" className="w-5 h-5" /> 累積跑步里程
                     </div>
                     <span className="text-2xl font-black text-white">{totalRunDistance.toFixed(1)} <span className="text-sm text-slate-500">km</span></span>
                  </div>
@@ -550,7 +569,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         let tableBuffer = [];
         let inTable = false;
 
-        // Bold formatting helper
         const formatText = (str) => {
             const parts = str.split(/(\*\*.*?\*\*)/g);
             return parts.map((part, index) => {
@@ -561,14 +579,12 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
             });
         };
 
-        // Render collected table rows
         const renderTable = (rows, keyPrefix) => {
             if (rows.length < 2) return null;
             
-            // Extract headers and data
             const headers = rows[0].split('|').map(c => c.trim()).filter(c => c);
             const dataRows = rows.slice(2).map(row => 
-                row.split('|').map(c => c.trim()).filter(c => c !== '') // Keep all cells even if empty, filter pure empty splits
+                row.split('|').map(c => c.trim()).filter(c => c !== '') 
             ).filter(row => row.length > 0);
 
             return (
@@ -576,13 +592,13 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                     <table className="w-full text-sm text-left text-slate-300">
                         <thead className="text-xs text-emerald-400 uppercase bg-black/40 border-b border-white/10">
                             <tr>
-                                {headers.map((h, i) => <th key={i} className="px-6 py-3">{h}</th>)}
+                                {headers.map((h, i) => <th key={i} className="px-6 py-3 whitespace-nowrap">{h}</th>)}
                             </tr>
                         </thead>
                         <tbody>
                             {dataRows.map((row, i) => (
                                 <tr key={i} className="bg-white/5 border-b border-white/5 hover:bg-white/10 transition-colors">
-                                    {row.map((cell, j) => <td key={j} className="px-6 py-4">{formatText(cell)}</td>)}
+                                    {row.map((cell, j) => <td key={j} className="px-6 py-4 whitespace-nowrap">{formatText(cell)}</td>)}
                                 </tr>
                             ))}
                         </tbody>
@@ -594,19 +610,16 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         lines.forEach((line, i) => {
             const trimmed = line.trim();
             
-            // Detect Table lines (must start and end with | ideally, or just start)
             if (trimmed.startsWith('|')) {
                 if (!inTable) inTable = true;
                 tableBuffer.push(trimmed);
             } else {
-                // If we were in a table and hit a non-table line, render the table
                 if (inTable) {
                     if (tableBuffer.length > 0) elements.push(renderTable(tableBuffer, `table-${i}`));
                     tableBuffer = [];
                     inTable = false;
                 }
 
-                // Normal Line Rendering
                 if (trimmed === '') {
                     elements.push(<div key={i} className="h-2"></div>);
                 } else if (trimmed.startsWith('## ')) {
@@ -623,7 +636,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
             }
         });
 
-        // Flush any remaining table at the end
         if (tableBuffer.length > 0) {
             elements.push(renderTable(tableBuffer, 'table-end'));
         }
@@ -659,7 +671,28 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 </div>
             </div>
             <div className="lg:col-span-8">
-                {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
+                {error && (
+                    <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2 text-sm break-all">
+                        <div className="flex items-center gap-2">
+                            <Icon name="alertcircle" className="w-4 h-4 shrink-0" />
+                            <p className="font-bold">發生錯誤</p>
+                        </div>
+                        <p>{error}</p>
+                        {error.includes("Generative Language API") && (
+                            <div className="p-2 bg-black/20 rounded border border-red-500/20 mt-1">
+                                <p className="mb-1 text-xs text-red-300">Google Cloud 專案尚未啟用 AI 服務。</p>
+                                <a 
+                                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-emerald-400 underline hover:text-emerald-300 font-bold flex items-center gap-1"
+                                >
+                                    點擊前往啟用 API <Icon name="chevronright" className="w-3 h-3" />
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                )}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
@@ -1117,10 +1150,8 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
             const result = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: `${profileInfo}\n模式：${mode}\n數據：${JSON.stringify(analysisData)}` }] }], systemInstruction: { parts: [{ text: systemPrompt }] } }) });
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) setAiAnalysis(text); else throw new Error("無內容");
-        } catch (err) { 
-            setAiError(String(err.message)); 
-            if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(requireKey, 2000); 
-        } finally { setIsAiLoading(false); }
+        } catch (err) { setAiError(String(err.message)); if(String(err.message).includes('API')) setTimeout(requireKey, 2000); } 
+        finally { setIsAiLoading(false); }
     };
 
     const generateReport = () => {
@@ -1247,21 +1278,9 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                                     </div>
                                 )}
                                 {aiError && (
-                                    <div className="mt-4 p-3 bg-red-900/30 border border-red-500/30 rounded-xl text-xs text-red-300 flex flex-col gap-2">
-                                        <div className="flex items-start gap-2">
-                                            <Icon name="alertcircle" className="w-4 h-4 shrink-0 mt-0.5" />
-                                            <span>{aiError}</span>
-                                        </div>
-                                        {aiError.includes("Generative Language API") && (
-                                            <a 
-                                                href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
-                                                target="_blank" 
-                                                rel="noreferrer"
-                                                className="ml-6 text-emerald-400 underline hover:text-emerald-300"
-                                            >
-                                                點擊啟用 Google Generative AI API
-                                            </a>
-                                        )}
+                                    <div className="mt-4 p-3 bg-red-900/30 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2">
+                                        <Icon name="alertcircle" className="w-4 h-4 shrink-0 mt-0.5" />
+                                        <span>{aiError}</span>
                                     </div>
                                 )}
                                 {aiAnalysis && (

@@ -93,7 +93,9 @@ const ICONS = {
   layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>, 
   scale: <><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></>,
   flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.5-3.3.3-1.2 1-2.4 1.5-3.2"/>,
-  utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>
+  utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>,
+  clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
+  hash: <><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></>
 };
 
 const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -319,9 +321,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                 }
             );
             const data = await response.json();
-            
-            if (data.error) throw new Error(data.error.message || "Gemini API Error");
-            
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) { 
                 setPlan(text); 
@@ -329,7 +328,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                     const fieldName = genType === 'workout' ? 'latestPlan' : 'latestDiet';
                     await methods.updateDoc(methods.doc(db, "users", user.uid), { [fieldName]: text });
                 }
-            } else { throw new Error("AI 無法生成課表"); }
+            } else { throw new Error("AI 無法生成內容"); }
         } catch (err) {
             setError(String(err.message));
             if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(() => requireKey(), 2000);
@@ -369,13 +368,11 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                     {userProfile && (
                         <div className="mb-4 text-xs text-slate-500 bg-black/20 p-3 rounded-xl border border-white/5 flex flex-wrap gap-2">
                             {userProfile.gender !== '未設定' && <span>{userProfile.gender}</span>}
-                            {userProfile.age && <span>{userProfile.age}歲</span>}
                             {userProfile.bench1rm && <span className="text-emerald-400">1RM:{userProfile.bench1rm}kg</span>}
-                            {userProfile.runSpm && <span className="text-emerald-400">SPM:{userProfile.runSpm}</span>}
                             {userProfile.tdee && <span className="text-orange-400">TDEE:{userProfile.tdee}</span>}
                         </div>
                     )}
-                    <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="例如：增肌減脂、半馬訓練..." className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] mb-4" />
+                    <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={genType === 'workout' ? "例如：增肌減脂、半馬訓練..." : "例如：低碳飲食、增肌高蛋白..."} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] mb-4" />
                     <button onClick={generatePlan} disabled={loading || !goal.trim()} className={`w-full text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-colors ${genType === 'workout' ? 'bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500' : 'bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-500'}`}>{loading ? <Icon name="loader2" className="animate-spin w-5 h-5" /> : <Icon name="sparkles" className="w-5 h-5" />}<span>{loading ? "分析中..." : "開始生成"}</span></button>
                 </div>
             </div>
@@ -485,10 +482,16 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = editingText;
             } else if (logType === 'run') {
                 dataToSave.data = runData;
-                dataToSave.content = `[跑步] ${runData.distance ? `${runData.distance}km | ` : ''}${runData.time ? `${runData.time}分` : ''} ${runData.pace ? `| ${runData.pace}/km` : ''} ${runData.power ? `| ${runData.power}W` : ''}`;
+                // Beautified content string for display
+                const parts = [];
+                if (runData.distance) parts.push(`${runData.distance}km`);
+                if (runData.time) parts.push(`${runData.time}min`);
+                if (runData.pace) parts.push(`${runData.pace}/km`);
+                
+                dataToSave.content = parts.join(' | ') || '跑步訓練';
             } else if (logType === 'weight') {
                 dataToSave.data = weightData;
-                dataToSave.content = `[重訓] ${weightData.action} | ${weightData.sets}組 | ${weightData.weight}kg`;
+                dataToSave.content = `${weightData.action} ${weightData.weight}kg x ${weightData.sets}組`;
             }
 
             await methods.setDoc(methods.doc(db, "users", user.uid, "logs", selectedDate), dataToSave, { merge: true });
@@ -504,28 +507,33 @@ const CalendarView = ({ user, db, methods }) => {
     const renderCalendarGrid = () => {
         const days = [];
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
+        
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
             const hasLog = !!logData;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
             
-            let logColor = "text-slate-400";
-            let dotColor = "bg-slate-500";
-            
-            if (hasLog) {
-                if (logData.type === 'run') { logColor = "text-sky-400"; dotColor = "bg-sky-500"; }
-                else if (logData.type === 'weight') { logColor = "text-orange-400"; dotColor = "bg-orange-500"; }
-                else { logColor = "text-emerald-400"; dotColor = "bg-emerald-500"; }
-            }
-            
             days.push(
                 <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
                     <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
                     {hasLog && (
-                        <div className="mt-1 overflow-hidden">
-                            <div className="flex items-center gap-1 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div></div>
-                            <div className={`text-[10px] truncate leading-tight ${logColor}`}>{logData.content}</div>
+                        <div className="mt-1 overflow-hidden flex flex-col gap-1">
+                            {logData.type === 'run' ? (
+                                <div className="bg-sky-500/20 text-sky-300 px-1.5 py-1 rounded text-[10px] font-bold flex items-center gap-1 truncate">
+                                    <Icon name="activity" className="w-3 h-3 flex-shrink-0" />
+                                    <span>{logData.content}</span>
+                                </div>
+                            ) : logData.type === 'weight' ? (
+                                <div className="bg-orange-500/20 text-orange-300 px-1.5 py-1 rounded text-[10px] font-bold flex items-center gap-1 truncate">
+                                    <Icon name="dumbbell" className="w-3 h-3 flex-shrink-0" />
+                                    <span>{logData.content}</span>
+                                </div>
+                            ) : (
+                                <div className="bg-slate-700/50 text-slate-300 px-1.5 py-1 rounded text-[10px] truncate border-l-2 border-slate-500">
+                                    {logData.content}
+                                </div>
+                            )}
                         </div>
                     )}
                     {!hasLog && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="check" className="w-4 h-4 text-slate-600" /></div>}

@@ -103,7 +103,7 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
 // --- Firebase Methods (Static) ---
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
-// --- Setup Screen: 第一次使用時設定 Firebase ---
+// --- Setup Screen ---
 const FirebaseSetup = ({ onComplete }) => {
     const [configJson, setConfigJson] = useState('');
     const [error, setError] = useState(null);
@@ -282,7 +282,8 @@ const useFirebase = () => {
     };
 };
 
-// --- Components (Modals & Views) ---
+// --- Components ---
+
 const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
     const [inputKey, setInputKey] = useState(initialValue || '');
     const handleClearKey = () => {
@@ -337,8 +338,6 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
         </div>
     );
 };
-
-// --- Views ---
 
 // 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
@@ -495,7 +494,8 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
             systemPrompt = `你是一位專業健身教練。請根據使用者資料與近期紀錄，設計一週訓練課表。
             要求：
             1. 參考「最近訓練紀錄」來安排適當的負荷（若最近練很勤則安排恢復，若久未練則安排適應期）。
-            2. 使用 Markdown 格式，包含 ## 標題。`;
+            2. 使用 Markdown 格式，包含 ## 標題。
+            3. 如果有表格，請使用 Markdown Table 格式 (| 標題 |...)。`;
         } else {
              systemPrompt = `你是一位專業營養師。請根據資料(特別是TDEE與近期運動消耗)設計一日三餐飲食建議與熱量分配。
              目標：${goal}。
@@ -531,7 +531,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 }
             } else { throw new Error("AI 無法生成內容"); }
         } catch (err) {
-            // Error handling with link for API enabling
             setError(String(err.message));
             if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(() => requireKey(), 2000);
         } finally { setLoading(false); }
@@ -544,17 +543,99 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         });
     };
 
-    const renderPlan = (text) => text.split('\n').map((line, i) => {
-        if (line.startsWith('## ')) return <h2 key={i} className="text-emerald-400 font-bold text-xl mt-6 mb-3 border-b border-emerald-500/20 pb-2">{line.replace('## ', '')}</h2>;
-        if (line.startsWith('### ')) return <h3 key={i} className="text-slate-100 font-bold text-lg mt-4 mb-2">{line.replace('### ', '')}</h3>;
-        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) return <li key={i} className="text-slate-300 ml-4 list-disc mb-1">{line.trim().substring(2)}</li>;
-        return <p key={i} className="text-slate-400 mb-2">{line}</p>;
-    });
+    // 🌟 Enhanced Markdown Renderer with Table Support
+    const renderPlan = (text) => {
+        const lines = text.split('\n');
+        const elements = [];
+        let tableBuffer = [];
+        let inTable = false;
+
+        // Bold formatting helper
+        const formatText = (str) => {
+            const parts = str.split(/(\*\*.*?\*\*)/g);
+            return parts.map((part, index) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={index} className="text-emerald-400 font-bold">{part.slice(2, -2)}</strong>;
+                }
+                return part;
+            });
+        };
+
+        // Render collected table rows
+        const renderTable = (rows, keyPrefix) => {
+            if (rows.length < 2) return null;
+            
+            // Extract headers and data
+            const headers = rows[0].split('|').map(c => c.trim()).filter(c => c);
+            const dataRows = rows.slice(2).map(row => 
+                row.split('|').map(c => c.trim()).filter(c => c !== '') // Keep all cells even if empty, filter pure empty splits
+            ).filter(row => row.length > 0);
+
+            return (
+                <div key={keyPrefix} className="my-6 overflow-x-auto rounded-xl border border-white/10 shadow-xl">
+                    <table className="w-full text-sm text-left text-slate-300">
+                        <thead className="text-xs text-emerald-400 uppercase bg-black/40 border-b border-white/10">
+                            <tr>
+                                {headers.map((h, i) => <th key={i} className="px-6 py-3">{h}</th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {dataRows.map((row, i) => (
+                                <tr key={i} className="bg-white/5 border-b border-white/5 hover:bg-white/10 transition-colors">
+                                    {row.map((cell, j) => <td key={j} className="px-6 py-4">{formatText(cell)}</td>)}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        lines.forEach((line, i) => {
+            const trimmed = line.trim();
+            
+            // Detect Table lines (must start and end with | ideally, or just start)
+            if (trimmed.startsWith('|')) {
+                if (!inTable) inTable = true;
+                tableBuffer.push(trimmed);
+            } else {
+                // If we were in a table and hit a non-table line, render the table
+                if (inTable) {
+                    if (tableBuffer.length > 0) elements.push(renderTable(tableBuffer, `table-${i}`));
+                    tableBuffer = [];
+                    inTable = false;
+                }
+
+                // Normal Line Rendering
+                if (trimmed === '') {
+                    elements.push(<div key={i} className="h-2"></div>);
+                } else if (trimmed.startsWith('## ')) {
+                    elements.push(<h2 key={i} className="text-emerald-400 font-bold text-xl mt-8 mb-4 border-b border-emerald-500/30 pb-2">{trimmed.replace('## ', '')}</h2>);
+                } else if (trimmed.startsWith('### ')) {
+                    elements.push(<h3 key={i} className="text-white font-bold text-lg mt-6 mb-3 flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>{trimmed.replace('### ', '')}</h3>);
+                } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                    elements.push(<li key={i} className="text-slate-300 ml-4 list-disc mb-1 pl-1 marker:text-emerald-500/50">{formatText(trimmed.substring(2))}</li>);
+                } else if (trimmed === '---') {
+                    elements.push(<hr key={i} className="border-white/10 my-6" />);
+                } else {
+                    elements.push(<p key={i} className="text-slate-400 mb-2 leading-relaxed">{formatText(line)}</p>);
+                }
+            }
+        });
+
+        // Flush any remaining table at the end
+        if (tableBuffer.length > 0) {
+            elements.push(renderTable(tableBuffer, 'table-end'));
+        }
+
+        return elements;
+    };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sticky top-8">
+                     {/* Toggle Switch */}
                     <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
                         <button onClick={() => setGenType('workout')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'workout' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-4 h-4" /> 運動課表</button>
                         <button onClick={() => setGenType('diet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'diet' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="utensils" className="w-4 h-4" /> 飲食菜單</button>
@@ -578,28 +659,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 </div>
             </div>
             <div className="lg:col-span-8">
-                {error && (
-                    <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-sm break-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Icon name="alertcircle" className="w-4 h-4 shrink-0" />
-                            <p className="font-bold">發生錯誤</p>
-                        </div>
-                        <p>{error}</p>
-                        {error.includes("Generative Language API") && (
-                            <div className="mt-2 p-2 bg-black/20 rounded border border-red-500/20">
-                                <p className="mb-1">您的 Google Cloud 專案尚未啟用 Gemini API。</p>
-                                <a 
-                                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="text-emerald-400 underline hover:text-emerald-300 font-bold"
-                                >
-                                    點擊這裡前往啟用 API
-                                </a>
-                            </div>
-                        )}
-                    </div>
-                )}
+                {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>

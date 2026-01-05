@@ -417,16 +417,6 @@ const DashboardView = ({ userLogs, userProfile }) => {
     const bmiValue = userProfile?.height && userProfile?.weight 
         ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
         : '--';
-    
-    // Helper to get range label
-    const getRangeLabel = () => {
-        switch(statsRange) {
-            case 'week': return '本週';
-            case 'month': return '本月';
-            case 'year': return '今年';
-            default: return '本週';
-        }
-    };
 
     const renderRunChart = () => {
         if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
@@ -738,7 +728,28 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 </div>
             </div>
             <div className="lg:col-span-8">
-                {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
+                {error && (
+                    <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2 text-sm break-all">
+                        <div className="flex items-center gap-2">
+                            <Icon name="alertcircle" className="w-4 h-4 shrink-0" />
+                            <p className="font-bold">發生錯誤</p>
+                        </div>
+                        <p>{error}</p>
+                        {error.includes("Generative Language API") && (
+                            <div className="p-2 bg-black/20 rounded border border-red-500/20 mt-1">
+                                <p className="mb-1 text-xs text-red-300">Google Cloud 專案尚未啟用 AI 服務。</p>
+                                <a 
+                                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-emerald-400 underline hover:text-emerald-300 font-bold flex items-center gap-1"
+                                >
+                                    點擊前往啟用 API <Icon name="chevronright" className="w-3 h-3" />
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                )}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
@@ -760,7 +771,7 @@ const CalendarView = ({ user, db, methods, logs }) => {
     // Form States
     const [logType, setLogType] = useState('general'); 
     const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); 
-    const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
+    const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '', reps: '' }); // Added reps
     const [editingText, setEditingText] = useState("");
     const [weightExercises, setWeightExercises] = useState([]);
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
@@ -815,9 +826,10 @@ const CalendarView = ({ user, db, methods, logs }) => {
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
         
+        // Reset forms
         setLogType('general');
         setRunData({ time: '', distance: '', pace: '', power: '' }); 
-        setWeightData({ action: '', sets: '', weight: '' });
+        setWeightData({ action: '', sets: '', weight: '', reps: '' });
         setWeightExercises([]);
         setEditingText("");
 
@@ -843,8 +855,12 @@ const CalendarView = ({ user, db, methods, logs }) => {
     const handleAddWeightExercise = () => {
         if (!weightData.action) return;
         const newExercise = { ...weightData };
+        // Auto Calculate Volume
+        if (newExercise.weight && newExercise.sets && newExercise.reps) {
+            newExercise.volume = parseFloat(newExercise.weight) * parseFloat(newExercise.sets) * parseFloat(newExercise.reps);
+        }
         setWeightExercises([...weightExercises, newExercise]);
-        setWeightData({ action: '', sets: '', weight: '' }); 
+        setWeightData({ action: '', sets: '', weight: '', reps: '' }); 
     };
 
     const handleRemoveWeightExercise = (index) => {
@@ -882,7 +898,11 @@ const CalendarView = ({ user, db, methods, logs }) => {
             } else if (logType === 'weight') {
                 let currentExercises = [...weightExercises];
                 if (weightData.action) {
-                    currentExercises.push(weightData);
+                    const ex = {...weightData};
+                    if (ex.weight && ex.sets && ex.reps) {
+                        ex.volume = parseFloat(ex.weight) * parseFloat(ex.sets) * parseFloat(ex.reps);
+                    }
+                    currentExercises.push(ex);
                 }
 
                 if (currentExercises.length === 0) {
@@ -976,21 +996,43 @@ const CalendarView = ({ user, db, methods, logs }) => {
                             
                             {logType === 'weight' && (
                                 <div className="space-y-4">
+                                    <div className="mb-2">
+                                        <label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label>
+                                        <input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="例如：深蹲" />
+                                    </div>
                                     <div className="flex gap-2">
-                                        <div className="flex-1"><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="深蹲" /></div>
-                                        <div className="w-20"><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="5" /></div>
-                                        <div className="w-24"><label className="text-xs text-orange-400 font-bold block mb-1">重量(kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="100" /></div>
-                                        <div className="flex items-end"><button onClick={handleAddWeightExercise} className="bg-orange-500 hover:bg-orange-400 text-black p-3 rounded-xl"><Icon name="plus" className="w-5 h-5" /></button></div>
+                                        <div className="flex-1">
+                                            <label className="text-xs text-orange-400 font-bold block mb-1">重量(kg)</label>
+                                            <input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="100" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-xs text-orange-400 font-bold block mb-1">組數</label>
+                                            <input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="5" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-xs text-orange-400 font-bold block mb-1">次數(Reps)</label>
+                                            <input type="number" value={weightData.reps} onChange={(e) => setWeightData({...weightData, reps: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500 text-center" placeholder="10" />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button onClick={handleAddWeightExercise} className="bg-orange-500 hover:bg-orange-400 text-black p-3 rounded-xl shadow-lg active:scale-95 transition-all"><Icon name="plus" className="w-5 h-5" /></button>
+                                        </div>
                                     </div>
                                     
                                     {/* Added Exercises List */}
-                                    <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
                                         {weightExercises.map((ex, i) => (
                                             <div key={i} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
-                                                <span className="text-sm text-white">{ex.action} - <span className="text-orange-400">{ex.weight}kg</span> x {ex.sets}組</span>
-                                                <button onClick={() => handleRemoveWeightExercise(i)} className="text-slate-500 hover:text-red-400"><Icon name="trash2" className="w-4 h-4" /></button>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-white">{ex.action}</span>
+                                                    <span className="text-xs text-slate-400">
+                                                        <span className="text-orange-400 font-bold">{ex.weight}kg</span> x {ex.sets}組 x {ex.reps}下 
+                                                        {ex.volume ? <span className="text-slate-500 ml-1"> (總量: {ex.volume}kg)</span> : ''}
+                                                    </span>
+                                                </div>
+                                                <button onClick={() => handleRemoveWeightExercise(i)} className="text-slate-500 hover:text-red-400 p-2"><Icon name="trash2" className="w-4 h-4" /></button>
                                             </div>
                                         ))}
+                                        {weightExercises.length === 0 && <div className="text-center text-slate-600 text-xs py-2">尚未加入動作</div>}
                                     </div>
                                 </div>
                             )}

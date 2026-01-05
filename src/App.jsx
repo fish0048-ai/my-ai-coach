@@ -100,8 +100,7 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
   );
 };
 
-// --- Firebase Methods (Static - 解決讀取洩漏) ---
-// 這裡定義一個物件來包裝方法，但實際的 db 實例會在 useFirebase 中動態注入
+// --- Firebase Methods (Static) ---
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
 // --- Setup Screen: 第一次使用時設定 Firebase ---
@@ -111,31 +110,40 @@ const FirebaseSetup = ({ onComplete }) => {
 
     const handleSave = () => {
         try {
-            // 嘗試從貼上的內容中提取 JSON
-            let jsonString = configJson;
-            // 如果使用者貼上的是完整的 const firebaseConfig = {...}
-            if (jsonString.includes('const firebaseConfig =')) {
-                const match = jsonString.match(/\{[\s\S]*\}/);
-                if (match) jsonString = match[0];
-            }
-            // 如果使用者貼上的是 export const ...
-            if (jsonString.includes('export const')) {
-                const match = jsonString.match(/\{[\s\S]*\}/);
-                if (match) jsonString = match[0];
-            }
+            let cleanString = configJson.trim();
             
-            // 簡單處理 key 沒有引號的情況 (常見於直接複製 JS 物件)
-            // 這不是完美的 parser 但能處理常見情況
-            const fixedJson = jsonString.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2": ').replace(/'/g, '"');
+            // 1. 嘗試提取大括號內的內容 (針對 const firebaseConfig = { ... };)
+            const jsonStartIndex = cleanString.indexOf('{');
+            const jsonEndIndex = cleanString.lastIndexOf('}');
             
+            if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+                cleanString = cleanString.substring(jsonStartIndex, jsonEndIndex + 1);
+            }
+
+            // 2. 移除註解 (// ...)
+            cleanString = cleanString.replace(/\/\/.*$/gm, '');
+
+            // 3. 處理 JS 物件格式轉 JSON
+            // 將沒有引號的 key 加上雙引號 (例如 apiKey: -> "apiKey":)
+            let fixedString = cleanString.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":');
+            
+            // 將單引號值的字串改為雙引號 (例如 'AIza...' -> "AIza...")
+            fixedString = fixedString.replace(/'([^']*)'/g, '"$1"');
+            
+            // 移除尾隨逗號 (例如 "appId": "..." , } -> "appId": "..." })
+            fixedString = fixedString.replace(/,(\s*})/g, '$1');
+
             let config;
             try {
-                config = JSON.parse(jsonString); // 先試試看標準 JSON
-            } catch {
+                // 嘗試解析處理後的字串
+                config = JSON.parse(fixedString);
+            } catch (e1) {
+                // 如果失敗，嘗試解析原始輸入（假設使用者貼的是純 JSON）
                 try {
-                    config = JSON.parse(fixedJson); // 再試試看修復後的
+                    config = JSON.parse(cleanString);
                 } catch (e2) {
-                    throw new Error("無法解析設定檔，請確保複製的是完整的 { ... } 區塊");
+                    console.error("Parsing error:", e1, e2);
+                    throw new Error("無法解析設定格式。請確認您複製的是 Firebase Console 中的完整物件內容 (包含大括號)。");
                 }
             }
             
@@ -349,6 +357,8 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
         </div>
     );
 };
+
+// --- Views ---
 
 // 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
@@ -1474,22 +1484,24 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
 
 // --- App Root ---
 const App = () => {
-    const { user, loading, login, loginAnonymous, logout, db, methods, authError, isConfigured, resetConfig } = useFirebase();
+    const { user, loading, login, loginAnonymous, logout, db, methods, authError, isConfigured, resetConfig } = useFirebase(); // Added loginAnonymous
     const [currentTab, setCurrentTab] = useState('generator');
     const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_key') || '');
     const [showKeyModal, setShowKeyModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userProfile, setUserProfile] = useState(null);
-    const [userLogs, setUserLogs] = useState({});
+    const [userLogs, setUserLogs] = useState({}); // New State for Logs
 
     useEffect(() => {
         if (!user || !db) return;
         
+        // 1. Fetch Profile
         const unsubProfile = methods.onSnapshot(methods.doc(db, "users", user.uid), (doc) => {
             if (doc.exists()) setUserProfile(doc.data());
             else methods.setDoc(methods.doc(db, "users", user.uid), { email: user.isAnonymous ? 'guest' : user.email, joined: new Date() });
         });
 
+        // 2. Fetch Logs (Lifted State)
         const q = methods.collection(db, "users", user.uid, "logs");
         const unsubLogs = methods.onSnapshot(q, (snapshot) => {
             const newLogs = {};

@@ -417,6 +417,16 @@ const DashboardView = ({ userLogs, userProfile }) => {
     const bmiValue = userProfile?.height && userProfile?.weight 
         ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
         : '--';
+    
+    // Helper to get range label
+    const getRangeLabel = () => {
+        switch(statsRange) {
+            case 'week': return '本週';
+            case 'month': return '本月';
+            case 'year': return '今年';
+            default: return '本週';
+        }
+    };
 
     const renderRunChart = () => {
         if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
@@ -728,28 +738,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 </div>
             </div>
             <div className="lg:col-span-8">
-                {error && (
-                    <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2 text-sm break-all">
-                        <div className="flex items-center gap-2">
-                            <Icon name="alertcircle" className="w-4 h-4 shrink-0" />
-                            <p className="font-bold">發生錯誤</p>
-                        </div>
-                        <p>{error}</p>
-                        {error.includes("Generative Language API") && (
-                            <div className="p-2 bg-black/20 rounded border border-red-500/20 mt-1">
-                                <p className="mb-1 text-xs text-red-300">Google Cloud 專案尚未啟用 AI 服務。</p>
-                                <a 
-                                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="text-emerald-400 underline hover:text-emerald-300 font-bold flex items-center gap-1"
-                                >
-                                    點擊前往啟用 API <Icon name="chevronright" className="w-3 h-3" />
-                                </a>
-                            </div>
-                        )}
-                    </div>
-                )}
+                {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>

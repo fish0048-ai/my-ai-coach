@@ -45,7 +45,7 @@ const loadScript = (src) => {
 // --- 內建圖標系統 ---
 const ICONS = {
   dumbbell: <path d="m6.5 6.5 11 11m-12.01-1.01 1 1m16.01-16.01-1-1m-4 18 4-4m-19.01-4.99 4-4m-3 8 7-7m7 14 7-7" />,
-  sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />,
+  sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />,
   calendar: <><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></>,
   activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
   wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />,
@@ -102,7 +102,7 @@ const Icon = ({ name, className = "w-5 h-5" }) => {
 // --- Firebase Methods (Static) ---
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
-// --- Setup Screen ---
+// --- Setup Screen: 第一次使用時設定 Firebase ---
 const FirebaseSetup = ({ onComplete }) => {
     const [configJson, setConfigJson] = useState('');
     const [error, setError] = useState(null);
@@ -341,38 +341,48 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // 1. Dashboard View
 const DashboardView = ({ userLogs, userProfile }) => {
-    // Basic Calculations
+    // Dynamic Stats Range
+    const [statsRange, setStatsRange] = useState('week'); // 'week', 'month', 'year'
+
     const totalLogs = Object.keys(userLogs).length;
     const sortedDates = Object.keys(userLogs).sort();
     
-    let totalRunDistance = 0;
-    const runTrend = [];
-
-    // Correctly calculate this week's logs
+    // Filter dates based on statsRange
     const now = new Date();
-    // Get Monday of current week
-    const monday = new Date(now);
-    const day = monday.getDay(); // 0 is Sun, 1 is Mon
-    const diff = monday.getDate() - day + (day === 0 ? -6 : 1); 
-    monday.setDate(diff);
-    monday.setHours(0,0,0,0);
+    let startDate = new Date();
+    
+    if (statsRange === 'week') {
+        // Start of current week (Monday)
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
+        startDate.setDate(diff);
+        startDate.setHours(0,0,0,0);
+    } else if (statsRange === 'month') {
+        // Start of current month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (statsRange === 'year') {
+        // Start of current year
+        startDate = new Date(now.getFullYear(), 0, 1);
+    }
 
-    let weeklyCount = 0;
+    let periodCount = 0;
+    let periodRunDistance = 0;
+    const runTrend = [];
 
     sortedDates.forEach(dateStr => {
         const log = userLogs[dateStr];
         const logDate = new Date(dateStr);
         
-        // Calculate weekly count
-        if (logDate >= monday) {
-            weeklyCount++;
-        }
-
-        if (log.type === 'run' && log.data?.distance) {
-            const dist = parseFloat(log.data.distance);
-            if (!isNaN(dist)) {
-                totalRunDistance += dist;
-                runTrend.push(dist);
+        // Check if log is within the selected range
+        if (logDate >= startDate) {
+            periodCount++;
+            
+            if (log.type === 'run' && log.data?.distance) {
+                const dist = parseFloat(log.data.distance);
+                if (!isNaN(dist)) {
+                    periodRunDistance += dist;
+                    runTrend.push(dist);
+                }
             }
         }
     });
@@ -380,6 +390,16 @@ const DashboardView = ({ userLogs, userProfile }) => {
     const bmiValue = userProfile?.height && userProfile?.weight 
         ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
         : '--';
+    
+    // Helper to get range label
+    const getRangeLabel = () => {
+        switch(statsRange) {
+            case 'week': return '本週';
+            case 'month': return '本月';
+            case 'year': return '今年';
+            default: return '本週';
+        }
+    };
 
     const renderRunChart = () => {
         if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
@@ -416,12 +436,25 @@ const DashboardView = ({ userLogs, userProfile }) => {
 
     return (
         <div className="pb-24 max-w-lg mx-auto">
+            {/* Range Selector */}
+            <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl mb-6">
+                {['week', 'month', 'year'].map(r => (
+                    <button 
+                        key={r}
+                        onClick={() => setStatsRange(r)} 
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${statsRange === r ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                        {r === 'week' ? '本週' : r === 'month' ? '本月' : '今年'}
+                    </button>
+                ))}
+            </div>
+
             <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-[#111] border border-white/10 rounded-2xl p-4 shadow-xl">
                     <div className="flex items-center gap-2 text-emerald-400 mb-2 font-bold text-xs uppercase tracking-wider">
-                        <Icon name="activity" className="w-4 h-4" /> 本週訓練
+                        <Icon name="activity" className="w-4 h-4" /> {getRangeLabel()}訓練
                     </div>
-                    <div className="text-3xl font-black text-white">{weeklyCount} <span className="text-sm font-normal text-slate-500">次</span></div>
+                    <div className="text-3xl font-black text-white">{periodCount} <span className="text-sm font-normal text-slate-500">次</span></div>
                 </div>
                 <div className="bg-[#111] border border-white/10 rounded-2xl p-4 shadow-xl">
                     <div className="flex items-center gap-2 text-orange-400 mb-2 font-bold text-xs uppercase tracking-wider">
@@ -434,9 +467,9 @@ const DashboardView = ({ userLogs, userProfile }) => {
             <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl mb-6">
                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-sky-400 font-bold">
-                        <Icon name="linechart" className="w-5 h-5" /> 累積跑步里程
+                        <Icon name="linechart" className="w-5 h-5" /> 累積跑步里程 ({getRangeLabel()})
                     </div>
-                    <span className="text-2xl font-black text-white">{totalRunDistance.toFixed(1)} <span className="text-sm text-slate-500">km</span></span>
+                    <span className="text-2xl font-black text-white">{periodRunDistance.toFixed(1)} <span className="text-sm text-slate-500">km</span></span>
                  </div>
                  {renderRunChart()}
             </div>

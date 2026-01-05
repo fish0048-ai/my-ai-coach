@@ -39,7 +39,6 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
-  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -139,7 +138,6 @@ const useFirebase = () => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setLoading(false);
-            console.log("👤 Firebase Auth State Changed:", u ? "User Logged In" : "User Logged Out");
         });
 
         const timer = setTimeout(() => {
@@ -168,7 +166,7 @@ const useFirebase = () => {
             let msg = e.message;
             if (e.code === 'auth/unauthorized-domain') {
                 const domain = window.location.hostname;
-                msg = `⛔ 網域未授權 (Unauthorized Domain)\n\nFirebase 為了安全，攔截了此登入請求。\n\n請複製目前的網域：\n${domain}\n\n並前往 Firebase Console -> Authentication -> Settings -> Authorized domains 將其加入白名單。`;
+                msg = `⛔ 網域未授權：請複製下方網址至 Firebase Console 授權清單。`;
             } else if (e.code === 'auth/popup-closed-by-user') {
                 return;
             }
@@ -261,7 +259,7 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // --- Views ---
 
-const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) => {
+const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, userLogs }) => { // Received userLogs
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
     const [loading, setLoading] = useState(false);
@@ -292,21 +290,38 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         setLoading(true); setError(null); setPlan('');
 
         let profilePrompt = "";
+        let logsSummary = "";
+
+        // Summarize recent logs
+        if (userLogs && Object.keys(userLogs).length > 0) {
+            const sortedDates = Object.keys(userLogs).sort().reverse().slice(0, 7); // Last 7 days
+            logsSummary = "\n\n【最近 7 天訓練紀錄】(供參考)：\n" + sortedDates.map(date => `- ${date}: ${userLogs[date].content}`).join('\n');
+        }
+
         if (userProfile) {
             const { gender, age, height, weight, notes, bench1rm, runSpm, tdee } = userProfile;
             profilePrompt = `【使用者資料】性別:${gender}, 年齡:${age}, 身高:${height}cm, 體重:${weight}kg
-            ${bench1rm ? `- 實測臥推1RM: ${bench1rm}kg` : ''}
-            ${runSpm ? `- 實測跑步步頻: ${runSpm} SPM` : ''}
-            ${tdee ? `- 每日消耗(TDEE): ${tdee} kcal` : ''}
+            ${bench1rm ? `- 1RM:${bench1rm}kg` : ''} 
+            ${runSpm ? `- 跑步步頻:${runSpm}` : ''}
+            ${tdee ? `- TDEE:${tdee} kcal` : ''}
             - 備註/傷病:${notes||"無"}
+            ${logsSummary}
             請依此調整強度。`;
         }
         
         let systemPrompt = "";
         if (genType === 'workout') {
-            systemPrompt = `你是一位專業健身教練。請根據資料設計一週訓練課表。格式要求：使用 Markdown，包含 ## 標題。`;
+            systemPrompt = `你是一位專業健身教練。請根據使用者資料與近期紀錄，設計一週訓練課表。
+            要求：
+            1. 參考「最近訓練紀錄」來安排適當的負荷（若最近練很勤則安排恢復，若久未練則安排適應期）。
+            2. 使用 Markdown 格式，包含 ## 標題。`;
         } else {
-             systemPrompt = `你是一位專業營養師。請根據資料(特別是TDEE)設計一日三餐飲食建議與熱量分配。目標：${goal}。格式要求：使用 Markdown，包含 ## 標題，列出熱量與營養素估算。`;
+             systemPrompt = `你是一位專業營養師。請根據資料(特別是TDEE與近期運動消耗)設計一日三餐飲食建議與熱量分配。
+             目標：${goal}。
+             要求：
+             1. 針對使用者的 TDEE 計算熱量缺口或盈餘。
+             2. 參考運動紀錄來建議碳水與蛋白質攝取時機。
+             3. 使用 Markdown 格式，列出熱量與營養素估算。`;
         }
 
         try {
@@ -322,6 +337,9 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                 }
             );
             const data = await response.json();
+            
+            if (data.error) throw new Error(data.error.message || "Gemini API Error");
+            
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) { 
                 setPlan(text); 
@@ -384,7 +402,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
                         <div className="p-8 md:p-10 prose max-w-none">{renderPlan(plan)}</div>
                     </div>
-                ) : !loading && <div className="h-full min-h-[400px] border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center p-8 opacity-30"><Icon name={genType === 'workout' ? "dumbbell" : "utensils"} className="w-12 h-12 mb-4" /><p className="text-sm">在左側輸入目標，開始生成</p></div>}
+                ) : !loading && <div className="h-full min-h-[400px] border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center p-8 opacity-30"><Icon name="sparkles" className="w-12 h-12 mb-4" /><p className="text-sm">在左側輸入目標，開始生成</p></div>}
                 {loading && <div className="h-full min-h-[400px] bg-white/5 border border-white/10 rounded-[2rem] flex flex-col items-center justify-center text-center p-8"><Icon name="loader2" className="w-16 h-16 animate-spin text-emerald-500 mb-4" /><p className="text-emerald-500 font-bold animate-pulse text-xs tracking-widest">AI 正在計算最佳路徑...</p></div>}
             </div>
         </div>
@@ -392,10 +410,10 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
 };
 
 // 2. Calendar View
-const CalendarView = ({ user, db, methods }) => {
+const CalendarView = ({ user, db, methods, logs }) => { // Accept logs as prop
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
-    const [logs, setLogs] = useState({});
+    // Remove internal logs state: const [logs, setLogs] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
@@ -405,24 +423,7 @@ const CalendarView = ({ user, db, methods }) => {
     const [editingText, setEditingText] = useState("");
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
 
-    useEffect(() => {
-        if (!user || !db) return;
-        const q = methods.collection(db, "users", user.uid, "logs");
-        console.log("🔥 Firestore: Subscribing to user logs...");
-        
-        const unsubscribe = methods.onSnapshot(q, (snapshot) => {
-            const newLogs = {};
-            snapshot.forEach((doc) => {
-                newLogs[doc.id] = doc.data(); 
-            });
-            setLogs(newLogs);
-        });
-
-        return () => {
-             console.log("🛑 Firestore: Unsubscribing logs...");
-             unsubscribe();
-        }
-    }, [user, db, methods]);
+    // Removed internal useEffect for fetching logs
 
     const addTag = (tag) => {
         setEditingText(prev => {
@@ -431,13 +432,12 @@ const CalendarView = ({ user, db, methods }) => {
         });
     };
 
-    // Auto calculate run metrics
+    // Auto calculate run metrics (Same as before)
     const handleRunBlur = (field) => {
         let { distance, time, pace, power } = runData;
         let d = parseFloat(distance);
         let t = parseFloat(time);
         
-        // Parse pace (5:30 -> 5.5)
         let p = 0;
         if (pace && pace.includes(':')) {
             const [min, sec] = pace.split(':').map(Number);
@@ -476,7 +476,6 @@ const CalendarView = ({ user, db, methods }) => {
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
         
-        // Reset forms
         setLogType('general');
         setRunData({ time: '', distance: '', pace: '', power: '' }); 
         setWeightData({ action: '', sets: '', weight: '' });
@@ -485,7 +484,6 @@ const CalendarView = ({ user, db, methods }) => {
         const log = logs[dateStr];
         if (log) {
             setEditingText(log.content || "");
-            // Detect Type and populate data
             if (log.type === 'run') {
                 setLogType('run');
                 setRunData(log.data || { time: '', distance: '', pace: '', power: '' });
@@ -518,7 +516,6 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = editingText;
             } else if (logType === 'run') {
                 dataToSave.data = runData;
-                // Beautified content string for display in calendar
                 const parts = [];
                 if (runData.distance) parts.push(`${runData.distance}km`);
                 if (runData.time) parts.push(`${runData.time}min`);
@@ -543,12 +540,20 @@ const CalendarView = ({ user, db, methods }) => {
     const renderCalendarGrid = () => {
         const days = [];
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
-        
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
             const hasLog = !!logData;
             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+            
+            let logColor = "text-slate-400";
+            let dotColor = "bg-slate-500";
+            
+            if (hasLog) {
+                if (logData.type === 'run') { logColor = "text-sky-400"; dotColor = "bg-sky-500"; }
+                else if (logData.type === 'weight') { logColor = "text-orange-400"; dotColor = "bg-orange-500"; }
+                else { logColor = "text-emerald-400"; dotColor = "bg-emerald-500"; }
+            }
             
             days.push(
                 <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
@@ -1236,27 +1241,43 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
 
 // --- App Root ---
 const App = () => {
-    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase(); // Added loginAnonymous
+    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase();
     const [currentTab, setCurrentTab] = useState('generator');
     const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_key') || '');
     const [showKeyModal, setShowKeyModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userProfile, setUserProfile] = useState(null);
+    const [userLogs, setUserLogs] = useState({}); // New State for Logs
 
     useEffect(() => {
         if (!user || !db) return;
-        const unsub = methods.onSnapshot(methods.doc(db, "users", user.uid), (doc) => {
+        
+        // 1. Fetch Profile
+        const unsubProfile = methods.onSnapshot(methods.doc(db, "users", user.uid), (doc) => {
             if (doc.exists()) setUserProfile(doc.data());
             else methods.setDoc(methods.doc(db, "users", user.uid), { email: user.isAnonymous ? 'guest' : user.email, joined: new Date() });
         });
-        return () => unsub();
+
+        // 2. Fetch Logs (Lifted State)
+        const q = methods.collection(db, "users", user.uid, "logs");
+        const unsubLogs = methods.onSnapshot(q, (snapshot) => {
+            const newLogs = {};
+            snapshot.forEach((doc) => {
+                newLogs[doc.id] = doc.data(); 
+            });
+            setUserLogs(newLogs);
+        });
+
+        return () => {
+            unsubProfile();
+            unsubLogs();
+        };
     }, [user, db, methods]);
 
     const handleUpdateProfile = async (data, note) => {
         if (!db || !user) return;
         try {
             await methods.updateDoc(methods.doc(db, "users", user.uid), data);
-            // note 可以選擇性寫入日誌集合，此處省略以保持簡潔
             setShowProfileModal(false);
         } catch(e) { console.error("Update profile failed:", e); }
     };
@@ -1277,7 +1298,6 @@ const App = () => {
                     訪客試用 (無需登入)
                 </button>
 
-                {/* 增加未設定 Config 的提示 */}
                 {firebaseConfig.apiKey.includes("請填入") && (
                     <div className="mt-6 p-4 bg-red-900/30 border border-red-500/30 rounded-xl text-left">
                         <p className="text-red-400 text-xs font-bold mb-2 flex items-center gap-2"><Icon name="alertcircle" className="w-4 h-4" /> 設定未完成</p>
@@ -1285,7 +1305,6 @@ const App = () => {
                     </div>
                 )}
                  
-                 {/* Helper to copy current domain for Firebase Auth */}
                  <div className="mt-6 p-3 bg-slate-800 rounded-xl text-xs text-left border border-slate-700">
                     <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
                     <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>
@@ -1325,8 +1344,8 @@ const App = () => {
             </header>
 
             <main>
-                {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} />}
-                {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} />}
+                {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} userLogs={userLogs} />}
+                {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} logs={userLogs} />}
                 {currentTab === 'analysis' && <AnalysisView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
                 {currentTab === 'tools' && <ToolsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
             </main>

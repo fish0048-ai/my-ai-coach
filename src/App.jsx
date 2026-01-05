@@ -24,7 +24,7 @@ import {
 // --- Firebase Configuration ---
 // ⚠️ 重要：請務必將下方的字串替換為您自己的 Firebase Config ⚠️
 const firebaseConfig = {
-   apiKey: "AIzaSyAzu9c8N1AK_2OhbEafQ3ul2EpjzL4mQp0",
+  apiKey: "AIzaSyAzu9c8N1AK_2OhbEafQ3ul2EpjzL4mQp0",
   authDomain: "myaicoach-e38d7.firebaseapp.com",
   projectId: "myaicoach-e38d7",
   storageBucket: "myaicoach-e38d7.firebasestorage.app",
@@ -39,7 +39,6 @@ let firestoreDB = null;
 let googleProvider = null;
 
 try {
-  // 只有在 Config 看起來正確時才初始化，避免立刻崩潰
   if (!firebaseConfig.apiKey.includes("請填入")) {
       app = initializeApp(firebaseConfig);
       auth = getAuth(app);
@@ -229,7 +228,7 @@ const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
 };
 
 const ProfileModal = ({ onSave, initialData, onClose }) => {
-    const [formData, setFormData] = useState(initialData || { gender: '未設定', age: '', height: '', weight: '', notes: '', bench1rm: '', runSpm: '' });
+    const [formData, setFormData] = useState(initialData || { gender: '未設定', age: '', height: '', weight: '', notes: '', bench1rm: '', runSpm: '', tdee: '' });
     const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
@@ -247,6 +246,7 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
                         <div><label className="block text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">臥推 1RM (kg)</label><input type="number" name="bench1rm" value={formData.bench1rm} onChange={handleChange} className="w-full bg-slate-800/50 border border-emerald-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500" placeholder="尚未測量" /></div>
                         <div><label className="block text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">跑步步頻 (SPM)</label><input type="number" name="runSpm" value={formData.runSpm} onChange={handleChange} className="w-full bg-slate-800/50 border border-emerald-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500" placeholder="尚未測量" /></div>
                     </div>
+                    <div><label className="block text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">每日消耗 TDEE (kcal)</label><input type="number" name="tdee" value={formData.tdee} onChange={handleChange} className="w-full bg-slate-800/50 border border-orange-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="尚未測量" /></div>
                     <div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身體狀況 / 備註</label><textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="例如：左膝蓋曾受傷..." className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[80px]" /></div>
                 </div>
                 <button onClick={() => onSave(formData)} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all mt-6 shadow-lg shadow-emerald-500/20 active:scale-95">儲存資料</button>
@@ -286,10 +286,11 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
 
         let profilePrompt = "";
         if (userProfile) {
-            const { gender, age, height, weight, notes, bench1rm, runSpm } = userProfile;
+            const { gender, age, height, weight, notes, bench1rm, runSpm, tdee } = userProfile;
             profilePrompt = `【使用者資料】性別:${gender}, 年齡:${age}, 身高:${height}cm, 體重:${weight}kg
             ${bench1rm ? `- 實測臥推1RM: ${bench1rm}kg` : ''}
             ${runSpm ? `- 實測跑步步頻: ${runSpm} SPM` : ''}
+            ${tdee ? `- 每日熱量消耗(TDEE): ${tdee} kcal` : ''}
             - 備註/傷病:${notes||"無"}
             請依此調整強度。`;
         }
@@ -371,11 +372,11 @@ const CalendarView = ({ user, db, methods }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [logs, setLogs] = useState({});
+    const [editingText, setEditingText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     
     // Form States
     const [logType, setLogType] = useState('general'); 
-    const [editingText, setEditingText] = useState("");
     const [runData, setRunData] = useState({ time: '', pace: '', power: '' });
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
@@ -442,9 +443,7 @@ const CalendarView = ({ user, db, methods }) => {
         if (!user || !db || !selectedDate) return;
         setIsLoading(true);
         try {
-            const docRef = methods.doc(db, "users", user.uid, "logs", selectedDate);
-            
-            // Prepare Data to Save
+            let finalContent = editingText;
             let dataToSave = { 
                 type: logType,
                 updatedAt: new Date()
@@ -452,7 +451,7 @@ const CalendarView = ({ user, db, methods }) => {
 
             if (logType === 'general') {
                 if (!editingText.trim()) {
-                    await methods.deleteDoc(docRef);
+                    await methods.deleteDoc(methods.doc(db, "users", user.uid, "logs", selectedDate));
                     setSelectedDate(null);
                     setIsLoading(false);
                     return;
@@ -466,11 +465,11 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = `[重訓] ${weightData.action} | ${weightData.sets}組 | ${weightData.weight}kg`;
             }
 
-            await methods.setDoc(docRef, dataToSave, { merge: true });
+            await methods.setDoc(methods.doc(db, "users", user.uid, "logs", selectedDate), dataToSave, { merge: true });
             setSelectedDate(null); 
         } catch (e) {
             console.error("Save failed:", e);
-            alert("儲存失敗");
+            alert("儲存失敗，請檢查網路連線");
         } finally {
             setIsLoading(false);
         }
@@ -892,7 +891,7 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
 };
 
 // --- 工具箱 (Multiple Tools) ---
-const ToolsView = () => {
+const ToolsView = ({ userProfile, onUpdateProfile }) => {
     const [activeTool, setActiveTool] = useState('bmi');
     
     // BMI State
@@ -913,6 +912,22 @@ const ToolsView = () => {
     const [liftWeight, setLiftWeight] = useState('');
     const [reps, setReps] = useState('');
     const [oneRm, setOneRm] = useState(null);
+
+    // Init from Profile
+    useEffect(() => {
+        if (userProfile) {
+            if (userProfile.height) {
+                setHeight(userProfile.height);
+                setTdeeHeight(userProfile.height);
+            }
+            if (userProfile.weight) {
+                setWeight(userProfile.weight);
+                setTdeeWeight(userProfile.weight);
+            }
+            if (userProfile.age) setTdeeAge(userProfile.age);
+            if (userProfile.gender) setTdeeGender(userProfile.gender === '女' ? 'female' : 'male');
+        }
+    }, [userProfile]);
 
     // BMI Calculation
     const calculateBMI = () => { 
@@ -943,8 +958,22 @@ const ToolsView = () => {
         if (!liftWeight || !reps) return;
         const w = parseFloat(liftWeight);
         const r = parseFloat(reps);
-        // Epley formula: 1RM = w * (1 + r/30)
         setOneRm(Math.round(w * (1 + r / 30)));
+    };
+
+    // Save Functions
+    const saveTDEE = () => {
+        if (tdee && onUpdateProfile) {
+            onUpdateProfile({ tdee: tdee }, `Updated TDEE: ${tdee} kcal`);
+            alert("TDEE 已儲存至個人檔案！");
+        }
+    };
+
+    const save1RM = () => {
+        if (oneRm && onUpdateProfile) {
+            onUpdateProfile({ bench1rm: oneRm }, `Updated 1RM: ${oneRm} kg`);
+            alert("1RM 已儲存至個人檔案！");
+        }
     };
 
     return (
@@ -1022,13 +1051,13 @@ const ToolsView = () => {
                         </div>
                     </div>
 
-                    <button onClick={calculateTDEE} className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-orange-500/10 active:scale-95 mb-8 transition-all">計算每日消耗</button>
+                    <button onClick={calculateTDEE} className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-orange-500/10 active:scale-95 mb-4 transition-all">計算每日消耗</button>
 
                     {tdee && (
                         <div className="text-center animate-in slide-in-from-bottom-2">
                             <p className="text-slate-400 text-sm mb-1">每日建議攝取熱量</p>
                             <div className="text-6xl font-black text-white mb-2 tracking-tighter">{tdee} <span className="text-xl text-slate-500 font-normal">kcal</span></div>
-                            <div className="text-xs text-slate-500">此數值為維持體重所需熱量</div>
+                            <button onClick={saveTDEE} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full transition-colors">儲存至個人檔案</button>
                         </div>
                     )}
                 </div>
@@ -1053,13 +1082,14 @@ const ToolsView = () => {
                         </div>
                     </div>
 
-                    <button onClick={calculate1RM} className="w-full bg-sky-500 hover:bg-sky-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-sky-500/10 active:scale-95 mb-8 transition-all">計算極限重量</button>
+                    <button onClick={calculate1RM} className="w-full bg-sky-500 hover:bg-sky-400 text-black font-bold py-4 rounded-xl shadow-lg shadow-sky-500/10 active:scale-95 mb-4 transition-all">計算極限重量</button>
 
                     {oneRm && (
                         <div className="text-center animate-in slide-in-from-bottom-2">
                             <p className="text-slate-400 text-sm mb-1">預估最大肌力 (1RM)</p>
                             <div className="text-6xl font-black text-white mb-2 tracking-tighter">{oneRm} <span className="text-xl text-slate-500 font-normal">kg</span></div>
-                            <div className="grid grid-cols-3 gap-2 mt-6 pt-6 border-t border-white/5">
+                            <button onClick={save1RM} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full transition-colors mb-4">儲存至個人檔案</button>
+                            <div className="grid grid-cols-3 gap-2 mt-2 pt-4 border-t border-white/5">
                                 <div><div className="text-xs text-slate-500 mb-1">肌肥大 (8-12RM)</div><div className="font-bold text-sky-400">{Math.round(oneRm * 0.75)} kg</div></div>
                                 <div><div className="text-xs text-slate-500 mb-1">最大肌力 (1-5RM)</div><div className="font-bold text-sky-400">{Math.round(oneRm * 0.90)} kg</div></div>
                                 <div><div className="text-xs text-slate-500 mb-1">爆發力 (3-6RM)</div><div className="font-bold text-sky-400">{Math.round(oneRm * 0.60)} kg</div></div>
@@ -1074,7 +1104,7 @@ const ToolsView = () => {
 
 // --- App Root ---
 const App = () => {
-    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase(); // Added loginAnonymous
+    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase();
     const [currentTab, setCurrentTab] = useState('generator');
     const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_key') || '');
     const [showKeyModal, setShowKeyModal] = useState(false);
@@ -1094,7 +1124,6 @@ const App = () => {
         if (!db || !user) return;
         try {
             await methods.updateDoc(methods.doc(db, "users", user.uid), data);
-            // note 可以選擇性寫入日誌集合，此處省略以保持簡潔
             setShowProfileModal(false);
         } catch(e) { console.error("Update profile failed:", e); }
     };
@@ -1115,7 +1144,6 @@ const App = () => {
                     訪客試用 (無需登入)
                 </button>
 
-                {/* 增加未設定 Config 的提示 */}
                 {firebaseConfig.apiKey.includes("請填入") && (
                     <div className="mt-6 p-4 bg-red-900/30 border border-red-500/30 rounded-xl text-left">
                         <p className="text-red-400 text-xs font-bold mb-2 flex items-center gap-2"><Icon name="alertcircle" className="w-4 h-4" /> 設定未完成</p>
@@ -1123,7 +1151,6 @@ const App = () => {
                     </div>
                 )}
                  
-                 {/* Helper to copy current domain for Firebase Auth */}
                  <div className="mt-6 p-3 bg-slate-800 rounded-xl text-xs text-left border border-slate-700">
                     <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
                     <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>
@@ -1166,7 +1193,7 @@ const App = () => {
                 {currentTab === 'generator' && <GeneratorView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} db={db} user={user} methods={methods} />}
                 {currentTab === 'calendar' && <CalendarView user={user} db={db} methods={methods} />}
                 {currentTab === 'analysis' && <AnalysisView apiKey={effectiveApiKey} requireKey={()=>setShowKeyModal(true)} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
-                {currentTab === 'tools' && <ToolsView />}
+                {currentTab === 'tools' && <ToolsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />}
             </main>
 
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-white/10 p-2 rounded-2xl flex gap-4 shadow-2xl backdrop-blur-md z-40">

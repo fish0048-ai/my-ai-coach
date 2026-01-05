@@ -232,7 +232,7 @@ const ApiKeyModal = ({ onSave, initialValue, onClose }) => {
 };
 
 const ProfileModal = ({ onSave, initialData, onClose }) => {
-    const [formData, setFormData] = useState(initialData || { gender: '未設定', age: '', height: '', weight: '', notes: '', bench1rm: '', runSpm: '', tdee: '' });
+    const [formData, setFormData] = useState(initialData || { gender: '未設定', age: '', height: '', weight: '', notes: '', supplements: '', bench1rm: '', runSpm: '', tdee: '' }); // Added supplements
     const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
@@ -251,6 +251,10 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
                         <div><label className="block text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">跑步步頻 (SPM)</label><input type="number" name="runSpm" value={formData.runSpm} onChange={handleChange} className="w-full bg-slate-800/50 border border-emerald-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500" placeholder="尚未測量" /></div>
                     </div>
                     <div><label className="block text-orange-400 text-xs font-bold uppercase tracking-wider mb-2">每日消耗 TDEE (kcal)</label><input type="number" name="tdee" value={formData.tdee} onChange={handleChange} className="w-full bg-slate-800/50 border border-orange-500/30 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="尚未測量" /></div>
+                    
+                    {/* 新增：藥物與補品欄位 */}
+                    <div><label className="block text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">目前使用的藥物與補品</label><textarea name="supplements" value={formData.supplements} onChange={handleChange} placeholder="例如：乳清蛋白、肌酸、綜合維他命..." className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-purple-500 min-h-[60px]" /></div>
+
                     <div><label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">身體狀況 / 備註</label><textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="例如：左膝蓋曾受傷..." className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[80px]" /></div>
                 </div>
                 <button onClick={() => onSave(formData)} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all mt-6 shadow-lg shadow-emerald-500/20 active:scale-95">儲存資料</button>
@@ -301,11 +305,12 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         }
 
         if (userProfile) {
-            const { gender, age, height, weight, notes, bench1rm, runSpm, tdee } = userProfile;
+            const { gender, age, height, weight, notes, bench1rm, runSpm, tdee, supplements } = userProfile;
             profilePrompt = `【使用者資料】性別:${gender}, 年齡:${age}, 身高:${height}cm, 體重:${weight}kg
             ${bench1rm ? `- 1RM:${bench1rm}kg` : ''} 
             ${runSpm ? `- 跑步步頻:${runSpm}` : ''}
             ${tdee ? `- TDEE:${tdee} kcal` : ''}
+            ${supplements ? `- 使用藥物/補品:${supplements}` : ''}
             - 備註/傷病:${notes||"無"}
             ${logsSummary}
             請依此調整強度。`;
@@ -323,7 +328,8 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
              要求：
              1. 針對使用者的 TDEE 計算熱量缺口或盈餘。
              2. 參考運動紀錄來建議碳水與蛋白質攝取時機。
-             3. 使用 Markdown 格式，列出熱量與營養素估算。`;
+             3. 考慮使用者目前的補品/藥物狀況給予建議。
+             4. 使用 Markdown 格式，列出熱量與營養素估算。`;
         }
 
         try {
@@ -429,6 +435,7 @@ const CalendarView = ({ user, db, methods }) => {
     useEffect(() => {
         if (!user || !db) return;
         const q = methods.collection(db, "users", user.uid, "logs");
+        // 安全日誌：確認監聽器啟動
         console.log("🔥 Firestore: Subscribing to user logs...");
         
         const unsubscribe = methods.onSnapshot(q, (snapshot) => {
@@ -555,6 +562,7 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = editingText;
             } else if (logType === 'run') {
                 dataToSave.data = runData;
+                // Beautified content string for display in calendar
                 const parts = [];
                 if (runData.distance) parts.push(`${runData.distance}km`);
                 if (runData.time) parts.push(`${runData.time}min`);

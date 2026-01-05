@@ -258,32 +258,29 @@ const ProfileModal = ({ onSave, initialData, onClose }) => {
 
 // --- Views ---
 
-// 1. Generator View (Updated with Diet Option)
 const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) => {
-    const [genType, setGenType] = useState('workout'); // workout | diet
     const [goal, setGoal] = useState('');
     const [plan, setPlan] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [copySuccess, setCopySuccess] = useState(false);
+    const [genType, setGenType] = useState('workout');
 
     useEffect(() => {
         if (!db || !user) return;
         const fetchPlan = async () => {
             try {
-                // Fetch correct plan based on type
-                const fieldName = genType === 'workout' ? 'latestPlan' : 'latestDiet';
                 const docRef = methods.doc(db, "users", user.uid);
                 const docSnap = await methods.getDoc(docRef);
-                if (docSnap.exists() && docSnap.data()[fieldName]) {
-                    setPlan(docSnap.data()[fieldName]);
-                } else {
-                    setPlan('');
+                if (docSnap.exists()) {
+                    const fieldName = genType === 'workout' ? 'latestPlan' : 'latestDiet';
+                    if(docSnap.data()[fieldName]) setPlan(docSnap.data()[fieldName]);
+                    else setPlan('');
                 }
             } catch (e) { console.error("Error fetching plan:", e); }
         };
         fetchPlan();
-    }, [db, user, methods, genType]); // Re-fetch when type changes
+    }, [db, user, methods, genType]);
 
     const generatePlan = async () => {
         const currentKey = apiKey ? apiKey.trim() : "";
@@ -295,15 +292,18 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         if (userProfile) {
             const { gender, age, height, weight, notes, bench1rm, runSpm, tdee } = userProfile;
             profilePrompt = `【使用者資料】性別:${gender}, 年齡:${age}, 身高:${height}cm, 體重:${weight}kg
-            ${bench1rm ? `- 1RM:${bench1rm}kg` : ''} ${tdee ? `- TDEE:${tdee}kcal` : ''}
-            - 備註:${notes||"無"}`;
+            ${bench1rm ? `- 實測臥推1RM: ${bench1rm}kg` : ''}
+            ${runSpm ? `- 實測跑步步頻: ${runSpm} SPM` : ''}
+            ${tdee ? `- 每日消耗(TDEE): ${tdee} kcal` : ''}
+            - 備註/傷病:${notes||"無"}
+            請依此調整強度。`;
         }
-
+        
         let systemPrompt = "";
         if (genType === 'workout') {
             systemPrompt = `你是一位專業健身教練。請根據資料設計一週訓練課表。格式要求：使用 Markdown，包含 ## 標題。`;
         } else {
-            systemPrompt = `你是一位專業營養師。請根據資料(特別是TDEE)設計一日三餐飲食建議與熱量分配。目標：${goal}。格式要求：使用 Markdown，包含 ## 標題，列出熱量與營養素估算。`;
+             systemPrompt = `你是一位專業營養師。請根據資料(特別是TDEE)設計一日三餐飲食建議與熱量分配。目標：${goal}。格式要求：使用 Markdown，包含 ## 標題，列出熱量與營養素估算。`;
         }
 
         try {
@@ -319,6 +319,9 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                 }
             );
             const data = await response.json();
+            
+            if (data.error) throw new Error(data.error.message || "Gemini API Error");
+            
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) { 
                 setPlan(text); 
@@ -326,7 +329,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                     const fieldName = genType === 'workout' ? 'latestPlan' : 'latestDiet';
                     await methods.updateDoc(methods.doc(db, "users", user.uid), { [fieldName]: text });
                 }
-            } else { throw new Error("AI 無法生成內容"); }
+            } else { throw new Error("AI 無法生成課表"); }
         } catch (err) {
             setError(String(err.message));
             if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(() => requireKey(), 2000);
@@ -351,14 +354,14 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sticky top-8">
-                    {/* Toggle Switch */}
+                     {/* Toggle Switch */}
                     <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
                         <button onClick={() => setGenType('workout')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'workout' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-4 h-4" /> 運動課表</button>
                         <button onClick={() => setGenType('diet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'diet' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="utensils" className="w-4 h-4" /> 飲食菜單</button>
                     </div>
 
                     <div className="flex items-center gap-2 mb-4">
-                        <div className={`p-2 rounded-lg ${genType === 'workout' ? 'bg-emerald-500' : 'bg-orange-500'}`}>
+                         <div className={`p-2 rounded-lg ${genType === 'workout' ? 'bg-emerald-500' : 'bg-orange-500'}`}>
                             <Icon name={genType === 'workout' ? "sparkles" : "flame"} className="w-4 h-4 text-black" />
                         </div>
                         <h2 className="text-slate-200 text-sm font-bold uppercase tracking-wider">{genType === 'workout' ? '訓練目標' : '飲食目標'}</h2>
@@ -366,12 +369,14 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods }) =
                     {userProfile && (
                         <div className="mb-4 text-xs text-slate-500 bg-black/20 p-3 rounded-xl border border-white/5 flex flex-wrap gap-2">
                             {userProfile.gender !== '未設定' && <span>{userProfile.gender}</span>}
+                            {userProfile.age && <span>{userProfile.age}歲</span>}
                             {userProfile.bench1rm && <span className="text-emerald-400">1RM:{userProfile.bench1rm}kg</span>}
+                            {userProfile.runSpm && <span className="text-emerald-400">SPM:{userProfile.runSpm}</span>}
                             {userProfile.tdee && <span className="text-orange-400">TDEE:{userProfile.tdee}</span>}
                         </div>
                     )}
-                    <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={genType === 'workout' ? "例如：增肌減脂、半馬訓練..." : "例如：低碳飲食、增肌高蛋白..."} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] mb-4" />
-                    <button onClick={generatePlan} disabled={loading || !goal.trim()} className={`w-full text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-colors ${genType === 'workout' ? 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/10' : 'bg-orange-500 hover:bg-orange-400 shadow-orange-500/10'}`}>{loading ? <Icon name="loader2" className="animate-spin w-5 h-5" /> : <Icon name="sparkles" className="w-5 h-5" />}<span>{loading ? "分析中..." : "開始生成"}</span></button>
+                    <textarea value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="例如：增肌減脂、半馬訓練..." className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] mb-4" />
+                    <button onClick={generatePlan} disabled={loading || !goal.trim()} className={`w-full text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-colors ${genType === 'workout' ? 'bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500' : 'bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 disabled:text-slate-500'}`}>{loading ? <Icon name="loader2" className="animate-spin w-5 h-5" /> : <Icon name="sparkles" className="w-5 h-5" />}<span>{loading ? "分析中..." : "開始生成"}</span></button>
                 </div>
             </div>
             <div className="lg:col-span-8">
@@ -397,7 +402,7 @@ const CalendarView = ({ user, db, methods }) => {
     
     // Form States
     const [logType, setLogType] = useState('general'); 
-    const [runData, setRunData] = useState({ time: '', pace: '', power: '' });
+    const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); // Added distance
     const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '' });
     const [editingText, setEditingText] = useState("");
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
@@ -440,7 +445,7 @@ const CalendarView = ({ user, db, methods }) => {
         
         // Reset forms
         setLogType('general');
-        setRunData({ time: '', pace: '', power: '' });
+        setRunData({ time: '', distance: '', pace: '', power: '' }); // Added distance
         setWeightData({ action: '', sets: '', weight: '' });
         setEditingText("");
 
@@ -450,7 +455,7 @@ const CalendarView = ({ user, db, methods }) => {
             // Detect Type
             if (log.type === 'run') {
                 setLogType('run');
-                setRunData(log.data || { time: '', pace: '', power: '' });
+                setRunData(log.data || { time: '', distance: '', pace: '', power: '' }); // Added distance
             } else if (log.type === 'weight') {
                 setLogType('weight');
                 setWeightData(log.data || { action: '', sets: '', weight: '' });
@@ -480,7 +485,7 @@ const CalendarView = ({ user, db, methods }) => {
                 dataToSave.content = editingText;
             } else if (logType === 'run') {
                 dataToSave.data = runData;
-                dataToSave.content = `[跑步] ${runData.time}分 | ${runData.pace}/km | ${runData.power}W`;
+                dataToSave.content = `[跑步] ${runData.distance ? `${runData.distance}km | ` : ''}${runData.time ? `${runData.time}分` : ''} ${runData.pace ? `| ${runData.pace}/km` : ''} ${runData.power ? `| ${runData.power}W` : ''}`;
             } else if (logType === 'weight') {
                 dataToSave.data = weightData;
                 dataToSave.content = `[重訓] ${weightData.action} | ${weightData.sets}組 | ${weightData.weight}kg`;
@@ -499,7 +504,6 @@ const CalendarView = ({ user, db, methods }) => {
     const renderCalendarGrid = () => {
         const days = [];
         for (let i = 0; i < firstDayOfMonth; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
-        
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), day);
             const logData = logs[dateStr];
@@ -518,19 +522,13 @@ const CalendarView = ({ user, db, methods }) => {
             days.push(
                 <div key={day} onClick={() => handleDateClick(day)} className={`grid grid-rows-[auto_1fr] min-h-[80px] md:min-h-[100px] border border-white/5 rounded-xl p-2 relative cursor-pointer hover:bg-white/5 group transition-all ${isToday ? 'bg-white/5 ring-1 ring-emerald-500/50' : 'bg-[#0a0a0a]'}`}>
                     <span className={`text-sm font-bold ${isToday ? 'text-emerald-500' : 'text-slate-500 group-hover:text-slate-300'}`}>{day}</span>
-                    
                     {hasLog && (
                         <div className="mt-1 overflow-hidden">
                             <div className="flex items-center gap-1 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div></div>
                             <div className={`text-[10px] truncate leading-tight ${logColor}`}>{logData.content}</div>
                         </div>
                     )}
-                    
-                    {!hasLog && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Icon name="check" className="w-4 h-4 text-slate-600" />
-                        </div>
-                    )}
+                    {!hasLog && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="check" className="w-4 h-4 text-slate-600" /></div>}
                 </div>
             );
         }
@@ -553,7 +551,16 @@ const CalendarView = ({ user, db, methods }) => {
                         </div>
                         <div className="mb-6 space-y-4">
                             {logType === 'general' && (<><div className="flex flex-wrap gap-2 mb-2">{quickTags.map(tag => <button key={tag} onClick={() => addTag(tag)} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 border border-white/5 rounded-lg text-xs font-medium transition-all">+ {tag}</button>)}</div><textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} placeholder="輸入訓練筆記..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 focus:ring-emerald-500 min-h-[120px] resize-none" autoFocus /></>)}
-                            {logType === 'run' && (<div className="space-y-3"><div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/公里)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5:30" /></div><div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (瓦特)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="200" /></div></div>)}
+                            {logType === 'run' && (<div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總距離 (km)</label><input type="number" value={runData.distance} onChange={(e) => setRunData({...runData, distance: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">總時間 (分鐘)</label><input type="number" value={runData.time} onChange={(e) => setRunData({...runData, time: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="30" /></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均配速 (分/km)</label><input type="text" value={runData.pace} onChange={(e) => setRunData({...runData, pace: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="5:30" /></div>
+                                    <div><label className="text-xs text-sky-400 font-bold block mb-1">平均功率 (W)</label><input type="number" value={runData.power} onChange={(e) => setRunData({...runData, power: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-sky-500" placeholder="200" /></div>
+                                </div>
+                            </div>)}
                             {logType === 'weight' && (<div className="space-y-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label><input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="深蹲" /></div><div className="grid grid-cols-2 gap-3"><div><label className="text-xs text-orange-400 font-bold block mb-1">組數</label><input type="number" value={weightData.sets} onChange={(e) => setWeightData({...weightData, sets: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="5" /></div><div><label className="text-xs text-orange-400 font-bold block mb-1">重量 (kg)</label><input type="number" value={weightData.weight} onChange={(e) => setWeightData({...weightData, weight: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="100" /></div></div></div>)}
                         </div>
                         <div className="flex gap-3"><button onClick={() => setSelectedDate(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5 transition-colors">取消</button><button onClick={saveLog} disabled={isLoading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${logType === 'run' ? 'bg-sky-600 hover:bg-sky-500' : logType === 'weight' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>{isLoading ? <Icon name="loader2" className="animate-spin w-4 h-4" /> : <Icon name="check" className="w-4 h-4" />}{isLoading ? "儲存中..." : "確認儲存"}</button></div>
@@ -1185,7 +1192,7 @@ const ToolsView = ({ userProfile, onUpdateProfile }) => {
 
 // --- App Root ---
 const App = () => {
-    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase();
+    const { user, loading, login, loginAnonymous, logout, db, methods, authError } = useFirebase(); // Added loginAnonymous
     const [currentTab, setCurrentTab] = useState('generator');
     const [userApiKey, setUserApiKey] = useState(localStorage.getItem('gemini_key') || '');
     const [showKeyModal, setShowKeyModal] = useState(false);
@@ -1205,6 +1212,7 @@ const App = () => {
         if (!db || !user) return;
         try {
             await methods.updateDoc(methods.doc(db, "users", user.uid), data);
+            // note 可以選擇性寫入日誌集合，此處省略以保持簡潔
             setShowProfileModal(false);
         } catch(e) { console.error("Update profile failed:", e); }
     };
@@ -1225,6 +1233,7 @@ const App = () => {
                     訪客試用 (無需登入)
                 </button>
 
+                {/* 增加未設定 Config 的提示 */}
                 {firebaseConfig.apiKey.includes("請填入") && (
                     <div className="mt-6 p-4 bg-red-900/30 border border-red-500/30 rounded-xl text-left">
                         <p className="text-red-400 text-xs font-bold mb-2 flex items-center gap-2"><Icon name="alertcircle" className="w-4 h-4" /> 設定未完成</p>
@@ -1232,6 +1241,7 @@ const App = () => {
                     </div>
                 )}
                  
+                 {/* Helper to copy current domain for Firebase Auth */}
                  <div className="mt-6 p-3 bg-slate-800 rounded-xl text-xs text-left border border-slate-700">
                     <p className="text-slate-400 mb-2 font-bold flex items-center gap-1"><Icon name="key" className="w-3 h-3"/> 授權網域 (Authorized Domain)</p>
                     <p className="text-slate-500 mb-2">若登入出現 "Unauthorized domain" 錯誤，請複製下方網址至 Firebase Console → Authentication → Settings → Authorized domains。</p>

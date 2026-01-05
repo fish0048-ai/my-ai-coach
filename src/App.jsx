@@ -771,10 +771,23 @@ const CalendarView = ({ user, db, methods, logs }) => {
     // Form States
     const [logType, setLogType] = useState('general'); 
     const [runData, setRunData] = useState({ time: '', distance: '', pace: '', power: '' }); 
-    const [weightData, setWeightData] = useState({ action: '', sets: '', weight: '', reps: '' }); // Added reps
+    const [weightData, setWeightData] = useState({ part: '胸部', action: '', sets: '', weight: '', reps: '' }); 
     const [editingText, setEditingText] = useState("");
     const [weightExercises, setWeightExercises] = useState([]);
     const quickTags = ['休息日', '瑜珈', '核心', '伸展'];
+
+    // Auto-detect muscle group based on keyword
+    const detectMuscleGroup = (name) => {
+        if (!name) return '其他';
+        const n = name.toLowerCase();
+        if (n.match(/臥推|飛鳥|伏地挺身|胸|push up|bench press|chest|夾胸/)) return '胸部';
+        if (n.match(/划船|拉背|引體向上|硬舉|背|row|pull up|deadlift|back|pull-down|pulldown/)) return '背部';
+        if (n.match(/深蹲|腿推|分腿蹲|弓箭步|腿|squat|leg|lunge|calf|提踵/)) return '腿部';
+        if (n.match(/推舉|平舉|面拉|肩|shoulder|press|deltoid/)) return '肩膀';
+        if (n.match(/二頭|三頭|彎舉|臂|arm|curl|tricep|bicep|dip/)) return '手臂';
+        if (n.match(/卷腹|棒式|核心|腹|plank|crunch|core|abs|sit up/)) return '核心';
+        return '其他';
+    };
 
     const addTag = (tag) => {
         setEditingText(prev => {
@@ -817,6 +830,14 @@ const CalendarView = ({ user, db, methods, logs }) => {
         setRunData({ distance, time, pace, power });
     };
 
+    const handleActionChange = (e) => {
+        const action = e.target.value;
+        const part = detectMuscleGroup(action);
+        // Only auto-switch part if user hasn't manually selected one (or if it's currently default/empty)
+        // For simplicity, let's always suggest, user can change back.
+        setWeightData({ ...weightData, action, part });
+    };
+
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
 
@@ -826,10 +847,9 @@ const CalendarView = ({ user, db, methods, logs }) => {
         const dateStr = formatDate(currentDate.getFullYear(), currentDate.getMonth(), d); 
         setSelectedDate(dateStr); 
         
-        // Reset forms
         setLogType('general');
         setRunData({ time: '', distance: '', pace: '', power: '' }); 
-        setWeightData({ action: '', sets: '', weight: '', reps: '' });
+        setWeightData({ part: '胸部', action: '', sets: '', weight: '', reps: '' });
         setWeightExercises([]);
         setEditingText("");
 
@@ -860,7 +880,8 @@ const CalendarView = ({ user, db, methods, logs }) => {
             newExercise.volume = parseFloat(newExercise.weight) * parseFloat(newExercise.sets) * parseFloat(newExercise.reps);
         }
         setWeightExercises([...weightExercises, newExercise]);
-        setWeightData({ action: '', sets: '', weight: '', reps: '' }); 
+        // Reset form but keep part same for convenience
+        setWeightData({ ...weightData, action: '', sets: '', weight: '', reps: '' }); 
     };
 
     const handleRemoveWeightExercise = (index) => {
@@ -996,9 +1017,17 @@ const CalendarView = ({ user, db, methods, logs }) => {
                             
                             {logType === 'weight' && (
                                 <div className="space-y-4">
-                                    <div className="mb-2">
-                                        <label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label>
-                                        <input type="text" value={weightData.action} onChange={(e) => setWeightData({...weightData, action: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="例如：深蹲" />
+                                    <div className="flex gap-2 mb-2">
+                                        <div className="flex-[2]">
+                                            <label className="text-xs text-orange-400 font-bold block mb-1">動作名稱</label>
+                                            <input type="text" value={weightData.action} onChange={handleActionChange} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500" placeholder="例如：深蹲" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-xs text-orange-400 font-bold block mb-1">部位</label>
+                                            <select value={weightData.part} onChange={(e) => setWeightData({...weightData, part: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-1 focus:ring-orange-500">
+                                                <option>胸部</option><option>背部</option><option>腿部</option><option>肩膀</option><option>手臂</option><option>核心</option><option>其他</option>
+                                            </select>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <div className="flex-1">
@@ -1023,8 +1052,11 @@ const CalendarView = ({ user, db, methods, logs }) => {
                                         {weightExercises.map((ex, i) => (
                                             <div key={i} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-white">{ex.action}</span>
-                                                    <span className="text-xs text-slate-400">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded">{ex.part}</span>
+                                                        <span className="text-sm font-bold text-white">{ex.action}</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-400 mt-1">
                                                         <span className="text-orange-400 font-bold">{ex.weight}kg</span> x {ex.sets}組 x {ex.reps}下 
                                                         {ex.volume ? <span className="text-slate-500 ml-1"> (總量: {ex.volume}kg)</span> : ''}
                                                     </span>

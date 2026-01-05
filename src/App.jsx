@@ -111,8 +111,6 @@ const FirebaseSetup = ({ onComplete }) => {
     const handleSave = () => {
         try {
             let cleanString = configJson.trim();
-            
-            // 1. 嘗試提取大括號內的內容
             const firstBrace = cleanString.indexOf('{');
             const lastBrace = cleanString.lastIndexOf('}');
             
@@ -122,19 +120,11 @@ const FirebaseSetup = ({ onComplete }) => {
                 throw new Error("無法找到物件大括號 { }，請確認複製範圍。");
             }
 
-            // 2. 使用 Function 建構子來解析 (最穩健，支援複製下來的 JS 物件格式)
-            // 先過濾潛在的危險字元，雖然這是 client-side self-pasted，但基本防護還是好的
-            // 但為了支援使用者的輸入，直接使用 new Function 是解析不標準 JSON (如 JS Object) 最可靠的方法
-            // 這裡我們假設使用者知道自己在貼什麼 (Firebase Config)
-            
             let config;
             try {
-                // 建構一個函式來回傳該物件
                 const parseFn = new Function(`return ${cleanString};`);
                 config = parseFn();
             } catch (evalErr) {
-                // 如果直接執行失敗，嘗試做字串清理後再試 (例如處理 invisible chars)
-                // 替換所有非標準空白為標準空白
                 const sanitized = cleanString.replace(/[\u00A0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, ' ');
                 const parseFnRetry = new Function(`return ${sanitized};`);
                 config = parseFnRetry();
@@ -198,13 +188,11 @@ const useFirebase = () => {
     const [authError, setAuthError] = useState(null);
     const [isConfigured, setIsConfigured] = useState(false);
 
-    // Initialize Firebase Dynamically
     useEffect(() => {
         const savedConfig = localStorage.getItem('firebase_config');
         if (savedConfig) {
             try {
                 const config = JSON.parse(savedConfig);
-                // Check if already initialized to prevent duplicates
                 if (!getApps().length) {
                     app = initializeApp(config);
                 } else {
@@ -218,7 +206,7 @@ const useFirebase = () => {
                 setIsConfigured(true);
             } catch (e) {
                 console.error("Firebase Init Error:", e);
-                localStorage.removeItem('firebase_config'); // Clear bad config
+                localStorage.removeItem('firebase_config');
                 setIsConfigured(false);
             }
         } else {
@@ -227,15 +215,13 @@ const useFirebase = () => {
         setLoading(false);
     }, []);
 
-    // Auth Listener
     useEffect(() => {
         if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             setUser(u);
-            console.log("👤 Auth State:", u ? "Logged In" : "Logged Out");
         });
         return () => unsubscribe();
-    }, [isConfigured]); // Re-run when config status changes
+    }, [isConfigured]);
 
     const login = async () => {
         setAuthError(null);
@@ -287,7 +273,7 @@ const useFirebase = () => {
         login, 
         loginAnonymous, 
         logout, 
-        db, // Export db instance
+        db,
         methods: firebaseMethods,
         authError,
         isConfigured,
@@ -545,6 +531,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 }
             } else { throw new Error("AI 無法生成內容"); }
         } catch (err) {
+            // Error handling with link for API enabling
             setError(String(err.message));
             if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(() => requireKey(), 2000);
         } finally { setLoading(false); }
@@ -568,7 +555,6 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sticky top-8">
-                     {/* Toggle Switch */}
                     <div className="flex p-1 bg-black/40 rounded-xl mb-6 border border-white/5">
                         <button onClick={() => setGenType('workout')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'workout' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="dumbbell" className="w-4 h-4" /> 運動課表</button>
                         <button onClick={() => setGenType('diet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${genType === 'diet' ? 'bg-orange-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}><Icon name="utensils" className="w-4 h-4" /> 飲食菜單</button>
@@ -592,7 +578,28 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 </div>
             </div>
             <div className="lg:col-span-8">
-                {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
+                {error && (
+                    <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-sm break-all">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Icon name="alertcircle" className="w-4 h-4 shrink-0" />
+                            <p className="font-bold">發生錯誤</p>
+                        </div>
+                        <p>{error}</p>
+                        {error.includes("Generative Language API") && (
+                            <div className="mt-2 p-2 bg-black/20 rounded border border-red-500/20">
+                                <p className="mb-1">您的 Google Cloud 專案尚未啟用 Gemini API。</p>
+                                <a 
+                                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-emerald-400 underline hover:text-emerald-300 font-bold"
+                                >
+                                    點擊這裡前往啟用 API
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                )}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>
@@ -1050,8 +1057,10 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
             const result = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: `${profileInfo}\n模式：${mode}\n數據：${JSON.stringify(analysisData)}` }] }], systemInstruction: { parts: [{ text: systemPrompt }] } }) });
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) setAiAnalysis(text); else throw new Error("無內容");
-        } catch (err) { setAiError(String(err.message)); if(String(err.message).includes('API')) setTimeout(requireKey, 2000); } 
-        finally { setIsAiLoading(false); }
+        } catch (err) { 
+            setAiError(String(err.message)); 
+            if (String(err.message).includes('API key') || String(err.message).includes('key')) setTimeout(requireKey, 2000); 
+        } finally { setIsAiLoading(false); }
     };
 
     const generateReport = () => {
@@ -1178,9 +1187,21 @@ const AnalysisView = ({ apiKey, requireKey, userProfile, onUpdateProfile }) => {
                                     </div>
                                 )}
                                 {aiError && (
-                                    <div className="mt-4 p-3 bg-red-900/30 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-start gap-2">
-                                        <Icon name="alertcircle" className="w-4 h-4 shrink-0 mt-0.5" />
-                                        <span>{aiError}</span>
+                                    <div className="mt-4 p-3 bg-red-900/30 border border-red-500/30 rounded-xl text-xs text-red-300 flex flex-col gap-2">
+                                        <div className="flex items-start gap-2">
+                                            <Icon name="alertcircle" className="w-4 h-4 shrink-0 mt-0.5" />
+                                            <span>{aiError}</span>
+                                        </div>
+                                        {aiError.includes("Generative Language API") && (
+                                            <a 
+                                                href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
+                                                target="_blank" 
+                                                rel="noreferrer"
+                                                className="ml-6 text-emerald-400 underline hover:text-emerald-300"
+                                            >
+                                                點擊啟用 Google Generative AI API
+                                            </a>
+                                        )}
                                     </div>
                                 )}
                                 {aiAnalysis && (

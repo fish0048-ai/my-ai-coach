@@ -37,8 +37,6 @@ export default function DashboardView({ userData }) {
 
     try {
       // 設定搜尋範圍：過去 30 天的訓練 (讓熱力圖反映近期狀態)
-      // 注意：如果要精準查詢日期，建議在 Firestore 存 timestamp 並使用 where 查詢
-      // 這裡為了簡化，我們先抓取所有 calendar 資料，再於前端過濾 (資料量大時需優化)
       const q = query(collection(db, 'users', user.uid, 'calendar'));
       const querySnapshot = await getDocs(q);
 
@@ -77,13 +75,11 @@ export default function DashboardView({ userData }) {
       });
 
       // 將累積的組數轉換為 BodyHeatmap 的 0-10 分數
-      // 假設 30 天內，某部位累積 20 組以上顯示紅色(10分)，10組黃色(5分)
       const normalizedFatigue = {};
       Object.keys(muscleScore).forEach(muscle => {
         const score = muscleScore[muscle];
         // 簡單的線性映射：超過 20 組就滿分
         let heat = Math.min(Math.round((score / 20) * 10), 10);
-        // 至少顯示 1 分 (如果練過)
         if (score > 0 && heat === 0) heat = 1;
         normalizedFatigue[muscle] = heat;
       });
@@ -155,12 +151,15 @@ export default function DashboardView({ userData }) {
           </div>
           
           <div className="flex-1 min-h-[400px] flex items-center justify-center bg-gray-900/50 rounded-lg relative">
-             {/* 傳入我們計算好的數據 */}
-             <BodyHeatmap data={stats.muscleFatigue} />
+             {/* 傳入圖片路徑，請確保這些圖片已存在於 public/ 資料夾中 */}
+             <BodyHeatmap 
+                data={stats.muscleFatigue} 
+                frontImage="/muscle_front.png" 
+                backImage="/muscle_back.png"
+             />
              
-             {/* 如果完全沒有數據的提示 */}
              {Object.keys(stats.muscleFatigue).length === 0 && !loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
                     <div className="text-center">
                         <Dumbbell className="mx-auto text-gray-500 mb-2" size={32} />
                         <p className="text-gray-300 font-bold">尚無訓練數據</p>

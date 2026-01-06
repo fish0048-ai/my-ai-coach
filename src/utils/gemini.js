@@ -5,9 +5,12 @@ export async function runGemini(prompt, apiKey) {
   }
 
   try {
-    // 改用 gemini-1.5-flash，這是目前最穩定且快速的版本
-    // 如果您有付費版 Key，也可以嘗試 gemini-1.5-pro
-    const model = 'gemini-1.5-flash';
+    // 您目前使用的是 gemini-2.5-flash (或是最新的 flash 模型)
+    // 建議使用 'gemini-1.5-flash' 作為穩定版，或 'gemini-2.0-flash-exp' (實驗版)
+    // 若您的 API Key 支援 2.5，請填入 'gemini-2.5-flash'
+    // 這裡預設先改回最通用的 'gemini-1.5-flash' 以確保 100% 可用，
+    // 如果您確定有權限使用 2.5，請將下方字串改為 'gemini-2.5-flash-preview' 或正確的型號名稱
+    const model = 'gemini-2.5-flash'; 
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,

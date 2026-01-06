@@ -1,17 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Calendar, Trophy, Zap, Timer, Dumbbell, TrendingUp } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+
+// 輔助函式：取得本地 YYYY-MM-DD 字串
+const getLocalDateStr = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function TrainingDashboardView() {
   const [period, setPeriod] = useState('week'); // 'week' | 'month' | 'year'
   const [stats, setStats] = useState({
     totalWorkouts: 0,
-    totalDuration: 0, // minutes
-    totalDistance: 0, // km
+    totalDuration: 0,
+    totalDistance: 0,
     strengthCount: 0,
     runCount: 0,
-    chartData: [] // For visualization
+    chartData: [] 
   });
   const [loading, setLoading] = useState(false);
 
@@ -25,24 +33,7 @@ export default function TrainingDashboardView() {
 
     setLoading(true);
     try {
-      // 1. 計算日期區間
-      const now = new Date();
-      let startDate = new Date();
-      
-      if (period === 'week') {
-        const day = now.getDay() || 7; // Get current day (0 is Sunday, make it 7 for easier calc if needed, or stick to standard)
-        // Set to last Monday (or Sunday depending on preference, let's say last 7 days)
-        startDate.setDate(now.getDate() - 6); 
-      } else if (period === 'month') {
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      } else if (period === 'year') {
-        startDate = new Date(now.getFullYear(), 0, 1);
-      }
-      startDate.setHours(0, 0, 0, 0);
-
-      // 2. 從 Firebase 抓取資料
-      // 注意：為了簡化索引需求，我們這裡抓取所有資料再前端過濾 (資料量不大時可行)
-      // 若資料量大，建議在 Firestore 建立 date 索引並用 where('date', '>=', startDateStr)
+      // 1. 從 Firebase 抓取所有資料
       const q = query(collection(db, 'users', user.uid, 'calendar'));
       const querySnapshot = await getDocs(q);
       
@@ -51,8 +42,8 @@ export default function TrainingDashboardView() {
         rawDocs.push(doc.data());
       });
 
-      // 3. 過濾與統計資料
-      processStats(rawDocs, startDate, period);
+      // 2. 處理統計 (交由前端運算)
+      processStats(rawDocs, period);
       
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -61,7 +52,7 @@ export default function TrainingDashboardView() {
     }
   };
 
-  const processStats = (docs, startDate, currentPeriod) => {
+  const processStats = (docs, currentPeriod) => {
     let totalWorkouts = 0;
     let totalDuration = 0;
     let totalDistance = 0;
@@ -71,64 +62,73 @@ export default function TrainingDashboardView() {
     // 初始化圖表數據容器
     let chartData = [];
     const now = new Date();
+    const todayStr = getLocalDateStr(now);
 
+    // --- 準備圖表 X 軸 ---
     if (currentPeriod === 'week') {
-      // 準備過去 7 天的標籤
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(startDate);
-        d.setDate(startDate.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
+      // 過去 7 天 (包含今天)
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const dateStr = getLocalDateStr(d);
         const dayLabel = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-        chartData.push({ label: dayLabel, date: dateStr, value: 0 });
+        // 標記是否為今天
+        const label = dateStr === todayStr ? '今天' : dayLabel;
+        chartData.push({ label, date: dateStr, value: 0 });
       }
     } else if (currentPeriod === 'month') {
-      // 準備本月所有日期的標籤
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      // 本月所有日期
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
       for (let i = 1; i <= daysInMonth; i++) {
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-        chartData.push({ label: `${i}日`, date: dateStr, value: 0 });
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        chartData.push({ label: `${i}`, date: dateStr, value: 0 });
       }
     } else if (currentPeriod === 'year') {
-      // 準備 12 個月的標籤
+      // 今年 12 個月
       for (let i = 0; i < 12; i++) {
         chartData.push({ label: `${i+1}月`, monthIndex: i, value: 0 });
       }
     }
 
-    // 遍歷資料進行累加
+    // --- 遍歷資料進行統計 ---
     docs.forEach(doc => {
-      // 只統計「已完成」的項目
-      if (doc.status !== 'completed') return;
+      // 1. 資料相容性處理：如果沒有 status 欄位，預設視為 'completed' (舊資料)
+      const status = doc.status || 'completed';
+      
+      // 2. 過濾條件：只計算已完成，且排除純分析紀錄 (type: 'analysis')
+      if (status !== 'completed' || doc.type === 'analysis') return;
 
-      const docDate = new Date(doc.date);
-      // 排除區間外的資料
-      if (docDate < startDate) return;
+      const docDateStr = doc.date; // 假設格式為 YYYY-MM-DD
+      if (!docDateStr) return;
 
-      // 累加基礎數據
-      totalWorkouts++;
-      if (doc.type === 'run') {
-        runCount++;
-        totalDistance += parseFloat(doc.runDistance || 0);
-        totalDuration += parseFloat(doc.runDuration || 0);
+      // 判斷這筆資料是否在我們需要的圖表區間內
+      let matchIndex = -1;
+
+      if (currentPeriod === 'year') {
+        const docDate = new Date(docDateStr);
+        if (docDate.getFullYear() === now.getFullYear()) {
+          matchIndex = docDate.getMonth();
+        }
       } else {
-        strengthCount++;
-        // 重訓時間通常沒有明確紀錄，這裡假設每次重訓 45 分鐘作為估算，或不計入
-        // 為了讓數據好看，我們假設一場重訓約 45-60 分鐘，或直接忽略
-        // 這裡暫時忽略重訓時間，除非使用者有輸入欄位
+        // Week & Month 直接比對字串，解決時區問題
+        matchIndex = chartData.findIndex(d => d.date === docDateStr);
       }
 
-      // 填充圖表數據
-      if (currentPeriod === 'year') {
-        const month = docDate.getMonth();
-        if (chartData[month]) chartData[month].value++;
-      } else {
-        // Week & Month 比對日期字串
-        const target = chartData.find(d => d.date === doc.date);
-        if (target) {
-          // 圖表顯示「運動時數」或是「次數」? 這裡用「次數」比較直觀，或是跑步距離
-          // 為了綜合顯示，我們這裡累積「活躍點數」(跑步1km=1點, 重訓1次=5點) 或是簡單的「時數」
-          // 這裡示範：累積次數
-          target.value++;
+      // 如果這筆資料在區間內，進行累加
+      if (matchIndex !== -1) {
+        chartData[matchIndex].value += 1; // 累積次數
+
+        // 累積總體數據
+        totalWorkouts++;
+        if (doc.type === 'run') {
+          runCount++;
+          totalDistance += parseFloat(doc.runDistance || 0);
+          totalDuration += parseFloat(doc.runDuration || 0);
+        } else {
+          strengthCount++;
         }
       }
     });
@@ -145,23 +145,35 @@ export default function TrainingDashboardView() {
 
   // 簡易長條圖組件
   const BarChart = ({ data, maxVal }) => (
-    <div className="flex items-end justify-between h-40 gap-2 mt-4">
+    <div className="flex items-end justify-between h-40 gap-1 mt-4">
       {data.map((item, idx) => {
-        // 計算高度百分比 (至少給 5% 讓它顯示一點點)
         const heightPct = maxVal > 0 ? (item.value / maxVal) * 100 : 0;
+        const isToday = item.date === getLocalDateStr(new Date());
         
         return (
-          <div key={idx} className="flex-1 flex flex-col items-center group relative">
-            {/* Tooltip */}
-            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-700 text-white text-xs px-2 py-1 rounded pointer-events-none transition-opacity">
-              {item.value} 次
+          <div key={idx} className="flex-1 flex flex-col items-center group relative min-w-[20px]">
+            {/* 數值標籤 (Hover 顯示，如果是今天且有值則常駐) */}
+            <div className={`absolute -top-8 bg-gray-700 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none transition-opacity z-10 ${item.value > 0 ? 'group-hover:opacity-100 opacity-0' : 'opacity-0'}`}>
+              {item.value}
             </div>
             
-            <div 
-              className={`w-full max-w-[20px] rounded-t-sm transition-all duration-500 ${item.value > 0 ? 'bg-blue-500 group-hover:bg-blue-400' : 'bg-gray-700/30'}`}
-              style={{ height: `${Math.max(heightPct, 4)}%` }}
-            ></div>
-            <span className="text-[10px] text-gray-500 mt-2">{item.label}</span>
+            {/* 長條本體 */}
+            <div className="w-full h-full flex items-end justify-center">
+                <div 
+                className={`w-[80%] rounded-t-sm transition-all duration-500 relative ${
+                    item.value > 0 
+                        ? (isToday ? 'bg-blue-400' : 'bg-blue-600 group-hover:bg-blue-500') 
+                        : 'bg-gray-700/20'
+                }`}
+                style={{ height: `${item.value > 0 ? Math.max(heightPct, 5) : 5}%` }}
+                >
+                </div>
+            </div>
+
+            {/* X軸標籤 */}
+            <span className={`text-[10px] mt-2 ${isToday ? 'text-blue-400 font-bold' : 'text-gray-500'}`}>
+                {item.label}
+            </span>
           </div>
         );
       })}
@@ -189,7 +201,7 @@ export default function TrainingDashboardView() {
                 period === p ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
               }`}
             >
-              {p === 'week' ? '本週' : p === 'month' ? '本月' : '年度'}
+              {p === 'week' ? '過去7天' : p === 'month' ? '本月' : '今年'}
             </button>
           ))}
         </div>
@@ -199,7 +211,7 @@ export default function TrainingDashboardView() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           icon={Activity} 
-          label="總運動次數" 
+          label="區間運動次數" 
           value={stats.totalWorkouts} 
           unit="次"
           color="bg-purple-500" 
@@ -234,18 +246,18 @@ export default function TrainingDashboardView() {
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-white flex items-center gap-2">
               <Activity size={18} className="text-blue-400" />
-              運動頻率趨勢 ({period === 'week' ? '過去7天' : period === 'month' ? '本月' : '今年'})
+              運動頻率趨勢
             </h3>
           </div>
           
           {loading ? (
             <div className="h-40 flex items-center justify-center text-gray-500">
-               載入中...
+               <span className="animate-pulse">載入數據中...</span>
             </div>
           ) : (
             <BarChart 
               data={stats.chartData} 
-              maxVal={Math.max(...stats.chartData.map(d => d.value), 3)} // 動態計算最大值，最小設為3以免圖表太平
+              maxVal={Math.max(...stats.chartData.map(d => d.value), 3)} 
             />
           )}
         </div>
@@ -291,9 +303,9 @@ export default function TrainingDashboardView() {
             <h3 className="text-white font-bold mb-2 text-sm">AI 分析摘要</h3>
             <p className="text-gray-300 text-xs leading-relaxed">
               {stats.totalWorkouts === 0 ? (
-                "目前還沒有足夠的數據。開始紀錄您的第一次訓練，讓我為您提供分析！"
+                "目前區間內還沒有數據。快去行事曆新增您的訓練紀錄吧！"
               ) : (
-                `本${period === 'week' ? '週' : period === 'month' ? '月' : '年度'}您已經完成了 ${stats.totalWorkouts} 次訓練！` +
+                `在選定的期間內，您共完成了 ${stats.totalWorkouts} 次訓練。` +
                 (stats.runCount > stats.strengthCount 
                   ? " 看起來您最近專注於有氧耐力訓練，別忘了適度搭配重訓來維持肌肉量喔。" 
                   : " 您的肌力訓練頻率很棒，若能增加一些低強度的有氧恢復，對心肺功能會更有幫助。")

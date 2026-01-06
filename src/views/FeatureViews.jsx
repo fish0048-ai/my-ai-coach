@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
 import { updateAIContext } from '../utils/contextManager';
@@ -20,9 +20,13 @@ export default function FeatureViews({ view, userData }) {
     activity: '1.2',
     goal: '增肌',
     supplements: '',
-    // 新增：訓練習慣
-    trainingDays: [], // ['Mon', 'Wed', 'Fri']
-    trainingTime: '20:00' // 預設時間
+    // 一般訓練習慣
+    trainingDays: [], 
+    trainingTime: '20:00',
+    // 新增：跑步專項習慣
+    longRunDay: '',    // 長距離日
+    intervalDay: '',   // 間歇日
+    easyRunDays: []    // 輕鬆跑日 (多選)
   });
 
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
@@ -40,9 +44,12 @@ export default function FeatureViews({ view, userData }) {
         activity: userData.activity || '1.2',
         goal: userData.goal || '增肌',
         supplements: userData.supplements || '',
-        // 讀取習慣設定，預設為空陣列
         trainingDays: userData.trainingDays || [],
-        trainingTime: userData.trainingTime || '20:00'
+        trainingTime: userData.trainingTime || '20:00',
+        // 讀取跑步設定
+        longRunDay: userData.longRunDay || '',
+        intervalDay: userData.intervalDay || '',
+        easyRunDays: userData.easyRunDays || []
       });
     }
   }, [userData]);
@@ -86,7 +93,7 @@ export default function FeatureViews({ view, userData }) {
     }
   };
 
-  // 處理訓練日切換
+  // 處理一般訓練日切換
   const toggleDay = (day) => {
     if (!isEditing) return;
     setProfile(prev => {
@@ -94,6 +101,17 @@ export default function FeatureViews({ view, userData }) {
             ? prev.trainingDays.filter(d => d !== day)
             : [...prev.trainingDays, day];
         return { ...prev, trainingDays: days };
+    });
+  };
+
+  // 處理輕鬆跑日切換
+  const toggleEasyRunDay = (day) => {
+    if (!isEditing) return;
+    setProfile(prev => {
+        const days = prev.easyRunDays.includes(day)
+            ? prev.easyRunDays.filter(d => d !== day)
+            : [...prev.easyRunDays, day];
+        return { ...prev, easyRunDays: days };
     });
   };
 
@@ -117,7 +135,7 @@ export default function FeatureViews({ view, userData }) {
       await updateAIContext();
 
       setIsEditing(false);
-      alert("個人資料已更新！(包含訓練習慣)");
+      alert("個人資料與跑步習慣已更新！");
     } catch (error) {
       console.error("儲存失敗:", error);
       alert("儲存失敗，請檢查網路連線。");
@@ -125,6 +143,8 @@ export default function FeatureViews({ view, userData }) {
       setIsSaving(false);
     }
   };
+
+  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   if (view === 'training') {
     return <div className="text-white p-8">訓練功能已移至儀表板，請點擊左側「總覽 Dashboard」或「訓練儀表板」。</div>;
@@ -190,18 +210,18 @@ export default function FeatureViews({ view, userData }) {
               </div>
             </div>
             
-            {/* 訓練習慣設定區塊 (新增) */}
+            {/* 訓練習慣設定區塊 (一般) */}
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <CalendarIcon className="text-blue-500" />
-                    <h3 className="font-bold text-white">訓練習慣設定</h3>
+                    <h3 className="font-bold text-white">一般訓練習慣</h3>
                 </div>
                 
                 <div className="space-y-4">
                     <div>
                         <label className="text-xs text-gray-500 uppercase font-semibold mb-2 block">預計訓練日</label>
                         <div className="grid grid-cols-4 gap-2">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                            {weekDays.map(day => (
                                 <button
                                     key={day}
                                     onClick={() => toggleDay(day)}
@@ -280,6 +300,7 @@ export default function FeatureViews({ view, userData }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* 身高體重 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold">身高 (cm)</label>
                   <input 
@@ -403,6 +424,64 @@ export default function FeatureViews({ view, userData }) {
               </div>
             </div>
 
+            {/* 新增：跑步訓練安排 */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <Timer className="text-orange-500" />
+                    <h3 className="font-bold text-white">跑步訓練安排</h3>
+                </div>
+                
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-500 uppercase font-semibold">🐢 長距離日 (LSD)</label>
+                            <select 
+                                value={profile.longRunDay}
+                                disabled={!isEditing}
+                                onChange={(e) => setProfile({...profile, longRunDay: e.target.value})}
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-orange-500 outline-none disabled:opacity-50 appearance-none"
+                            >
+                                <option value="">選擇星期...</option>
+                                {weekDays.map(day => <option key={day} value={day}>{day}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-500 uppercase font-semibold">🐇 間歇跑 (Interval)</label>
+                            <select 
+                                value={profile.intervalDay}
+                                disabled={!isEditing}
+                                onChange={(e) => setProfile({...profile, intervalDay: e.target.value})}
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-orange-500 outline-none disabled:opacity-50 appearance-none"
+                            >
+                                <option value="">選擇星期...</option>
+                                {weekDays.map(day => <option key={day} value={day}>{day}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs text-gray-500 uppercase font-semibold">👟 輕鬆跑 (Easy Run)</label>
+                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                            {weekDays.map(day => (
+                                <button
+                                    key={day}
+                                    onClick={() => toggleEasyRunDay(day)}
+                                    disabled={!isEditing}
+                                    className={`py-1.5 rounded text-xs font-medium transition-colors ${
+                                        profile.easyRunDays.includes(day)
+                                            ? 'bg-orange-600 text-white shadow-md shadow-orange-900/50'
+                                            : 'bg-gray-900 text-gray-500 hover:bg-gray-700'
+                                    } ${!isEditing ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                    {day}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 補品紀錄區塊 */}
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Pill className="text-blue-500" />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare } from 'lucide-react';
-import { auth } from '../firebase'; // 根據您的 firebase.js 路徑調整
+// 新增 ScanLine 圖標
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine } from 'lucide-react';
+import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
   <button
@@ -64,6 +65,13 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             text="訓練計畫 Training" 
             active={currentView === 'training'} 
             onClick={() => { setCurrentView('training'); setIsSidebarOpen(false); }} 
+          />
+          {/* 新增動作分析選項 */}
+          <SidebarItem 
+            icon={ScanLine} 
+            text="動作分析 Analysis" 
+            active={currentView === 'analysis'} 
+            onClick={() => { setCurrentView('analysis'); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={User} 

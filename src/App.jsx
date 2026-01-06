@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-// 確保所有引用都加上 .jsx 副檔名以避免 Vercel 找不到檔案
+// 引用新頁面，記得加 .jsx
 import DashboardView from './views/DashboardView.jsx'; 
 import FeatureViews from './views/FeatureViews.jsx'; 
+import AnalysisView from './views/AnalysisView.jsx'; // 新增這行
 import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from './firebase';
 
-// 登入畫面組件
 const LoginView = () => {
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
@@ -17,7 +17,6 @@ const LoginView = () => {
             await signInWithPopup(auth, provider);
         } catch (error) {
             console.error("Login failed:", error);
-            // 如果是 popup 被關閉，通常不需要跳 alert
             if (error.code !== 'auth/popup-closed-by-user') {
                 alert("登入失敗: " + error.message);
             }
@@ -77,6 +76,9 @@ export default function App() {
         return <FeatureViews view="training" />; 
       case 'profile':
         return <FeatureViews view="profile" userData={userData} />;
+      // 新增路由處理
+      case 'analysis':
+        return <AnalysisView />;
       default:
         return <DashboardView userData={userData} />;
     }

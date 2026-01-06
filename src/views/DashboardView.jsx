@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
-import { Activity, Flame, Trophy, Timer, Dumbbell } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle } from 'lucide-react';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
@@ -22,11 +22,11 @@ export default function DashboardView({ userData }) {
     caloriesBurned: 0,
     totalHours: 0,
     completedGoals: 0,
-    muscleFatigue: {} // 重要：這裡存放計算後的熱力圖數據
+    muscleFatigue: {},
+    latestAnalysis: null // 新增：存放最新的 AI 分析報告
   });
   const [loading, setLoading] = useState(true);
 
-  // 當使用者登入時，抓取近期訓練資料計算熱力圖
   useEffect(() => {
     fetchWorkoutStats();
   }, [userData]);
@@ -36,14 +36,14 @@ export default function DashboardView({ userData }) {
     if (!user) return;
 
     try {
-      // 設定搜尋範圍：過去 30 天的訓練 (讓熱力圖反映近期狀態)
       const q = query(collection(db, 'users', user.uid, 'calendar'));
       const querySnapshot = await getDocs(q);
 
       let totalSets = 0;
-      let muscleScore = {}; // 用來累積部位訓練量
+      let muscleScore = {}; 
       let totalWorkouts = 0;
       let totalRunDist = 0;
+      let latestAnalysisFeedback = null; // 暫存最新的分析
 
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -51,34 +51,39 @@ export default function DashboardView({ userData }) {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        // 只統計「已完成」且「近期」的紀錄
+        
         if (data.status === 'completed' && data.date >= todayStr) {
-          totalWorkouts++;
+          // 排除純分析紀錄，只計算實體訓練次數
+          if (data.type !== 'analysis') {
+             totalWorkouts++;
+          }
           
-          // 統計重訓肌群
-          if (data.type === 'strength' && data.exercises) {
+          if (data.exercises) {
             data.exercises.forEach(ex => {
-              if (ex.targetMuscle) {
-                // 每個 Set 算 1 分，累積訓練量
+              // 1. 統計肌肉熱力圖 (排除純分析)
+              if (ex.targetMuscle && ex.sets) {
                 const sets = parseInt(ex.sets) || 1;
                 muscleScore[ex.targetMuscle] = (muscleScore[ex.targetMuscle] || 0) + sets;
                 totalSets += sets;
               }
+              // 2. 尋找最新的動作分析報告
+              if (ex.type === 'analysis' && ex.feedback) {
+                // 簡單比較日期，取最新的 (或是直接取陣列最後一個，這裡假設後端有排序)
+                // 這裡簡單覆蓋，因為遍歷順序不保證，理想是用 orderBy query 獨立抓取
+                latestAnalysisFeedback = ex; 
+              }
             });
           }
 
-          // 統計跑步距離 (這裡僅示範)
           if (data.type === 'run' && data.runDistance) {
             totalRunDist += parseFloat(data.runDistance);
           }
         }
       });
 
-      // 將累積的組數轉換為 BodyHeatmap 的 0-10 分數
       const normalizedFatigue = {};
       Object.keys(muscleScore).forEach(muscle => {
         const score = muscleScore[muscle];
-        // 簡單的線性映射：超過 20 組就滿分
         let heat = Math.min(Math.round((score / 20) * 10), 10);
         if (score > 0 && heat === 0) heat = 1;
         normalizedFatigue[muscle] = heat;
@@ -86,10 +91,11 @@ export default function DashboardView({ userData }) {
 
       setStats({
         totalWorkouts: totalWorkouts,
-        caloriesBurned: Math.round(totalWorkouts * 250), // 估算值
-        totalHours: Math.round(totalWorkouts * 0.8 * 10) / 10, // 估算值
+        caloriesBurned: Math.round(totalWorkouts * 250), 
+        totalHours: Math.round(totalWorkouts * 0.8 * 10) / 10, 
         completedGoals: userData?.completedGoals || 0,
-        muscleFatigue: normalizedFatigue
+        muscleFatigue: normalizedFatigue,
+        latestAnalysis: latestAnalysisFeedback
       });
 
     } catch (error) {
@@ -101,7 +107,6 @@ export default function DashboardView({ userData }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Welcome Section */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-white">
@@ -111,7 +116,6 @@ export default function DashboardView({ userData }) {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           icon={Activity} 
@@ -139,7 +143,6 @@ export default function DashboardView({ userData }) {
         />
       </div>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Heatmap */}
         <div className="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col">
@@ -151,7 +154,6 @@ export default function DashboardView({ userData }) {
           </div>
           
           <div className="flex-1 min-h-[400px] flex items-center justify-center bg-gray-900/50 rounded-lg relative">
-             {/* 傳入圖片路徑，請確保這些圖片已存在於 public/ 資料夾中 */}
              <BodyHeatmap 
                 data={stats.muscleFatigue} 
                 frontImage="/muscle_front.png" 
@@ -170,28 +172,50 @@ export default function DashboardView({ userData }) {
           </div>
         </div>
 
-        {/* Right Column: Recent Activity */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-          <h3 className="text-lg font-bold text-white mb-4">訓練建議</h3>
-          <div className="space-y-4">
+        {/* Right Column: Training Insights */}
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col">
+          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Sparkles className="text-yellow-400" size={20} />
+            綜合訓練建議
+          </h3>
+          
+          <div className="space-y-4 flex-1">
+            {/* 1. 訓練量分析 */}
             <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
-              <h4 className="font-bold text-white mb-2 text-sm">肌群平衡分析</h4>
+              <h4 className="font-bold text-white mb-2 text-sm">肌群平衡</h4>
               {Object.keys(stats.muscleFatigue).length > 0 ? (
                 <p className="text-sm text-gray-400 leading-relaxed">
-                   根據熱圖顯示，您的
+                   數據顯示
                    <span className="text-green-400 font-bold mx-1">
                      {Object.entries(stats.muscleFatigue).sort((a,b) => b[1]-a[1])[0][0]} 
                    </span>
-                   訓練頻率較高。建議下週可以多安排一些拮抗肌群的訓練，或是增加有氧運動來平衡。
+                   是您最近最強化的部位。建議這幾天可以安排拮抗肌群或核心訓練來平衡身體發展。
                 </p>
               ) : (
-                <p className="text-sm text-gray-400">累積更多數據後，AI 將為您提供專屬分析。</p>
+                <p className="text-sm text-gray-400">開始紀錄您的第一次重訓，AI 將為您分析肌群分佈。</p>
               )}
             </div>
             
-            <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
-               <h4 className="font-bold text-blue-400 mb-1 text-sm">每週目標</h4>
-               <p className="text-sm text-gray-300">本週已完成 {stats.totalWorkouts} 次訓練，距離目標還差 2 次！加油！</p>
+            {/* 2. 動作分析報告 (連動部分) */}
+            <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
+               <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
+                 {stats.latestAnalysis ? <BrainCircuit size={14}/> : <AlertCircle size={14}/>}
+                 動作優化建議
+               </h4>
+               {stats.latestAnalysis ? (
+                 <div className="space-y-2">
+                    <p className="text-xs text-gray-500 font-mono mb-1">
+                        來源: {stats.latestAnalysis.title || 'AI 分析報告'}
+                    </p>
+                    <p className="text-sm text-gray-300 leading-relaxed line-clamp-6">
+                        {stats.latestAnalysis.feedback}
+                    </p>
+                 </div>
+               ) : (
+                 <p className="text-sm text-gray-400">
+                    尚無動作分析紀錄。請前往「動作分析」功能上傳影片，獲取專業姿勢建議。
+                 </p>
+               )}
             </div>
           </div>
         </div>

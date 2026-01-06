@@ -1,25 +1,26 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Activity, Play, Pause, RotateCcw, CheckCircle, AlertTriangle, ChevronRight, Upload, Cpu, Sparkles, BrainCircuit } from 'lucide-react';
-import { runGemini } from '../utils/gemini'; // 引入 AI 工具
+import { Camera, Activity, Play, RotateCcw, CheckCircle, Upload, Cpu, Sparkles, BrainCircuit, Save } from 'lucide-react';
+import { runGemini } from '../utils/gemini';
+import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+import { db, auth } from '../firebase';
 
 export default function AnalysisView() {
   const [mode, setMode] = useState('bench'); // 'bench' | 'run'
   const [videoFile, setVideoFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  // 狀態機：idle -> analyzing_internal -> internal_complete -> analyzing_ai -> ai_complete
+  // 狀態機
   const [analysisStep, setAnalysisStep] = useState('idle');
   
   // 儲存數據
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  // 觸發檔案選擇視窗
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  // 處理檔案選擇
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -28,7 +29,6 @@ export default function AnalysisView() {
     }
   };
 
-  // 階段一：模擬內部軟體分析 (不消耗 Token)
   const performInternalAnalysis = () => {
     if (!videoFile) {
         alert("請先上傳影片！");
@@ -36,9 +36,8 @@ export default function AnalysisView() {
     }
     setAnalysisStep('analyzing_internal');
     
-    // 模擬電腦視覺運算過程 (2秒)
+    // 模擬電腦視覺運算
     setTimeout(() => {
-      // 根據模式產生模擬數據
       const result = mode === 'bench' ? {
           trajectory: { label: '槓鈴軌跡', value: '垂直', status: 'good' },
           velocity: { label: '離心速度', value: '2.5 秒', status: 'good' },
@@ -56,7 +55,6 @@ export default function AnalysisView() {
     }, 2000);
   };
 
-  // 階段二：呼叫 AI 進行深度分析 (消耗少量 Token)
   const performAIAnalysis = async () => {
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) {
@@ -66,7 +64,6 @@ export default function AnalysisView() {
     
     setAnalysisStep('analyzing_ai');
 
-    // 建構 Prompt：只傳送數據，不傳影片，大幅節省 Token
     const prompt = `
       作為專業健身教練，請根據以下「${mode === 'bench' ? '臥推' : '跑步'}」的生物力學數據進行分析：
       ${JSON.stringify(metrics)}
@@ -75,7 +72,7 @@ export default function AnalysisView() {
       1. 一個總結性的評分 (1-10分)。
       2. 針對數據中 "warning" 項目的具體改善建議。
       3. 一個簡單的修正訓練技巧。
-      請用繁體中文回答，語氣專業且具鼓勵性，字數控制在 150 字以內。
+      請用繁體中文回答，語氣專業且具鼓勵性，字數控制在 100 字以內。
     `;
 
     try {
@@ -85,7 +82,66 @@ export default function AnalysisView() {
     } catch (error) {
         console.error(error);
         setAiFeedback("連線逾時或 API Key 無效，無法取得 AI 建議。");
-        setAnalysisStep('internal_complete'); // 退回上一階段允許重試
+        setAnalysisStep('internal_complete');
+    }
+  };
+
+  // 儲存分析結果 (修正：只存數據與建議，不連結熱力圖)
+  const saveToCalendar = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+        alert("請先登入");
+        return;
+    }
+
+    setIsSaving(true);
+    try {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+
+        // 準備純分析紀錄，不包含 targetMuscle，避免干擾熱力圖
+        const analysisEntry = {
+            id: Date.now().toString(), // 獨特 ID
+            type: 'analysis', // 特殊類型
+            title: mode === 'bench' ? '臥推 AI 分析報告' : '跑步 AI 分析報告',
+            feedback: aiFeedback, // 保存 AI 建議
+            metrics: metrics,     // 保存原始數據
+            score: metrics?.stability?.value || 'N/A', // 簡易分數
+            createdAt: now.toISOString()
+        };
+
+        const docRef = doc(db, 'users', user.uid, 'calendar', dateStr);
+        const docSnap = await getDoc(docRef);
+
+        let newData;
+        if (docSnap.exists()) {
+            const existingData = docSnap.data();
+            const currentExercises = existingData.exercises || [];
+            // 將分析報告存入 exercises 陣列 (或是開一個新欄位 analysisReports，這裡為了相容性存入 exercises)
+            newData = {
+                ...existingData,
+                exercises: [...currentExercises, analysisEntry],
+                updatedAt: now.toISOString()
+            };
+        } else {
+            newData = {
+                date: dateStr,
+                status: 'completed',
+                type: 'strength', // 預設容器類型
+                title: '今日訓練與分析',
+                exercises: [analysisEntry],
+                updatedAt: now.toISOString()
+            };
+        }
+
+        await setDoc(docRef, newData);
+        alert("分析報告已上傳！請前往儀表板查看綜合建議。");
+
+    } catch (error) {
+        console.error("儲存失敗:", error);
+        alert("儲存失敗，請稍後再試。");
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -141,13 +197,12 @@ export default function AnalysisView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 左側：影片預覽與主要操作 */}
+        {/* 左側：影片預覽 */}
         <div className="lg:col-span-2 space-y-4">
           <div 
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
             onClick={!videoFile ? handleUploadClick : undefined}
           >
-            {/* 載入動畫層 */}
             {analysisStep === 'analyzing_internal' && (
               <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
                 <Cpu size={48} className="text-blue-500 animate-pulse mb-4" />
@@ -165,7 +220,6 @@ export default function AnalysisView() {
               </div>
             )}
 
-            {/* 尚未上傳 */}
             {!videoFile && (
               <div className="text-center p-6 transition-transform group-hover:scale-105">
                 <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-700 group-hover:border-blue-500 group-hover:text-blue-500 text-gray-400 transition-colors">
@@ -176,7 +230,6 @@ export default function AnalysisView() {
               </div>
             )}
 
-            {/* 影片播放器 */}
             {videoFile && (
                 <video 
                     src={videoFile} 
@@ -187,16 +240,10 @@ export default function AnalysisView() {
                     autoPlay 
                 />
             )}
-            
-            {/* 裝飾背景 */}
-            {!videoFile && (
-               <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://cdn-icons-png.flaticon.com/512/2554/2554037.png')] bg-center bg-no-repeat bg-contain transform scale-50"></div>
-            )}
           </div>
 
-          {/* 兩階段控制按鈕區 */}
+          {/* 控制按鈕區 */}
           <div className="flex flex-wrap justify-center gap-4 min-h-[50px]">
-            {/* 階段 0: 上傳後準備開始 */}
             {videoFile && analysisStep === 'idle' && (
               <>
                 <button onClick={handleUploadClick} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
@@ -212,12 +259,12 @@ export default function AnalysisView() {
               </>
             )}
 
-            {/* 階段 1 完成: 顯示數據，等待 AI 分析 */}
             {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
-               <div className="flex gap-4">
+               <div className="flex gap-4 items-center">
                  <button onClick={clearAll} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
                     重置
                  </button>
+                 
                  {analysisStep !== 'ai_complete' && (
                     <button 
                       onClick={performAIAnalysis}
@@ -227,6 +274,17 @@ export default function AnalysisView() {
                       第二階段：AI 教練建議
                     </button>
                  )}
+
+                 {analysisStep === 'ai_complete' && (
+                    <button 
+                        onClick={saveToCalendar}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all hover:scale-105"
+                    >
+                        {isSaving ? <CheckCircle className="animate-spin" size={20} /> : <Save size={20} />}
+                        傳送報告至儀表板
+                    </button>
+                 )}
                </div>
             )}
           </div>
@@ -234,11 +292,10 @@ export default function AnalysisView() {
 
         {/* 右側：數據面板 */}
         <div className="space-y-4">
-          {/* 1. 內部軟體數據卡片 */}
           <div className={`bg-gray-800 rounded-xl border border-gray-700 p-5 transition-all duration-500 ${metrics ? 'opacity-100 translate-x-0' : 'opacity-50 translate-x-4'}`}>
             <h3 className="text-white font-bold mb-4 flex items-center gap-2">
               <Activity size={18} className="text-blue-400" />
-              生物力學數據 (本機)
+              生物力學數據
             </h3>
             
             {metrics ? (
@@ -256,29 +313,26 @@ export default function AnalysisView() {
             ) : (
               <div className="h-32 flex flex-col items-center justify-center text-gray-500 space-y-2 border-2 border-dashed border-gray-700 rounded-lg">
                 <Cpu size={24} className="opacity-40" />
-                <span className="text-xs">等待第一階段分析...</span>
+                <span className="text-xs">等待分析...</span>
               </div>
             )}
           </div>
 
-          {/* 2. AI 建議卡片 */}
           <div className={`bg-gradient-to-br from-purple-900/40 to-pink-900/40 rounded-xl border border-purple-500/30 p-5 transition-all duration-500 ${aiFeedback ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             {aiFeedback ? (
               <>
                 <h3 className="text-white font-bold mb-3 flex items-center gap-2">
                   <Sparkles size={18} className="text-yellow-400" />
-                  AI 教練深度解析
+                  AI 教練建議
                 </h3>
                 <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar">
                   {aiFeedback}
                 </div>
               </>
             ) : (
-               /* 當只有數據但還沒跑 AI 時的提示 */
                metrics && analysisStep !== 'analyzing_ai' && (
                 <div className="text-center py-4">
-                    <p className="text-purple-300 text-xs mb-2">想知道如何改善以上數據嗎？</p>
-                    <p className="text-gray-500 text-[10px]">點擊左側「第二階段」按鈕呼叫 AI</p>
+                    <p className="text-gray-500 text-[10px]">點擊第二階段按鈕取得建議</p>
                 </div>
                )
             )}
@@ -289,7 +343,6 @@ export default function AnalysisView() {
   );
 }
 
-// 數據顯示小組件
 const MetricItem = ({ label, value, status, hint }) => (
   <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex flex-col gap-1">
     <div className="flex justify-between items-center">
@@ -298,7 +351,6 @@ const MetricItem = ({ label, value, status, hint }) => (
         {value}
       </span>
     </div>
-    {/* 視覺化進度條 */}
     <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
       <div 
         className={`h-full rounded-full transition-all duration-1000 ${status === 'good' ? 'bg-green-500' : 'bg-yellow-500'}`} 
@@ -306,10 +358,7 @@ const MetricItem = ({ label, value, status, hint }) => (
       ></div>
     </div>
     {hint && (
-      <div className="flex items-start gap-1 mt-1 bg-yellow-500/10 p-1.5 rounded">
-        <AlertTriangle size={10} className="text-yellow-500 mt-0.5 flex-shrink-0" />
-        <span className="text-[10px] text-gray-400">{hint}</span>
-      </div>
+      <span className="text-[10px] text-gray-400 mt-1">{hint}</span>
     )}
   </div>
 );

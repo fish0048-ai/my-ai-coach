@@ -42,6 +42,27 @@ const loadScript = (src) => {
   });
 };
 
+// --- 肌肉部位 SVG 路徑定義 ---
+const MUSCLE_PATHS = {
+  '胸部': <path d="M4 7c0-2 3-4 8-4s8 2 8 4c0 5-4 10-8 13c-4-3-8-8-8-13z M12 3v17" />,
+  '背部': <path d="M4 4l8 2 8-2l-2 12l-6 6l-6-6z M12 6v14 M4 4l3 6 M20 4l-3 6" />,
+  '腿部': <path d="M5 2h4v10l-2 10h-3l-2-10v-10z M15 2h4v10l-2 10h-3l-2-10v-10z M9 2h6" />,
+  '肩膀': <path d="M2 8c0-3 3-5 10-5s10 2 10 5v4l-4 2l-6-2l-6 2l-4-2z" />,
+  '手臂': <path d="M6 4c0-2 2-3 4-2c3 1 5 4 5 7v10h-4v-6c0-2-2-3-4-3z M18 4c0-2-2-3-4-2c-3 1-5 4-5 7v10h4v-6c0-2 2-3 4-3z" />,
+  '核心': <path d="M7 4h10v16h-10z M7 9h10 M7 14h10 M12 4v16" />,
+  '其他': <circle cx="12" cy="12" r="9" />
+};
+
+const MUSCLE_COLORS = {
+  '胸部': 'text-rose-400 bg-rose-400/20',
+  '背部': 'text-blue-400 bg-blue-400/20',
+  '腿部': 'text-purple-400 bg-purple-400/20',
+  '肩膀': 'text-orange-400 bg-orange-400/20',
+  '手臂': 'text-cyan-400 bg-cyan-400/20',
+  '核心': 'text-yellow-400 bg-yellow-400/20',
+  '其他': 'text-slate-400 bg-slate-400/20',
+};
+
 // --- 內建圖標系統 ---
 const ICONS = {
   dumbbell: <path d="m6.5 6.5 11 11m-12.01-1.01 1 1m16.01-16.01-1-1m-4 18 4-4m-19.01-4.99 4-4m-3 8 7-7m7 14 7-7" />,
@@ -77,7 +98,14 @@ const ICONS = {
   code: <><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>
 };
 
-const Icon = ({ name, className = "w-5 h-5" }) => {
+const Icon = ({ name, className = "w-5 h-5", customPath }) => {
+  if (customPath) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            {customPath}
+        </svg>
+    );
+  }
   const iconName = name ? name.toLowerCase().replace(/-/g, '') : '';
   const content = ICONS[iconName];
   if (!content) return null;
@@ -1047,16 +1075,19 @@ const CalendarView = ({ user, db, methods, logs }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Added Exercises List */}
+                                    {/* Added Exercises List with Icons */}
                                     <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
                                         {weightExercises.map((ex, i) => (
                                             <div key={i} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
                                                 <div className="flex flex-col">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded">{ex.part}</span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 ${MUSCLE_COLORS[ex.part] || 'text-slate-400 bg-slate-400/20'}`}>
+                                                            <Icon name="" className="w-3 h-3" customPath={MUSCLE_PATHS[ex.part]} />
+                                                            {ex.part}
+                                                        </span>
                                                         <span className="text-sm font-bold text-white">{ex.action}</span>
                                                     </div>
-                                                    <span className="text-xs text-slate-400 mt-1">
+                                                    <span className="text-xs text-slate-400 mt-1 pl-1">
                                                         <span className="text-orange-400 font-bold">{ex.weight}kg</span> x {ex.sets}組 x {ex.reps}下 
                                                         {ex.volume ? <span className="text-slate-500 ml-1"> (總量: {ex.volume}kg)</span> : ''}
                                                     </span>

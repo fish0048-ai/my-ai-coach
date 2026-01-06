@@ -1,14 +1,59 @@
-import React, { useState } from 'react';
-import { User, Settings, Dumbbell, Calendar, ChevronRight, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Settings, Dumbbell, Calendar, ChevronRight, Save, Loader } from 'lucide-react';
+import { doc, setDoc } from 'firebase/firestore'; // 引入 Firestore 寫入功能
+import { db, auth } from '../firebase'; // 引入資料庫與驗證實例
 
 export default function FeatureViews({ view, userData }) {
   // 模擬一些編輯狀態 (UI用途)
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // 新增：儲存中的載入狀態
+  
+  // 初始化表單狀態
   const [profile, setProfile] = useState({
-    height: userData?.height || 175,
-    weight: userData?.weight || 70,
+    height: '',
+    weight: '',
     goal: '增肌'
   });
+
+  // 當從後端抓到 userData 時，更新表單內容
+  useEffect(() => {
+    if (userData) {
+      setProfile({
+        height: userData.height || '',
+        weight: userData.weight || '',
+        goal: userData.goal || '增肌'
+      });
+    }
+  }, [userData]);
+
+  // 處理儲存邏輯
+  const handleSave = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("請先登入才能儲存資料！");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // 核心邏輯：寫入 Firestore 的 'users' 集合
+      // 路徑：users / {您的UID}
+      await setDoc(doc(db, "users", user.uid), {
+        ...profile, // 寫入身高、體重、目標
+        email: user.email, // 順便紀錄 Email 方便管理
+        name: user.displayName || 'User',
+        lastUpdated: new Date()
+      }, { merge: true }); // merge: true 代表只更新欄位，不要覆蓋掉既有的其他資料(如訓練紀錄)
+
+      setIsEditing(false);
+      alert("個人資料已成功上傳至雲端！");
+    } catch (error) {
+      console.error("儲存失敗:", error);
+      alert("儲存失敗，請檢查網路連線。");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (view === 'training') {
     return (
@@ -78,8 +123,12 @@ export default function FeatureViews({ view, userData }) {
           {/* 左側：頭像與基本資訊 */}
           <div className="col-span-1 bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col items-center text-center">
             <div className="relative">
-              <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 ring-4 ring-gray-800 shadow-xl">
-                {userData?.name?.[0]?.toUpperCase() || 'U'}
+              <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 ring-4 ring-gray-800 shadow-xl overflow-hidden">
+                {userData?.photoURL ? (
+                    <img src={userData.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                    <span>{userData?.name?.[0]?.toUpperCase() || 'U'}</span>
+                )}
               </div>
               <button className="absolute bottom-4 right-0 p-1.5 bg-gray-700 rounded-full text-white hover:bg-gray-600 border border-gray-900">
                 <Settings size={14} />
@@ -89,7 +138,7 @@ export default function FeatureViews({ view, userData }) {
             <p className="text-gray-400 text-sm mb-4">{userData?.email}</p>
             <div className="flex gap-2 w-full">
                <span className="flex-1 py-1 bg-blue-500/10 text-blue-400 text-xs rounded border border-blue-500/20">新手</span>
-               <span className="flex-1 py-1 bg-purple-500/10 text-purple-400 text-xs rounded border border-purple-500/20">增肌期</span>
+               <span className="flex-1 py-1 bg-purple-500/10 text-purple-400 text-xs rounded border border-purple-500/20">{profile.goal}</span>
             </div>
           </div>
 
@@ -97,14 +146,23 @@ export default function FeatureViews({ view, userData }) {
           <div className="col-span-1 md:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-white">身體數據</h3>
-              <button 
-                onClick={() => setIsEditing(!isEditing)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isEditing ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                {isEditing ? <><Save size={16}/> 儲存</> : <><Settings size={16}/> 編輯</>}
-              </button>
+              {isEditing ? (
+                 <button 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                 >
+                  {isSaving ? <Loader size={16} className="animate-spin"/> : <Save size={16}/>}
+                  儲存
+                 </button>
+              ) : (
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                >
+                  <Settings size={16}/> 編輯
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -116,6 +174,7 @@ export default function FeatureViews({ view, userData }) {
                   disabled={!isEditing}
                   onChange={(e) => setProfile({...profile, height: e.target.value})}
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="未設定"
                 />
               </div>
               <div className="space-y-2">
@@ -126,6 +185,7 @@ export default function FeatureViews({ view, userData }) {
                   disabled={!isEditing}
                   onChange={(e) => setProfile({...profile, weight: e.target.value})}
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="未設定"
                 />
               </div>
               <div className="space-y-2">
@@ -133,7 +193,7 @@ export default function FeatureViews({ view, userData }) {
                 <input 
                   type="number" 
                   defaultValue="18"
-                  disabled={!isEditing}
+                  disabled={!isEditing} // 暫時保留不給編輯，因為後端尚未實作此欄位
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>

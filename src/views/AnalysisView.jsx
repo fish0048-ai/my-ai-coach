@@ -1,12 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Activity, Play, Pause, RotateCcw, CheckCircle, AlertTriangle, ChevronRight, Upload } from 'lucide-react';
+import { Camera, Activity, Play, Pause, RotateCcw, CheckCircle, AlertTriangle, ChevronRight, Upload, Cpu, Sparkles, BrainCircuit } from 'lucide-react';
+import { runGemini } from '../utils/gemini'; // 引入 AI 工具
 
 export default function AnalysisView() {
   const [mode, setMode] = useState('bench'); // 'bench' | 'run'
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showResult, setShowResult] = useState(false);
-  const [videoFile, setVideoFile] = useState(null); // 新增：儲存選到的影片
-  const fileInputRef = useRef(null); // 新增：用來控制隱藏的 input
+  const [videoFile, setVideoFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // 狀態機：idle -> analyzing_internal -> internal_complete -> analyzing_ai -> ai_complete
+  const [analysisStep, setAnalysisStep] = useState('idle');
+  
+  // 儲存數據
+  const [metrics, setMetrics] = useState(null);
+  const [aiFeedback, setAiFeedback] = useState('');
 
   // 觸發檔案選擇視窗
   const handleUploadClick = () => {
@@ -17,38 +23,85 @@ export default function AnalysisView() {
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     if (file) {
-      setVideoFile(URL.createObjectURL(file)); // 建立預覽網址
-      // 重置狀態，準備開始分析
-      setShowResult(false);
-      setIsAnalyzing(false);
+      setVideoFile(URL.createObjectURL(file));
+      resetAnalysis();
     }
   };
 
-  // 模擬分析過程
-  const handleStartAnalysis = () => {
+  // 階段一：模擬內部軟體分析 (不消耗 Token)
+  const performInternalAnalysis = () => {
     if (!videoFile) {
         alert("請先上傳影片！");
         return;
     }
-    setIsAnalyzing(true);
-    setShowResult(false);
+    setAnalysisStep('analyzing_internal');
     
-    // 模擬 3 秒後的分析結果
+    // 模擬電腦視覺運算過程 (2秒)
     setTimeout(() => {
-      setIsAnalyzing(false);
-      setShowResult(true);
-    }, 3000);
+      // 根據模式產生模擬數據
+      const result = mode === 'bench' ? {
+          trajectory: { label: '槓鈴軌跡', value: '垂直', status: 'good' },
+          velocity: { label: '離心速度', value: '2.5 秒', status: 'good' },
+          elbowAngle: { label: '手肘角度', value: '78°', status: 'warning', hint: '角度稍大，增加肩部壓力' },
+          stability: { label: '推舉穩定度', value: '92%', status: 'good' }
+      } : {
+          cadence: { label: '步頻', value: '162 spm', status: 'warning', hint: '目標: 170-180 spm' },
+          verticalOscillation: { label: '垂直振幅', value: '8.5 cm', status: 'good' },
+          groundTime: { label: '觸地時間', value: '240 ms', status: 'good' },
+          lean: { label: '軀幹前傾', value: '5°', status: 'good' }
+      };
+      
+      setMetrics(result);
+      setAnalysisStep('internal_complete');
+    }, 2000);
+  };
+
+  // 階段二：呼叫 AI 進行深度分析 (消耗少量 Token)
+  const performAIAnalysis = async () => {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+        alert("請先在右下角的 AI 教練聊天室中設定您的 API Key！");
+        return;
+    }
+    
+    setAnalysisStep('analyzing_ai');
+
+    // 建構 Prompt：只傳送數據，不傳影片，大幅節省 Token
+    const prompt = `
+      作為專業健身教練，請根據以下「${mode === 'bench' ? '臥推' : '跑步'}」的生物力學數據進行分析：
+      ${JSON.stringify(metrics)}
+      
+      請給出：
+      1. 一個總結性的評分 (1-10分)。
+      2. 針對數據中 "warning" 項目的具體改善建議。
+      3. 一個簡單的修正訓練技巧。
+      請用繁體中文回答，語氣專業且具鼓勵性，字數控制在 150 字以內。
+    `;
+
+    try {
+        const response = await runGemini(prompt, apiKey);
+        setAiFeedback(response);
+        setAnalysisStep('ai_complete');
+    } catch (error) {
+        console.error(error);
+        setAiFeedback("連線逾時或 API Key 無效，無法取得 AI 建議。");
+        setAnalysisStep('internal_complete'); // 退回上一階段允許重試
+    }
   };
 
   const resetAnalysis = () => {
-    setShowResult(false);
-    setIsAnalyzing(false);
-    setVideoFile(null); // 清除影片
+    setAnalysisStep('idle');
+    setMetrics(null);
+    setAiFeedback('');
+  };
+
+  const clearAll = () => {
+    resetAnalysis();
+    setVideoFile(null);
   };
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* 隱藏的檔案輸入框 */}
       <input 
         type="file" 
         ref={fileInputRef}
@@ -62,11 +115,14 @@ export default function AnalysisView() {
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Camera className="text-blue-500" />
           AI 動作分析
+          <span className="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-1 rounded border border-gray-700">
+            兩階段省流模式
+          </span>
         </h1>
         
         <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
           <button 
-            onClick={() => { setMode('bench'); resetAnalysis(); }}
+            onClick={() => { setMode('bench'); clearAll(); }}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
               mode === 'bench' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
             }`}
@@ -74,7 +130,7 @@ export default function AnalysisView() {
             臥推分析
           </button>
           <button 
-            onClick={() => { setMode('run'); resetAnalysis(); }}
+            onClick={() => { setMode('run'); clearAll(); }}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
               mode === 'run' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
             }`}
@@ -85,170 +141,174 @@ export default function AnalysisView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 左側：相機/影片區 */}
+        {/* 左側：影片預覽與主要操作 */}
         <div className="lg:col-span-2 space-y-4">
           <div 
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
             onClick={!videoFile ? handleUploadClick : undefined}
           >
-            
-            {/* 狀態 1: 正在分析 */}
-            {isAnalyzing ? (
-              <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center z-20">
-                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-blue-400 font-mono animate-pulse">AI 正在計算骨架節點...</p>
-                {/* 掃描線動畫 */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent h-8 w-full animate-scan top-0"></div>
-              </div>
-            ) : showResult ? (
-              /* 狀態 2: 顯示結果 (覆蓋在影片上) */
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20 backdrop-blur-sm">
-                <div className="text-center animate-bounceIn">
-                  <CheckCircle size={56} className="text-green-500 mx-auto mb-3" />
-                  <h3 className="text-2xl font-bold text-white mb-1">分析完成！</h3>
-                  <p className="text-gray-300">已生成優化建議報告</p>
+            {/* 載入動畫層 */}
+            {analysisStep === 'analyzing_internal' && (
+              <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
+                <Cpu size={48} className="text-blue-500 animate-pulse mb-4" />
+                <p className="text-blue-400 font-mono">正在提取骨架節點 (本機運算)...</p>
+                <div className="w-48 h-1 bg-gray-700 rounded-full mt-4 overflow-hidden">
+                  <div className="h-full bg-blue-500 animate-progress"></div>
                 </div>
               </div>
-            ) : !videoFile ? (
-              /* 狀態 3: 尚未上傳 (初始畫面) */
+            )}
+
+            {analysisStep === 'analyzing_ai' && (
+              <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
+                <BrainCircuit size={48} className="text-purple-500 animate-pulse mb-4" />
+                <p className="text-purple-400 font-mono">AI 正在思考改善建議 (雲端運算)...</p>
+              </div>
+            )}
+
+            {/* 尚未上傳 */}
+            {!videoFile && (
               <div className="text-center p-6 transition-transform group-hover:scale-105">
                 <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-700 group-hover:border-blue-500 group-hover:text-blue-500 text-gray-400 transition-colors">
                   <Upload size={32} />
                 </div>
                 <h3 className="text-white font-bold text-lg mb-1">點擊上傳影片</h3>
-                <p className="text-gray-500 text-sm">支援 MP4, MOV 格式 (Max 50MB)</p>
+                <p className="text-gray-500 text-sm">支援 MP4, MOV 格式</p>
               </div>
-            ) : null}
+            )}
 
-            {/* 影片播放器 (如果有檔案) */}
+            {/* 影片播放器 */}
             {videoFile && (
                 <video 
                     src={videoFile} 
                     className="absolute inset-0 w-full h-full object-contain bg-black"
-                    controls={!isAnalyzing && !showResult}
+                    controls={analysisStep === 'idle' || analysisStep.includes('complete')}
                     loop
-                    muted // 自動播放通常需要靜音
-                    autoPlay // 選完直接播
+                    muted 
+                    autoPlay 
                 />
             )}
             
-            {/* 骨架裝飾背景 (僅在無影片時顯示) */}
-            {!videoFile && !isAnalyzing && (
+            {/* 裝飾背景 */}
+            {!videoFile && (
                <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://cdn-icons-png.flaticon.com/512/2554/2554037.png')] bg-center bg-no-repeat bg-contain transform scale-50"></div>
             )}
           </div>
 
-          {/* 控制按鈕區 */}
-          <div className="flex justify-center gap-4">
-            {/* 情境 A: 有影片但還沒開始分析 -> 顯示「開始分析」與「重選影片」 */}
-            {videoFile && !isAnalyzing && !showResult && (
+          {/* 兩階段控制按鈕區 */}
+          <div className="flex flex-wrap justify-center gap-4 min-h-[50px]">
+            {/* 階段 0: 上傳後準備開始 */}
+            {videoFile && analysisStep === 'idle' && (
               <>
-                 <button 
-                    onClick={handleUploadClick}
-                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all"
-                  >
-                    重新上傳
-                  </button>
-                  <button 
-                    onClick={handleStartAnalysis}
-                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all transform hover:scale-105"
-                  >
-                    <Play size={20} fill="currentColor" />
-                    開始分析
-                  </button>
+                <button onClick={handleUploadClick} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
+                  更換影片
+                </button>
+                <button 
+                  onClick={performInternalAnalysis}
+                  className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
+                >
+                  <Cpu size={20} />
+                  第一階段：數據分析
+                </button>
               </>
             )}
 
-            {/* 情境 B: 分析完成 -> 顯示「重新分析」 */}
-            {showResult && (
-              <button 
-                onClick={resetAnalysis}
-                className="flex items-center gap-2 px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all"
-              >
-                <RotateCcw size={20} />
-                重新開始
-              </button>
+            {/* 階段 1 完成: 顯示數據，等待 AI 分析 */}
+            {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
+               <div className="flex gap-4">
+                 <button onClick={clearAll} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
+                    重置
+                 </button>
+                 {analysisStep !== 'ai_complete' && (
+                    <button 
+                      onClick={performAIAnalysis}
+                      className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all hover:scale-105 animate-pulse-slow"
+                    >
+                      <Sparkles size={20} />
+                      第二階段：AI 教練建議
+                    </button>
+                 )}
+               </div>
             )}
           </div>
         </div>
 
-        {/* 右側：分析結果數據 */}
+        {/* 右側：數據面板 */}
         <div className="space-y-4">
-          {/* 即時數據卡片 */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+          {/* 1. 內部軟體數據卡片 */}
+          <div className={`bg-gray-800 rounded-xl border border-gray-700 p-5 transition-all duration-500 ${metrics ? 'opacity-100 translate-x-0' : 'opacity-50 translate-x-4'}`}>
             <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-              <Activity size={18} className="text-purple-500" />
-              關鍵指標 ({mode === 'bench' ? '臥推' : '跑步'})
+              <Activity size={18} className="text-blue-400" />
+              生物力學數據 (本機)
             </h3>
             
-            {showResult ? (
-              <div className="space-y-4 animate-fadeIn">
-                {mode === 'bench' ? (
-                  <>
-                    <MetricItem label="槓鈴軌跡" value="垂直 (Vertical)" status="good" />
-                    <MetricItem label="離心速度" value="2.5 秒" status="good" />
-                    <MetricItem label="手肘角度" value="75°" status="warning" hint="建議收緊至 45-60° 以保護肩膀" />
-                    <MetricItem label="推舉穩定度" value="92%" status="good" />
-                  </>
-                ) : (
-                  <>
-                    <MetricItem label="步頻 (Cadence)" value="165 spm" status="warning" hint="目標: 170-180 spm" />
-                    <MetricItem label="垂直振幅" value="8.5 cm" status="good" />
-                    <MetricItem label="觸地時間" value="240 ms" status="good" />
-                    <MetricItem label="軀幹前傾" value="5°" status="good" />
-                  </>
-                )}
+            {metrics ? (
+              <div className="space-y-4">
+                {Object.values(metrics).map((metric, idx) => (
+                    <MetricItem 
+                        key={idx}
+                        label={metric.label} 
+                        value={metric.value} 
+                        status={metric.status} 
+                        hint={metric.hint} 
+                    />
+                ))}
               </div>
             ) : (
-              <div className="h-48 flex flex-col items-center justify-center text-gray-500 space-y-2">
-                <Activity size={32} className="opacity-20" />
-                <span className="text-sm italic">
-                  {videoFile ? "準備就緒，請點擊分析" : "等待影片上傳..."}
-                </span>
+              <div className="h-32 flex flex-col items-center justify-center text-gray-500 space-y-2 border-2 border-dashed border-gray-700 rounded-lg">
+                <Cpu size={24} className="opacity-40" />
+                <span className="text-xs">等待第一階段分析...</span>
               </div>
             )}
           </div>
 
-          {/* AI 建議卡片 */}
-          {showResult && (
-            <div className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 rounded-xl border border-blue-500/30 p-5 animate-fadeIn">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                <CheckCircle size={18} className="text-blue-400" />
-                AI 教練總結
-              </h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                {mode === 'bench' 
-                  ? "整體動作流暢，但離心階段手肘略微外開（75度），這可能會增加肩關節壓力。試著將手肘稍微內收，想像要『折斷槓鈴』的感覺來啟動背肌。"
-                  : "你的跑姿很輕盈，垂直振幅控制得很好。不過步頻稍慢（165 spm），建議透過節拍器訓練將步頻提升至 170 以上，有助於減少膝蓋衝擊。"}
-              </p>
-            </div>
-          )}
+          {/* 2. AI 建議卡片 */}
+          <div className={`bg-gradient-to-br from-purple-900/40 to-pink-900/40 rounded-xl border border-purple-500/30 p-5 transition-all duration-500 ${aiFeedback ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+            {aiFeedback ? (
+              <>
+                <h3 className="text-white font-bold mb-3 flex items-center gap-2">
+                  <Sparkles size={18} className="text-yellow-400" />
+                  AI 教練深度解析
+                </h3>
+                <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar">
+                  {aiFeedback}
+                </div>
+              </>
+            ) : (
+               /* 當只有數據但還沒跑 AI 時的提示 */
+               metrics && analysisStep !== 'analyzing_ai' && (
+                <div className="text-center py-4">
+                    <p className="text-purple-300 text-xs mb-2">想知道如何改善以上數據嗎？</p>
+                    <p className="text-gray-500 text-[10px]">點擊左側「第二階段」按鈕呼叫 AI</p>
+                </div>
+               )
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// 小組件：顯示單個數據指標
+// 數據顯示小組件
 const MetricItem = ({ label, value, status, hint }) => (
-  <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
-    <div className="flex justify-between items-center mb-1">
+  <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex flex-col gap-1">
+    <div className="flex justify-between items-center">
       <span className="text-gray-400 text-sm">{label}</span>
       <span className={`font-bold ${status === 'good' ? 'text-green-400' : 'text-yellow-400'}`}>
         {value}
       </span>
     </div>
-    {/* 進度條示意 */}
-    <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden mb-1">
+    {/* 視覺化進度條 */}
+    <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
       <div 
-        className={`h-full rounded-full ${status === 'good' ? 'bg-green-500' : 'bg-yellow-500'}`} 
-        style={{ width: status === 'good' ? '90%' : '70%' }}
+        className={`h-full rounded-full transition-all duration-1000 ${status === 'good' ? 'bg-green-500' : 'bg-yellow-500'}`} 
+        style={{ width: status === 'good' ? '100%' : '60%' }}
       ></div>
     </div>
     {hint && (
-      <div className="flex items-start gap-1 mt-1">
-        <AlertTriangle size={12} className="text-yellow-500 mt-0.5 flex-shrink-0" />
-        <span className="text-[10px] text-gray-500">{hint}</span>
+      <div className="flex items-start gap-1 mt-1 bg-yellow-500/10 p-1.5 rounded">
+        <AlertTriangle size={10} className="text-yellow-500 mt-0.5 flex-shrink-0" />
+        <span className="text-[10px] text-gray-400">{hint}</span>
       </div>
     )}
   </div>

@@ -1,5 +1,6 @@
 import React from 'react';
-import BodyHeatmap from '../components/BodyHeatmap'; // 假設您有這個組件，若無可先註解掉
+// 修正重點：這裡加上 .jsx 副檔名
+import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import { Activity, Flame, Trophy, Timer } from 'lucide-react';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
@@ -61,7 +62,6 @@ export default function DashboardView({ userData }) {
         <div className="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6">
           <h3 className="text-lg font-bold text-white mb-4">肌肉疲勞度熱圖</h3>
           <div className="h-64 flex items-center justify-center bg-gray-900 rounded-lg">
-             {/* 這裡引入原本的 BodyHeatmap 組件 */}
              <BodyHeatmap data={userData?.muscleFatigue} />
           </div>
         </div>

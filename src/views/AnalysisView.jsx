@@ -62,26 +62,50 @@ export default function AnalysisView() {
         return;
     }
     
+    // 防呆：如果沒有數據，不呼叫 AI
+    if (!metrics) {
+        alert("請先完成第一階段數據分析！");
+        return;
+    }
+    
     setAnalysisStep('analyzing_ai');
 
+    // 優化 Prompt：去除冗言贅字，直接給予指令與 JSON
+    // 這大約可以節省 20-30 tokens
     const prompt = `
-      作為專業健身教練，請根據以下「${mode === 'bench' ? '臥推' : '跑步'}」的生物力學數據進行分析：
-      ${JSON.stringify(metrics)}
+      任務：健身動作分析
+      動作：${mode === 'bench' ? '臥推' : '跑步'}
+      數據：${JSON.stringify(metrics)}
       
-      請給出：
-      1. 一個總結性的評分 (1-10分)。
-      2. 針對數據中 "warning" 項目的具體改善建議。
-      3. 一個簡單的修正訓練技巧。
-      請用繁體中文回答，語氣專業且具鼓勵性，字數控制在 100 字以內。
+      請回覆 JSON 格式：
+      {
+        "score": "1-10分",
+        "suggestion": "針對warning項目的簡短建議(50字內)",
+        "tip": "一個修正技巧(20字內)"
+      }
+      不需Markdown，直接JSON。
     `;
 
     try {
-        const response = await runGemini(prompt, apiKey);
-        setAiFeedback(response);
+        const responseText = await runGemini(prompt, apiKey);
+        
+        // 嘗試解析 JSON，如果 AI 還是回傳了文字，則直接顯示
+        let feedbackDisplay = responseText;
+        try {
+            // 清理可能存在的 markdown code block
+            const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(cleanJson);
+            feedbackDisplay = `評分: ${result.score}/10\n建議: ${result.suggestion}\n技巧: ${result.tip}`;
+        } catch (e) {
+            // 解析失敗就顯示原始文字
+            feedbackDisplay = responseText;
+        }
+
+        setAiFeedback(feedbackDisplay);
         setAnalysisStep('ai_complete');
     } catch (error) {
         console.error(error);
-        setAiFeedback("連線逾時或 API Key 無效，無法取得 AI 建議。");
+        setAiFeedback("連線錯誤或 API Key 無效。");
         setAnalysisStep('internal_complete');
     }
   };

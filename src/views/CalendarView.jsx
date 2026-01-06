@@ -283,10 +283,14 @@ export default function CalendarView() {
 
     setIsGenerating(true);
     try {
+      // 優化 Prompt：更精簡的指令
       const prompt = `
-        請為我設計一個針對「${aiPrompt}」的健身課表。
-        請直接回傳一個 JSON 陣列，不要有其他文字。
-        格式：[{"name": "動作名稱", "sets": "4", "reps": "8-12", "weight": "適重"}]
+        任務：健身課表生成
+        目標：${aiPrompt}
+        
+        回傳 JSON 陣列 (無 Markdown):
+        [{"name": "動作", "sets": "4", "reps": "8-12", "weight": "適重"}]
+        僅列出 3-5 個關鍵動作。
       `;
       const response = await runGemini(prompt, apiKey);
       const cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();

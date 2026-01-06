@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { RefreshCcw, Info, ZoomIn, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { RefreshCcw, Info, Settings, Move, Plus, Minus, RotateCcw, Image as ImageIcon } from 'lucide-react';
 
 // --- 1. 顏色映射邏輯 ---
 const getHeatColor = (value) => {
@@ -37,8 +37,7 @@ const mapDataToMuscle = (data, muscleKey, view) => {
   return 0;
 };
 
-// --- 3. 精緻肌肉路徑數據 (保持不變以對應圖片位置) ---
-// 如果您的圖片姿勢不同，可能需要微調這些 Path，或是調整 viewBox
+// --- 3. 精緻肌肉路徑數據 ---
 const MUSCLE_PATHS = {
   front: {
     head: { path: "M90,20 Q100,10 110,20 Q115,35 110,50 Q100,60 90,50 Q85,35 90,20", name: "頭部", isMuscle: false },
@@ -68,12 +67,55 @@ const MUSCLE_PATHS = {
   }
 };
 
-// 允許傳入 frontImage 與 backImage 屬性
 export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
   const [view, setView] = useState('front'); // 'front' | 'back'
   const [hoveredMuscle, setHoveredMuscle] = useState(null);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  
+  // 校準數據: X位移, Y位移, 縮放比例
+  const [calibration, setCalibration] = useState({
+    front: { x: 0, y: 0, scale: 1 },
+    back: { x: 0, y: 0, scale: 1 }
+  });
+
+  // 初始化時讀取 LocalStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('heatmap_calibration');
+    if (saved) {
+      try {
+        setCalibration(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load calibration", e);
+      }
+    }
+  }, []);
+
+  // 儲存校準數據
+  const updateCalibration = (key, delta) => {
+    setCalibration(prev => {
+      const currentVal = prev[view][key];
+      const newVal = {
+        ...prev,
+        [view]: {
+          ...prev[view],
+          [key]: parseFloat((currentVal + delta).toFixed(2))
+        }
+      };
+      localStorage.setItem('heatmap_calibration', JSON.stringify(newVal));
+      return newVal;
+    });
+  };
+
+  const resetCalibration = () => {
+    setCalibration(prev => {
+      const newVal = { ...prev, [view]: { x: 0, y: 0, scale: 1 } };
+      localStorage.setItem('heatmap_calibration', JSON.stringify(newVal));
+      return newVal;
+    });
+  };
 
   const currentImage = view === 'front' ? frontImage : backImage;
+  const { x, y, scale } = calibration[view];
 
   return (
     <div className="flex flex-col h-full bg-gray-900 rounded-lg p-4 relative overflow-hidden border border-gray-800 shadow-xl">
@@ -83,24 +125,64 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
         <div className="flex flex-col">
            <h3 className="text-white font-bold text-sm flex items-center gap-2">
             {currentImage ? <ImageIcon size={14} className="text-purple-400"/> : <Info size={14} className="text-blue-500"/>}
-            {view === 'front' ? '正面 (Anterior)' : '背面 (Posterior)'}
+            {view === 'front' ? '正面' : '背面'}
+            {isCalibrating && <span className="text-xs text-yellow-500 font-normal border border-yellow-500/50 px-1 rounded animate-pulse">校準模式</span>}
            </h3>
-           <span className="text-xs text-gray-500 h-4 transition-all duration-300">
-             {hoveredMuscle ? `${hoveredMuscle.name}: ${hoveredMuscle.value}/10` : '移動游標查看詳情'}
+           <span className="text-xs text-gray-500 h-4">
+             {hoveredMuscle ? `${hoveredMuscle.name}: ${hoveredMuscle.value}/10` : (isCalibrating ? '請使用下方按鈕調整熱點位置' : '移動游標查看詳情')}
            </span>
         </div>
 
-        <button 
-          onClick={() => setView(prev => prev === 'front' ? 'back' : 'front')}
-          className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs text-white rounded-lg border border-gray-600 transition-all active:scale-95 shadow-lg"
-        >
-          <RefreshCcw size={12} className={`transition-transform duration-500 ${view === 'back' ? 'rotate-180' : ''}`} />
-          {view === 'front' ? '切換背面' : '切換正面'}
-        </button>
+        <div className="flex gap-2">
+          {/* 校準模式開關 */}
+          <button 
+            onClick={() => setIsCalibrating(!isCalibrating)}
+            className={`p-1.5 rounded-lg border transition-all ${isCalibrating ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' : 'bg-gray-800 text-gray-400 border-gray-600 hover:text-white'}`}
+            title="調整熱點位置"
+          >
+            <Settings size={14} />
+          </button>
+          
+          <button 
+            onClick={() => setView(prev => prev === 'front' ? 'back' : 'front')}
+            className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs text-white rounded-lg border border-gray-600 transition-all active:scale-95 shadow-lg"
+          >
+            <RefreshCcw size={12} className={`transition-transform duration-500 ${view === 'back' ? 'rotate-180' : ''}`} />
+            {view === 'front' ? '背面' : '正面'}
+          </button>
+        </div>
       </div>
 
+      {/* 校準控制面板 (僅在校準模式顯示) */}
+      {isCalibrating && (
+        <div className="absolute top-16 right-4 z-20 bg-gray-900/90 backdrop-blur border border-gray-700 p-3 rounded-xl shadow-2xl flex flex-col gap-3 w-32 animate-fadeIn">
+          <div className="space-y-1">
+            <span className="text-[10px] text-gray-400 uppercase font-bold flex items-center gap-1"><Move size={10}/> 位移 (X/Y)</span>
+            <div className="grid grid-cols-3 gap-1">
+              <div></div>
+              <button onClick={() => updateCalibration('y', -5)} className="bg-gray-800 hover:bg-gray-700 text-white rounded p-1 flex justify-center"><Minus size={12} className="rotate-90"/></button>
+              <div></div>
+              <button onClick={() => updateCalibration('x', -5)} className="bg-gray-800 hover:bg-gray-700 text-white rounded p-1 flex justify-center"><Minus size={12}/></button>
+              <button onClick={resetCalibration} className="bg-red-900/50 hover:bg-red-900 text-red-400 rounded p-1 flex justify-center" title="重置"><RotateCcw size={12}/></button>
+              <button onClick={() => updateCalibration('x', 5)} className="bg-gray-800 hover:bg-gray-700 text-white rounded p-1 flex justify-center"><Plus size={12}/></button>
+              <div></div>
+              <button onClick={() => updateCalibration('y', 5)} className="bg-gray-800 hover:bg-gray-700 text-white rounded p-1 flex justify-center"><Plus size={12} className="rotate-90"/></button>
+              <div></div>
+            </div>
+          </div>
+          
+          <div className="space-y-1 pt-2 border-t border-gray-700">
+            <span className="text-[10px] text-gray-400 uppercase font-bold flex items-center gap-1"><ZoomIn size={10}/> 縮放 ({scale.toFixed(2)})</span>
+            <div className="flex gap-1">
+              <button onClick={() => updateCalibration('scale', -0.05)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white rounded py-1 flex justify-center"><Minus size={14}/></button>
+              <button onClick={() => updateCalibration('scale', 0.05)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white rounded py-1 flex justify-center"><Plus size={14}/></button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 畫布區域 */}
-      <div className="flex-1 flex items-center justify-center relative py-2">
+      <div className="flex-1 flex items-center justify-center relative py-2 overflow-hidden">
         <svg 
             viewBox="50 0 100 280" 
             className="h-full w-auto"
@@ -113,7 +195,7 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
             </filter>
           </defs>
 
-          {/* A. 背景圖片層 (如果有提供) */}
+          {/* A. 背景圖片層 (不隨校準移動，固定不動) */}
           {currentImage && (
             <image 
               href={currentImage} 
@@ -121,41 +203,43 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
               y="0" 
               width="100" 
               height="280" 
-              preserveAspectRatio="xMidYMid slice" // 確保圖片填滿
-              opacity="0.5" // 稍微調暗，讓上面的熱力圖更明顯
+              preserveAspectRatio="xMidYMid slice" 
+              opacity="0.6" 
             />
           )}
 
-          {/* B. 肌肉熱力圖層 (Overlay) */}
-          {Object.entries(MUSCLE_PATHS[view]).map(([key, info]) => {
-            const value = info.isMuscle ? mapDataToMuscle(data, key, view) : 0;
-            // 如果有背景圖且數值為0，我們將區塊設為完全透明，露出底圖
-            // 如果沒有背景圖，則顯示深灰色
-            const baseColor = currentImage ? 'transparent' : '#374151';
-            const fillColor = value > 0 ? getHeatColor(value) : baseColor;
-            
-            const isHovered = hoveredMuscle?.key === key;
-            
-            return (
-              <g 
-                key={key} 
-                className={`transition-all duration-300 ${info.isMuscle ? 'cursor-pointer' : ''}`}
-                onMouseEnter={() => info.isMuscle && setHoveredMuscle({ key, name: info.name, value })}
-                onMouseLeave={() => setHoveredMuscle(null)}
-              >
-                <path 
-                  d={info.path} 
-                  fill={fillColor} 
-                  stroke={isHovered ? '#fff' : (currentImage ? 'rgba(255,255,255,0.1)' : '#111827')} 
-                  strokeWidth={isHovered ? "1" : "0.5"}
-                  // 只有在有訓練量時才不透明，否則半透明以顯示底圖
-                  fillOpacity={value > 0 ? 0.8 : (currentImage ? 0 : 1)}
-                  filter={value > 7 ? "url(#glow)" : ""}
-                  className="transition-all duration-300 ease-in-out"
-                />
-              </g>
-            );
-          })}
+          {/* B. 肌肉熱力圖層 (套用校準變形) */}
+          {/* transform-origin 設定為中心點 (100, 140) 以確保縮放時居中 */}
+          <g 
+            transform={`translate(${x}, ${y}) scale(${scale})`} 
+            style={{ transformOrigin: '100px 140px' }}
+          >
+            {Object.entries(MUSCLE_PATHS[view]).map(([key, info]) => {
+              const value = info.isMuscle ? mapDataToMuscle(data, key, view) : 0;
+              const baseColor = currentImage ? 'transparent' : '#374151';
+              const fillColor = value > 0 ? getHeatColor(value) : baseColor;
+              const isHovered = hoveredMuscle?.key === key;
+              
+              return (
+                <g 
+                  key={key} 
+                  className={`transition-all duration-300 ${info.isMuscle ? 'cursor-pointer' : ''}`}
+                  onMouseEnter={() => info.isMuscle && setHoveredMuscle({ key, name: info.name, value })}
+                  onMouseLeave={() => setHoveredMuscle(null)}
+                >
+                  <path 
+                    d={info.path} 
+                    fill={fillColor} 
+                    stroke={isHovered ? '#fff' : (currentImage ? 'rgba(255,255,255,0.15)' : '#111827')} 
+                    strokeWidth={isHovered ? "1.5" : (isCalibrating ? "0.8" : "0.5")}
+                    strokeDasharray={isCalibrating ? "2,2" : "0"} // 校準模式下顯示虛線邊框方便對齊
+                    fillOpacity={value > 0 ? 0.8 : (currentImage ? (isCalibrating ? 0.1 : 0) : 1)}
+                    filter={value > 7 ? "url(#glow)" : ""}
+                  />
+                </g>
+              );
+            })}
+          </g>
         </svg>
       </div>
 

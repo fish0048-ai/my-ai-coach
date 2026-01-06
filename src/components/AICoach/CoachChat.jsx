@@ -1,13 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, Loader } from 'lucide-react';
-// import { run } from '../../gemini'; // 假設您有這個檔案，如果邏輯在 App.jsx 內，請將 run 函式移入此組件或作為 prop 傳入
+import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save } from 'lucide-react';
+import { runGemini } from '../../utils/gemini';
 
 export default function CoachChat({ isOpen, onClose, user }) {
   const [messages, setMessages] = useState([
-    { role: 'model', text: "嗨！我是你的 AI 教練。今天想訓練哪個部位？或者有什麼飲食問題嗎？" }
+    { role: 'model', text: `嗨 ${user?.displayName || '夥伴'}！我是你的 AI 教練。\n今天想練哪裡？或者有飲食上的問題嗎？` }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // 新增：API Key 相關狀態
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempKey, setTempKey] = useState('');
+
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -16,27 +22,46 @@ export default function CoachChat({ isOpen, onClose, user }) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isLoading, showSettings]);
 
-  // 為了示範，這裡將 API 呼叫邏輯保留，您需要將原本 App.jsx 中的 run 函式邏輯整合進來
+  // 當打開設定頁面時，將目前的 Key 填入輸入框
+  useEffect(() => {
+    if (showSettings) {
+      setTempKey(apiKey);
+    }
+  }, [showSettings, apiKey]);
+
+  const handleSaveKey = () => {
+    localStorage.setItem('gemini_api_key', tempKey);
+    setApiKey(tempKey);
+    setShowSettings(false);
+    // 儲存後如果沒有訊息，可以給個提示
+    if (messages.length === 1) {
+      setMessages(prev => [...prev, { role: 'model', text: "API Key 已儲存！我們現在可以開始對話了。" }]);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     
+    // 如果沒有 API Key，強制跳出設定頁面
+    if (!apiKey) {
+      setShowSettings(true);
+      setMessages(prev => [...prev, { role: 'model', text: "請先設定 API Key 才能使用喔！" }]);
+      return;
+    }
+
     const userMessage = input;
-    setInput("");
+    setInput(""); 
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setIsLoading(true);
 
     try {
-        // TODO: 將原本 App.jsx 的 Gemini 呼叫邏輯放在這裡
-        // const response = await run(userMessage); 
-        // 模擬回應：
-        const response = "這是一個模擬的回應。請確保將 Gemini API 邏輯整合到 CoachChat 組件中。";
-        
-        setMessages(prev => [...prev, { role: 'model', text: response }]);
+        // 將 apiKey 傳入 runGemini
+        const responseText = await runGemini(userMessage, apiKey);
+        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
-        console.error(error);
-        setMessages(prev => [...prev, { role: 'model', text: "抱歉，我目前有點連線問題，請稍後再試。" }]);
+        setMessages(prev => [...prev, { role: 'model', text: "連線發生錯誤，請檢查網路或 API Key。" }]);
     } finally {
         setIsLoading(false);
     }
@@ -45,70 +70,129 @@ export default function CoachChat({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 w-full md:w-96 h-[600px] max-h-[100vh] bg-gray-900 md:rounded-2xl shadow-2xl border border-gray-700 flex flex-col z-50 transition-all duration-300">
+    <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 w-full md:w-96 h-[600px] max-h-[100vh] bg-gray-900 md:rounded-2xl shadow-2xl border border-gray-700 flex flex-col z-50 transition-all duration-300 font-sans">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gray-800 md:rounded-t-2xl">
+      <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gradient-to-r from-gray-900 to-gray-800 md:rounded-t-2xl">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-            <Bot size={18} className="text-white" />
+          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-900/50">
+            <Bot size={20} className="text-white" />
           </div>
           <div>
-            <h3 className="font-bold text-white">AI Coach</h3>
+            <h3 className="font-bold text-white flex items-center gap-2">
+              AI Coach
+              <Sparkles size={14} className="text-yellow-400" />
+            </h3>
             <span className="text-xs text-green-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
               Online
             </span>
           </div>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-          <X size={20} />
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-3 rounded-2xl ${
-              msg.role === 'user' 
-                ? 'bg-blue-600 text-white rounded-br-none' 
-                : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
-            }`}>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 p-3 rounded-2xl rounded-bl-none border border-gray-700 flex items-center space-x-2">
-              <Loader size={16} className="animate-spin text-blue-500" />
-              <span className="text-xs text-gray-400">思考中...</span>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="p-4 border-t border-gray-800 bg-gray-900 md:rounded-b-2xl">
         <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="詢問訓練或飲食建議..."
-            className="flex-1 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
-          />
           <button 
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="p-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/20"
+            onClick={() => setShowSettings(!showSettings)} 
+            className={`p-2 rounded-lg transition-colors ${showSettings || !apiKey ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+            title="設定 API Key"
           >
-            <Send size={18} />
+            <Settings size={20} />
+          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors bg-gray-800 hover:bg-gray-700 p-2 rounded-lg">
+            <X size={20} />
           </button>
         </div>
       </div>
+
+      {/* Content Area: Settings OR Messages */}
+      <div className="flex-1 overflow-y-auto bg-black/20 relative">
+        {showSettings ? (
+          <div className="absolute inset-0 p-6 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-sm z-10 space-y-6 animate-fadeIn">
+            <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center mb-2">
+              <Key size={32} className="text-blue-500" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold text-white">設定 API Key</h3>
+              <p className="text-sm text-gray-400 max-w-xs">
+                為了保護您的安全，請輸入您的 Google Gemini API Key。金鑰僅會儲存在您的瀏覽器中。
+              </p>
+            </div>
+            
+            <div className="w-full space-y-3">
+              <input
+                type="password"
+                value={tempKey}
+                onChange={(e) => setTempKey(e.target.value)}
+                placeholder="貼上您的 API Key (AIzaSy...)"
+                className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-mono"
+              />
+              <button
+                onClick={handleSaveKey}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/30"
+              >
+                <Save size={18} />
+                儲存設定
+              </button>
+            </div>
+            
+            <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-blue-400 hover:text-blue-300 hover:underline mt-4"
+            >
+              還沒有 Key？點此免費取得
+            </a>
+          </div>
+        ) : (
+          <div className="p-4 space-y-4 min-h-full">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] p-3.5 rounded-2xl shadow-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-blue-600 text-white rounded-br-none' 
+                    : 'bg-gray-800 text-gray-100 rounded-bl-none border border-gray-700'
+                }`}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex justify-start animate-pulse">
+                <div className="bg-gray-800 p-4 rounded-2xl rounded-bl-none border border-gray-700 flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Input Area */}
+      {!showSettings && (
+        <div className="p-4 border-t border-gray-800 bg-gray-900 md:rounded-b-2xl">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder={apiKey ? "詢問訓練或飲食建議..." : "請先設定 API Key..."}
+              disabled={!apiKey}
+              className="flex-1 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <button 
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading || !apiKey}
+              className="p-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/20"
+            >
+              {isLoading ? <Loader size={18} className="animate-spin" /> : <Send size={18} />}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,154 +1,220 @@
 import React, { useState } from 'react';
-import { RefreshCcw, Info } from 'lucide-react';
+import { RefreshCcw, Info, ZoomIn } from 'lucide-react';
 
-// 顏色映射邏輯
+// --- 1. 顏色映射邏輯 (熱力圖核心) ---
 const getHeatColor = (value) => {
-  if (!value || value === 0) return '#374151'; // Gray-700 (未訓練)
-  if (value <= 3) return '#22c55e'; // Green-500 (低強度)
-  if (value <= 7) return '#eab308'; // Yellow-500 (中強度)
-  return '#ef4444'; // Red-500 (高強度)
+  if (!value || value === 0) return '#374151'; // Gray-700 (未訓練/休息)
+  if (value <= 3) return '#22c55e'; // Green-500 (恢復/熱身)
+  if (value <= 7) return '#eab308'; // Yellow-500 (訓練/成長)
+  return '#ef4444'; // Red-500 (力竭/高強度)
 };
 
-// 肌肉路徑數據 (SVG Paths)
-// 為了保持程式碼整潔且精緻，這裡使用簡化的解剖風格路徑
+// --- 2. 數據兼容性映射 (Mapping) ---
+// 將舊的廣泛分類 (如 legs) 映射到新的精細肌群 (如 quads, glutes)
+const mapDataToMuscle = (data, muscleKey, view) => {
+  // 1. 如果有精確的數據 (例如 data.quads)，直接使用
+  if (data[muscleKey] !== undefined) return data[muscleKey];
+
+  // 2. 如果沒有，則尋找舊版的大分類數據
+  // 正面映射
+  if (view === 'front') {
+    if (muscleKey === 'pecs') return data.chest || 0;
+    if (muscleKey === 'delts') return data.shoulders || 0;
+    if (muscleKey === 'biceps') return data.arms || 0;
+    if (muscleKey === 'forearms') return data.arms || 0;
+    if (muscleKey === 'abs') return data.abs || 0;
+    if (muscleKey === 'obliques') return data.abs || 0;
+    if (muscleKey === 'quads') return data.legs || 0;
+    if (muscleKey === 'calves') return data.legs || 0;
+  }
+  // 背面映射
+  if (view === 'back') {
+    if (muscleKey === 'traps') return data.back || data.shoulders || 0; // 斜方肌常被歸類在背或肩
+    if (muscleKey === 'lats') return data.back || 0;
+    if (muscleKey === 'lower_back') return data.back || data.core || 0;
+    if (muscleKey === 'rear_delts') return data.shoulders || 0;
+    if (muscleKey === 'triceps') return data.arms || 0;
+    if (muscleKey === 'forearms') return data.arms || 0;
+    if (muscleKey === 'glutes') return data.legs || 0;
+    if (muscleKey === 'hamstrings') return data.legs || 0;
+    if (muscleKey === 'calves') return data.legs || 0;
+  }
+  
+  return 0;
+};
+
+// --- 3. 精緻肌肉路徑數據 (SVG Paths) ---
+// 使用 200x400 的 viewBox 坐標系
 const MUSCLE_PATHS = {
   front: {
-    chest: {
-      path: "M43 35 Q50 38 57 35 L57 45 Q50 50 43 45 Z M43 35 Q36 38 29 35 L29 45 Q36 50 43 45 Z",
-      name: "胸肌"
+    head: { path: "M90,20 Q100,10 110,20 Q115,35 110,50 Q100,60 90,50 Q85,35 90,20", name: "頭部", isMuscle: false },
+    neck: { path: "M90,50 Q100,55 110,50 L115,60 Q100,65 85,60 Z", name: "頸部", isMuscle: false },
+    traps: { path: "M85,60 L65,70 L75,55 Z M115,60 L135,70 L125,55 Z", name: "斜方肌 (上)", isMuscle: true },
+    pecs: { 
+      path: "M100,65 L100,95 Q125,95 130,75 L115,65 Z M100,65 L100,95 Q75,95 70,75 L85,65 Z", 
+      name: "胸大肌" 
     },
-    shoulders: {
-      path: "M29 35 Q25 35 22 40 L24 48 Q28 42 29 45 Z M57 35 Q61 35 64 40 L62 48 Q58 42 57 45 Z",
-      name: "肩膀 (前束)"
+    delts: { 
+      path: "M65,70 Q55,80 60,95 L70,75 Z M135,70 Q145,80 140,95 L130,75 Z", 
+      name: "三角肌 (前/中束)" 
     },
-    arms: {
-      path: "M22 40 L20 55 Q23 58 25 55 L26 48 Z M64 40 L66 55 Q63 58 61 55 L60 48 Z", // 二頭
-      name: "手臂 (二頭)"
+    biceps: { 
+      path: "M60,95 Q55,110 60,120 L70,115 L68,95 Z M140,95 Q145,110 140,120 L130,115 L132,95 Z", 
+      name: "肱二頭肌" 
     },
-    abs: {
-      path: "M43 45 L35 48 L36 65 L43 68 L50 65 L49 48 Z",
-      name: "腹肌/核心"
+    forearms: { 
+      path: "M60,120 L55,145 Q60,150 65,145 L70,120 Z M140,120 L145,145 Q140,150 135,145 L130,120 Z", 
+      name: "前臂肌群" 
     },
-    legs: {
-      path: "M36 65 Q30 75 32 95 L41 95 Q40 75 43 68 Z M50 65 Q56 75 54 95 L45 95 Q46 75 43 68 Z", // 股四頭
-      name: "腿部 (股四頭)"
-    }
+    abs: { 
+      path: "M90,95 L85,130 L100,135 L115,130 L110,95 Z", 
+      name: "腹直肌" 
+    },
+    obliques: { 
+      path: "M85,95 L75,125 L85,130 Z M115,95 L125,125 L115,130 Z", 
+      name: "腹外斜肌" 
+    },
+    quads: { 
+      path: "M85,135 Q70,180 80,210 L95,200 L98,145 Z M115,135 Q130,180 120,210 L105,200 L102,145 Z", 
+      name: "股四頭肌" 
+    },
+    calves: { 
+      path: "M80,215 Q75,240 80,260 L90,255 L88,215 Z M120,215 Q125,240 120,260 L110,255 L112,215 Z", 
+      name: "脛骨前肌/小腿" 
+    },
   },
   back: {
-    traps: {
-      path: "M43 30 L35 33 L43 40 L51 33 Z",
-      name: "斜方肌"
+    head: { path: "M90,20 Q100,10 110,20 Q115,35 110,50 Q100,60 90,50 Q85,35 90,20", name: "頭部", isMuscle: false },
+    neck: { path: "M90,50 Q100,55 110,50 L115,60 Q100,65 85,60 Z", name: "頸部", isMuscle: false },
+    traps: { 
+      path: "M100,50 L85,60 L95,90 L100,80 L105,90 L115,60 Z", 
+      name: "斜方肌 (中/下)" 
     },
-    back: {
-      path: "M35 33 L28 40 L36 58 L43 55 L50 58 L58 40 L51 33 L43 40 Z", // 背闊與豎脊
-      name: "背部肌群"
+    rear_delts: { 
+      path: "M65,70 Q55,80 60,90 L75,75 Z M135,70 Q145,80 140,90 L125,75 Z", 
+      name: "三角肌 (後束)" 
     },
-    shoulders: {
-      path: "M28 40 L22 42 L24 50 L29 45 Z M58 40 L64 42 L62 50 L57 45 Z", // 後束
-      name: "肩膀 (後束)"
+    triceps: { 
+      path: "M60,90 Q55,105 60,120 L70,115 L68,90 Z M140,90 Q145,105 140,120 L130,115 L132,90 Z", 
+      name: "肱三頭肌" 
     },
-    arms: {
-      path: "M22 42 L20 55 Q23 58 25 55 L26 50 Z M64 42 L66 55 Q63 58 61 55 L60 50 Z", // 三頭
-      name: "手臂 (三頭)"
+    forearms: { 
+        path: "M60,120 L55,145 Q60,150 65,145 L70,120 Z M140,120 L145,145 Q140,150 135,145 L130,120 Z", 
+        name: "前臂 (後側)" 
     },
-    glutes: {
-      path: "M36 58 L32 70 Q43 75 54 70 L50 58 L43 65 Z",
-      name: "臀部"
+    lats: { 
+      path: "M95,90 L75,80 L80,115 L95,125 Z M105,90 L125,80 L120,115 L105,125 Z", 
+      name: "背闊肌" 
     },
-    legs: {
-      path: "M32 70 L34 95 L41 95 L42 72 Z M54 70 L52 95 L45 95 L44 72 Z", // 膕旁肌
-      name: "腿部 (膕旁)"
-    }
+    lower_back: { 
+      path: "M95,125 L90,140 L110,140 L105,125 Z", 
+      name: "豎脊肌 (下背)" 
+    },
+    glutes: { 
+      path: "M90,140 Q75,160 80,175 L100,175 L100,140 Z M110,140 Q125,160 120,175 L100,175 L100,140 Z", 
+      name: "臀大肌" 
+    },
+    hamstrings: { 
+      path: "M80,180 Q75,200 85,215 L95,210 L95,180 Z M120,180 Q125,200 115,215 L105,210 L105,180 Z", 
+      name: "膕旁肌" 
+    },
+    calves: { 
+      path: "M85,220 Q75,235 85,260 L92,250 Z M115,220 Q125,235 115,260 L108,250 Z", 
+      name: "小腿肌 (腓腸肌)" 
+    },
   }
 };
 
-const BodyShape = ({ view }) => (
-  // 身體輪廓線 (底圖)
-  <g className="text-gray-800 fill-current opacity-30 pointer-events-none">
-    {view === 'front' ? (
-      <>
-        <circle cx="43" cy="25" r="5" /> {/* 頭 */}
-        <path d="M43 30 L30 33 L20 40 L18 60 L20 65 L18 70 L30 100 L43 100 L56 100 L68 70 L66 65 L68 60 L66 40 L56 33 Z" /> {/* 軀幹與四肢輪廓 */}
-      </>
-    ) : (
-      <>
-        <circle cx="43" cy="25" r="5" /> {/* 頭 */}
-        <path d="M43 30 L30 33 L20 40 L18 60 L20 65 L18 70 L30 100 L43 100 L56 100 L68 70 L66 65 L68 60 L66 40 L56 33 Z" />
-      </>
-    )}
-  </g>
-);
-
 export default function BodyHeatmap({ data = {} }) {
   const [view, setView] = useState('front'); // 'front' | 'back'
-
-  // 取得該部位的數值 (0-10)
-  const getValue = (key) => data[key] || 0;
+  const [hoveredMuscle, setHoveredMuscle] = useState(null);
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 rounded-lg p-4 relative overflow-hidden border border-gray-800">
+    <div className="flex flex-col h-full bg-gray-900 rounded-lg p-4 relative overflow-hidden border border-gray-800 shadow-xl">
       
-      {/* 頂部切換按鈕 */}
-      <div className="flex justify-between items-center z-10 mb-2">
-        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-          <Info size={14} className="text-blue-500"/>
-          肌群疲勞熱圖
-        </h3>
+      {/* 頂部切換與資訊列 */}
+      <div className="flex justify-between items-center z-10 mb-4">
+        <div className="flex flex-col">
+           <h3 className="text-white font-bold text-sm flex items-center gap-2">
+            <Info size={14} className="text-blue-500"/>
+            {view === 'front' ? '正面肌群 (Anterior)' : '背面肌群 (Posterior)'}
+           </h3>
+           <span className="text-xs text-gray-500 h-4 transition-all duration-300">
+             {hoveredMuscle ? `${hoveredMuscle.name}: ${hoveredMuscle.value}/10` : '移動游標查看詳情'}
+           </span>
+        </div>
+
         <button 
           onClick={() => setView(prev => prev === 'front' ? 'back' : 'front')}
-          className="flex items-center gap-1 px-3 py-1 bg-gray-800 hover:bg-gray-700 text-xs text-white rounded-full border border-gray-600 transition-colors"
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs text-white rounded-lg border border-gray-600 transition-all active:scale-95 shadow-lg"
         >
-          <RefreshCcw size={12} />
+          <RefreshCcw size={12} className={`transition-transform duration-500 ${view === 'back' ? 'rotate-180' : ''}`} />
           {view === 'front' ? '切換背面' : '切換正面'}
         </button>
       </div>
 
       {/* SVG 畫布 */}
-      <div className="flex-1 flex items-center justify-center relative">
-        <svg viewBox="0 0 86 110" className="h-full w-auto drop-shadow-2xl">
-          {/* 1. 身體輪廓底圖 */}
-          <BodyShape view={view} />
+      <div className="flex-1 flex items-center justify-center relative py-2">
+        <svg 
+            viewBox="50 0 100 280" 
+            className="h-full w-auto drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+            style={{ filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.3))' }}
+        >
+          <defs>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
 
-          {/* 2. 肌肉熱力區塊 */}
+          {/* 渲染肌肉區塊 */}
           {Object.entries(MUSCLE_PATHS[view]).map(([key, info]) => {
-            const value = getValue(key);
-            const fillColor = getHeatColor(value);
+            // 使用映射函數來獲取數值
+            const value = info.isMuscle ? mapDataToMuscle(data, key, view) : 0;
+            const fillColor = info.isMuscle ? getHeatColor(value) : '#4b5563';
+            const isHovered = hoveredMuscle?.key === key;
             
             return (
-              <g key={key} className="group cursor-pointer transition-all hover:opacity-90">
+              <g 
+                key={key} 
+                className={`transition-all duration-300 ${info.isMuscle ? 'cursor-pointer' : ''}`}
+                onMouseEnter={() => info.isMuscle && setHoveredMuscle({ key, name: info.name, value })}
+                onMouseLeave={() => setHoveredMuscle(null)}
+                style={{ opacity: isHovered ? 1 : 0.9 }}
+              >
                 <path 
                   d={info.path} 
                   fill={fillColor} 
-                  stroke="#1f2937" 
-                  strokeWidth="0.5"
-                  className="transition-colors duration-500"
+                  stroke={isHovered ? '#fff' : '#111827'} // 懸停時白色描邊
+                  strokeWidth={isHovered ? "1" : "0.5"}
+                  filter={value > 7 ? "url(#glow)" : ""} // 高強度訓練發光效果
+                  className="transition-all duration-300 ease-in-out"
                 />
-                <title>{`${info.name}: ${value}/10`}</title>
               </g>
             );
           })}
         </svg>
 
-        {/* 懸浮數值標籤 (當滑鼠在 SVG 上時可以額外做的互動，這裡簡化使用 title) */}
+        {/* 懸浮提示框 (跟隨滑鼠或是固定位置，這裡使用固定位置顯示在上方標題區，避免SVG遮擋) */}
       </div>
 
       {/* 底部圖例 */}
-      <div className="mt-4 grid grid-cols-4 gap-1 text-[10px] text-gray-400">
-        <div className="flex flex-col items-center">
-          <div className="w-full h-1 bg-gray-700 rounded mb-1"></div>
-          無訓練
+      <div className="mt-2 pt-2 border-t border-gray-800 grid grid-cols-4 gap-2 text-[10px] text-gray-400">
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-full h-1.5 bg-gray-700 rounded-full"></div>
+          無紀錄
         </div>
-        <div className="flex flex-col items-center">
-          <div className="w-full h-1 bg-green-500 rounded mb-1"></div>
-          低強度
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-full h-1.5 bg-green-500 rounded-full shadow-[0_0_5px_rgba(34,197,94,0.3)]"></div>
+          恢復
         </div>
-        <div className="flex flex-col items-center">
-          <div className="w-full h-1 bg-yellow-500 rounded mb-1"></div>
-          中強度
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-full h-1.5 bg-yellow-500 rounded-full shadow-[0_0_5px_rgba(234,179,8,0.3)]"></div>
+          成長
         </div>
-        <div className="flex flex-col items-center">
-          <div className="w-full h-1 bg-red-500 rounded mb-1"></div>
-          高強度
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-full h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+          力竭
         </div>
       </div>
     </div>

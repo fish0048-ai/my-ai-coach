@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, Dumbbell, Calendar, ChevronRight, Save, Loader, Flame, Pill, Calculator } from 'lucide-react';
+import { User, Settings, Dumbbell, Calendar, ChevronRight, Save, Loader, Flame, Pill, Calculator, Activity } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
 
@@ -7,18 +7,20 @@ export default function FeatureViews({ view, userData }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // 初始化表單狀態，加入 TDEE 與補品相關欄位
+  // 初始化表單狀態，加入 TDEE、補品、BMR 與肌肉率相關欄位
   const [profile, setProfile] = useState({
     height: '',
     weight: '',
-    age: '',        // 新增：年齡
-    gender: 'male', // 新增：性別 (預設男)
-    activity: '1.2',// 新增：活動量係數
+    age: '',        
+    gender: 'male', 
+    activity: '1.2',
     goal: '增肌',
-    supplements: '' // 新增：補品紀錄
+    supplements: '',
+    bmr: '',       // 新增：基礎代謝 (手動輸入)
+    muscleRate: '' // 新增：肌肉率
   });
 
-  // 計算出的 TDEE 數值 (不需存資料庫，可即時計算，但建議存起來做快取)
+  // 計算出的 TDEE 數值
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
 
   // 當從後端抓到 userData 時，更新表單內容
@@ -31,7 +33,9 @@ export default function FeatureViews({ view, userData }) {
         gender: userData.gender || 'male',
         activity: userData.activity || '1.2',
         goal: userData.goal || '增肌',
-        supplements: userData.supplements || ''
+        supplements: userData.supplements || '',
+        bmr: userData.bmr || '',             // 讀取 BMR
+        muscleRate: userData.muscleRate || '' // 讀取肌肉率
       });
     }
   }, [userData]);
@@ -39,14 +43,22 @@ export default function FeatureViews({ view, userData }) {
   // 當身體數值改變時，自動計算 TDEE
   useEffect(() => {
     calculateTDEE();
-  }, [profile.height, profile.weight, profile.age, profile.gender, profile.activity]);
+  }, [profile.height, profile.weight, profile.age, profile.gender, profile.activity, profile.bmr]);
 
   const calculateTDEE = () => {
-    // Mifflin-St Jeor 公式
+    const act = parseFloat(profile.activity);
+
+    // 優先使用手動輸入的 BMR (如果有的話)
+    const manualBmr = parseFloat(profile.bmr);
+    if (manualBmr && manualBmr > 0 && act) {
+        setCalculatedTDEE(Math.round(manualBmr * act));
+        return;
+    }
+
+    // 否則使用 Mifflin-St Jeor 公式
     const w = parseFloat(profile.weight);
     const h = parseFloat(profile.height);
     const a = parseFloat(profile.age);
-    const act = parseFloat(profile.activity);
 
     if (w && h && a && act) {
       let bmr = 0;
@@ -82,14 +94,14 @@ export default function FeatureViews({ view, userData }) {
     try {
       await setDoc(doc(db, "users", user.uid), {
         ...profile, 
-        tdee: calculatedTDEE, // 順便把計算結果存起來
+        tdee: calculatedTDEE, 
         email: user.email,
         name: user.displayName || 'User',
         lastUpdated: new Date()
       }, { merge: true });
 
       setIsEditing(false);
-      alert("個人資料、TDEE 與補品紀錄已更新！");
+      alert("個人資料已更新！包含基礎代謝與肌肉率數據。");
     } catch (error) {
       console.error("儲存失敗:", error);
       alert("儲存失敗，請檢查網路連線。");
@@ -99,9 +111,6 @@ export default function FeatureViews({ view, userData }) {
   };
 
   if (view === 'training') {
-    // ... (保留原本的 training 視圖代碼，為了簡潔這裡省略，實際檔案中請勿刪除) ...
-    // 如果您原本的 FeatureViews 有 training 的內容，請記得保留。
-    // 這裡只展示 Profile 的修改。
     return <div className="text-white">請前往個人檔案頁面查看新功能</div>;
   }
 
@@ -139,6 +148,18 @@ export default function FeatureViews({ view, userData }) {
                     </div>
                     <div className="text-xs text-gray-500 mt-2">
                         基礎代謝 (BMR): {Math.round(calculatedTDEE / parseFloat(profile.activity))}
+                        {profile.bmr && <span className="text-blue-400 ml-1">(自訂)</span>}
+                    </div>
+                </div>
+              )}
+
+              {/* 肌肉率顯示 (若有) */}
+              {profile.muscleRate && (
+                 <div className="w-full bg-gray-900/50 rounded-lg p-4 border border-gray-700 mt-2">
+                    <div className="text-xs text-gray-500 uppercase mb-1">肌肉率 (Muscle Mass)</div>
+                    <div className="text-xl font-bold text-blue-400 flex items-center justify-center gap-1">
+                        <Activity size={18} />
+                        {profile.muscleRate} <span className="text-sm text-gray-400 font-normal">%</span>
                     </div>
                 </div>
               )}
@@ -213,7 +234,38 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                {/* 年齡性別 (TDEE 必要) */}
+                {/* 新增：基礎代謝與肌肉率 */}
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+                    基礎代謝 (BMR) 
+                    <span className="text-[10px] text-gray-400 lowercase">kcal/day</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    value={profile.bmr}
+                    disabled={!isEditing}
+                    onChange={(e) => setProfile({...profile, bmr: e.target.value})}
+                    placeholder={calculatedTDEE && !profile.bmr ? `自動估算: ${Math.round(calculatedTDEE / parseFloat(profile.activity))}` : "InBody 測量值"}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none disabled:opacity-50 placeholder-gray-600"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+                    肌肉率 (Muscle Mass)
+                    <span className="text-[10px] text-gray-400 lowercase">%</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    step="0.1"
+                    value={profile.muscleRate}
+                    disabled={!isEditing}
+                    onChange={(e) => setProfile({...profile, muscleRate: e.target.value})}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none disabled:opacity-50"
+                    placeholder="例如: 32.5"
+                  />
+                </div>
+
+                {/* 年齡性別 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold">年齡</label>
                   <input 
@@ -238,7 +290,7 @@ export default function FeatureViews({ view, userData }) {
                   </select>
                 </div>
 
-                {/* 活動量 (TDEE 必要) */}
+                {/* 活動量 */}
                 <div className="col-span-1 sm:col-span-2 space-y-2">
                     <label className="text-xs text-gray-500 uppercase font-semibold">日常活動量</label>
                     <select 

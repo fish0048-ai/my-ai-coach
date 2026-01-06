@@ -1,15 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save } from 'lucide-react';
+import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2 } from 'lucide-react';
 import { runGemini } from '../../utils/gemini';
 
 export default function CoachChat({ isOpen, onClose, user }) {
   const [messages, setMessages] = useState([
-    { role: 'model', text: `嗨 ${user?.displayName || '夥伴'}！我是你的 AI 教練。\n今天想練哪裡？或者有飲食上的問題嗎？` }
+    { role: 'model', text: `嗨 ${user?.displayName || '夥伴'}！我是你的 AI 教練。\n今天想練哪裡？\n(我會盡量精簡回答以節省您的 Token)` }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  // 新增：API Key 相關狀態
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
   const [showSettings, setShowSettings] = useState(false);
   const [tempKey, setTempKey] = useState('');
@@ -24,7 +23,6 @@ export default function CoachChat({ isOpen, onClose, user }) {
     scrollToBottom();
   }, [messages, isLoading, showSettings]);
 
-  // 當打開設定頁面時，將目前的 Key 填入輸入框
   useEffect(() => {
     if (showSettings) {
       setTempKey(apiKey);
@@ -35,16 +33,21 @@ export default function CoachChat({ isOpen, onClose, user }) {
     localStorage.setItem('gemini_api_key', tempKey);
     setApiKey(tempKey);
     setShowSettings(false);
-    // 儲存後如果沒有訊息，可以給個提示
     if (messages.length === 1) {
       setMessages(prev => [...prev, { role: 'model', text: "API Key 已儲存！我們現在可以開始對話了。" }]);
     }
   };
 
+  // 清除對話紀錄
+  const handleClearHistory = () => {
+    setMessages([
+        { role: 'model', text: `對話已重置。有什麼新問題嗎？` }
+    ]);
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     
-    // 如果沒有 API Key，強制跳出設定頁面
     if (!apiKey) {
       setShowSettings(true);
       setMessages(prev => [...prev, { role: 'model', text: "請先設定 API Key 才能使用喔！" }]);
@@ -57,8 +60,17 @@ export default function CoachChat({ isOpen, onClose, user }) {
     setIsLoading(true);
 
     try {
-        // 將 apiKey 傳入 runGemini
-        const responseText = await runGemini(userMessage, apiKey);
+        // --- Token 節省策略 ---
+        // 強制加上「省流指令」，限制 AI 的輸出長度
+        const systemPrompt = `
+          角色：專業健身教練。
+          風格：繁體中文、幽默鼓勵、極度精簡。
+          限制：除非用戶要求「詳細」，否則回答請控制在 50 字以內，或列出 3 點關鍵即可。
+          
+          用戶問題：${userMessage}
+        `;
+
+        const responseText = await runGemini(systemPrompt, apiKey);
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
         setMessages(prev => [...prev, { role: 'model', text: "連線發生錯誤，請檢查網路或 API Key。" }]);
@@ -84,11 +96,19 @@ export default function CoachChat({ isOpen, onClose, user }) {
             </h3>
             <span className="text-xs text-green-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-              Online
+              省流模式 On
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* 清除對話按鈕 */}
+          <button 
+            onClick={handleClearHistory}
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            title="清除對話"
+          >
+            <Trash2 size={18} />
+          </button>
           <button 
             onClick={() => setShowSettings(!showSettings)} 
             className={`p-2 rounded-lg transition-colors ${showSettings || !apiKey ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
@@ -102,7 +122,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
         </div>
       </div>
 
-      {/* Content Area: Settings OR Messages */}
+      {/* Content Area */}
       <div className="flex-1 overflow-y-auto bg-black/20 relative">
         {showSettings ? (
           <div className="absolute inset-0 p-6 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-sm z-10 space-y-6 animate-fadeIn">
@@ -112,7 +132,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
             <div className="text-center space-y-2">
               <h3 className="text-xl font-bold text-white">設定 API Key</h3>
               <p className="text-sm text-gray-400 max-w-xs">
-                為了保護您的安全，請輸入您的 Google Gemini API Key。金鑰僅會儲存在您的瀏覽器中。
+                請輸入您的 Google Gemini API Key。
               </p>
             </div>
             
@@ -121,7 +141,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
                 type="password"
                 value={tempKey}
                 onChange={(e) => setTempKey(e.target.value)}
-                placeholder="貼上您的 API Key (AIzaSy...)"
+                placeholder="AIzaSy..."
                 className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-mono"
               />
               <button
@@ -132,14 +152,13 @@ export default function CoachChat({ isOpen, onClose, user }) {
                 儲存設定
               </button>
             </div>
-            
             <a 
               href="https://aistudio.google.com/app/apikey" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-xs text-blue-400 hover:text-blue-300 hover:underline mt-4"
             >
-              還沒有 Key？點此免費取得
+              取得免費 API Key
             </a>
           </div>
         ) : (
@@ -179,7 +198,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={apiKey ? "詢問訓練或飲食建議..." : "請先設定 API Key..."}
+              placeholder={apiKey ? "輸入問題 (AI 會精簡回答)..." : "請設定 API Key"}
               disabled={!apiKey}
               className="flex-1 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />

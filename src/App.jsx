@@ -127,6 +127,120 @@ const Icon = ({ name, className = "w-5 h-5", customPath }) => {
   );
 };
 
+// --- Body Heatmap Component ---
+const BodyHeatmap = ({ muscleVolumes }) => {
+    // Determine max volume to normalize opacity (0.2 to 1.0)
+    const maxVol = Math.max(...Object.values(muscleVolumes), 1);
+    
+    const getOpacity = (part) => {
+        const vol = muscleVolumes[part] || 0;
+        if (vol === 0) return 0.1; // Base opacity for untrained
+        // Scale between 0.3 and 1.0 based on volume
+        return 0.3 + (vol / maxVol) * 0.7; 
+    };
+
+    const getColor = (part) => {
+        const vol = muscleVolumes[part] || 0;
+        return vol > 0 ? '#10b981' : '#334155'; // Emerald-500 vs Slate-700
+    };
+
+    const getTooltip = (part) => `${part}: ${muscleVolumes[part]?.toLocaleString() || 0} kg`;
+
+    return (
+        <div className="relative w-full h-64 flex justify-center gap-8">
+            {/* Front View */}
+            <svg viewBox="0 0 100 200" className="h-full w-auto overflow-visible">
+                <g transform="translate(50, 0)">
+                    {/* Head */}
+                    <circle cx="0" cy="20" r="12" fill="#334155" />
+                    
+                    {/* Shoulders (Front) */}
+                    <path 
+                        d="M-25 35 Q-15 25 0 28 Q15 25 25 35 L30 45 L-30 45 Z" 
+                        fill={getColor('肩膀')} 
+                        opacity={getOpacity('肩膀')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('肩膀')}</title></path>
+
+                    {/* Chest */}
+                    <path 
+                        d="M-20 45 L20 45 L15 70 L-15 70 Z" 
+                        fill={getColor('胸部')} 
+                        opacity={getOpacity('胸部')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('胸部')}</title></path>
+
+                    {/* Arms (Biceps) */}
+                    <path 
+                        d="M-30 45 L-40 80 L-30 80 L-20 45 Z M30 45 L40 80 L30 80 L20 45 Z" 
+                        fill={getColor('手臂')} 
+                        opacity={getOpacity('手臂')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('手臂')}</title></path>
+
+                    {/* Core (Abs) */}
+                    <path 
+                        d="M-15 70 L15 70 L15 100 L-15 100 Z" 
+                        fill={getColor('核心')} 
+                        opacity={getOpacity('核心')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('核心')}</title></path>
+
+                    {/* Legs (Front Quads) */}
+                    <path 
+                        d="M-15 100 L-5 100 L-5 160 L-15 160 Z M15 100 L5 100 L5 160 L15 160 Z" 
+                        fill={getColor('腿部')} 
+                        opacity={getOpacity('腿部')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('腿部')}</title></path>
+                </g>
+                <text x="50" y="190" textAnchor="middle" fill="#94a3b8" fontSize="10">正面</text>
+            </svg>
+
+            {/* Back View */}
+            <svg viewBox="0 0 100 200" className="h-full w-auto overflow-visible">
+                <g transform="translate(50, 0)">
+                    {/* Head */}
+                    <circle cx="0" cy="20" r="12" fill="#334155" />
+
+                    {/* Shoulders (Rear) */}
+                    <path 
+                        d="M-28 38 Q0 30 28 38 L25 45 L-25 45 Z" 
+                        fill={getColor('肩膀')} 
+                        opacity={getOpacity('肩膀')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('肩膀')}</title></path>
+
+                    {/* Back (Lats/Traps) */}
+                    <path 
+                        d="M-25 45 L25 45 L15 90 L-15 90 Z" 
+                        fill={getColor('背部')} 
+                        opacity={getOpacity('背部')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('背部')}</title></path>
+
+                    {/* Arms (Triceps) */}
+                    <path 
+                        d="M-30 45 L-40 75 L-32 75 L-25 45 Z M30 45 L40 75 L32 75 L25 45 Z" 
+                        fill={getColor('手臂')} 
+                        opacity={getOpacity('手臂')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('手臂')}</title></path>
+
+                     {/* Legs (Hamstrings/Calves) */}
+                     <path 
+                        d="M-15 100 L-5 100 L-5 170 L-15 170 Z M15 100 L5 100 L5 170 L15 170 Z" 
+                        fill={getColor('腿部')} 
+                        opacity={getOpacity('腿部')}
+                        className="transition-all duration-500 hover:opacity-100 cursor-help"
+                    ><title>{getTooltip('腿部')}</title></path>
+                </g>
+                <text x="50" y="190" textAnchor="middle" fill="#94a3b8" fontSize="10">背面</text>
+            </svg>
+        </div>
+    );
+};
+
 // --- Firebase Methods (Static) ---
 const firebaseMethods = { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection };
 
@@ -423,6 +537,7 @@ const DashboardView = ({ userLogs, userProfile }) => {
     let periodCount = 0;
     let periodRunDistance = 0;
     const runTrend = [];
+    const muscleVolumes = {}; // For heatmap
 
     sortedDates.forEach(dateStr => {
         const log = userLogs[dateStr];
@@ -438,6 +553,14 @@ const DashboardView = ({ userLogs, userProfile }) => {
                     periodRunDistance += dist;
                     runTrend.push(dist);
                 }
+            } else if (log.type === 'weight' && log.data && Array.isArray(log.data)) {
+                // Calculate Muscle Volumes
+                log.data.forEach(ex => {
+                    const vol = (parseFloat(ex.weight) || 0) * (parseFloat(ex.sets) || 0) * (parseFloat(ex.reps) || 0);
+                    if (vol > 0 && ex.part) {
+                        muscleVolumes[ex.part] = (muscleVolumes[ex.part] || 0) + vol;
+                    }
+                });
             }
         }
     });
@@ -445,6 +568,16 @@ const DashboardView = ({ userLogs, userProfile }) => {
     const bmiValue = userProfile?.height && userProfile?.weight 
         ? (userProfile.weight / Math.pow(userProfile.height/100, 2)).toFixed(1) 
         : '--';
+    
+    // Helper to get range label
+    const getRangeLabel = () => {
+        switch(statsRange) {
+            case 'week': return '本週';
+            case 'month': return '本月';
+            case 'year': return '今年';
+            default: return '本週';
+        }
+    };
 
     const renderRunChart = () => {
         if (runTrend.length < 2) return <div className="text-slate-500 text-xs text-center py-8">累積更多跑步紀錄以顯示圖表</div>;
@@ -499,6 +632,14 @@ const DashboardView = ({ userLogs, userProfile }) => {
                 <button onClick={handlePrev} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronleft" /></button>
                 <span className="text-sm font-bold text-white tracking-wider">{dateLabel}</span>
                 <button onClick={handleNext} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><Icon name="chevronright" /></button>
+            </div>
+
+            {/* Muscle Heatmap (New!) */}
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] p-6 shadow-2xl mb-6">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold mb-4">
+                    <Icon name="dumbbell" className="w-5 h-5" /> 肌群訓練熱力圖
+                </div>
+                <BodyHeatmap muscleVolumes={muscleVolumes} />
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -756,28 +897,7 @@ const GeneratorView = ({ apiKey, requireKey, userProfile, db, user, methods, use
                 </div>
             </div>
             <div className="lg:col-span-8">
-                {error && (
-                    <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2 text-sm break-all">
-                        <div className="flex items-center gap-2">
-                            <Icon name="alertcircle" className="w-4 h-4 shrink-0" />
-                            <p className="font-bold">發生錯誤</p>
-                        </div>
-                        <p>{error}</p>
-                        {error.includes("Generative Language API") && (
-                            <div className="p-2 bg-black/20 rounded border border-red-500/20 mt-1">
-                                <p className="mb-1 text-xs text-red-300">Google Cloud 專案尚未啟用 AI 服務。</p>
-                                <a 
-                                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview" 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="text-emerald-400 underline hover:text-emerald-300 font-bold flex items-center gap-1"
-                                >
-                                    點擊前往啟用 API <Icon name="chevronright" className="w-3 h-3" />
-                                </a>
-                            </div>
-                        )}
-                    </div>
-                )}
+                {error && <div className="text-red-400 mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-2 text-sm break-all"><Icon name="alertcircle" className="w-4 h-4 shrink-0" /><div><p className="font-bold">發生錯誤</p><p>{error}</p></div></div>}
                 {plan ? (
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="px-8 py-4 bg-white/5 border-b border-white/5 flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-500 text-xs font-bold uppercase tracking-widest"><Icon name="calendar" className="w-4 h-4" />您的專屬{genType === 'workout' ? '計畫' : '菜單'}</div><div className="flex gap-2"><button onClick={copyToClipboard} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${copySuccess ? 'bg-emerald-500 text-black' : 'text-slate-400 hover:text-emerald-500 bg-white/5'}`}><Icon name="check" className="w-3 h-3" />{copySuccess ? "已複製" : "複製"}</button></div></div>

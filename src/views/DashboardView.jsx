@@ -23,7 +23,7 @@ export default function DashboardView({ userData }) {
     totalHours: 0,
     completedGoals: 0,
     muscleFatigue: {},
-    latestAnalysis: null // 新增：存放最新的 AI 分析報告
+    latestAnalysis: null
   });
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +43,9 @@ export default function DashboardView({ userData }) {
       let muscleScore = {}; 
       let totalWorkouts = 0;
       let totalRunDist = 0;
-      let latestAnalysisFeedback = null; // 暫存最新的分析
+      
+      // 用來收集所有分析報告以進行排序
+      let analysisReports = [];
 
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -66,11 +68,13 @@ export default function DashboardView({ userData }) {
                 muscleScore[ex.targetMuscle] = (muscleScore[ex.targetMuscle] || 0) + sets;
                 totalSets += sets;
               }
-              // 2. 尋找最新的動作分析報告
+              // 2. 收集動作分析報告 (加入日期以便排序)
               if (ex.type === 'analysis' && ex.feedback) {
-                // 簡單比較日期，取最新的 (或是直接取陣列最後一個，這裡假設後端有排序)
-                // 這裡簡單覆蓋，因為遍歷順序不保證，理想是用 orderBy query 獨立抓取
-                latestAnalysisFeedback = ex; 
+                analysisReports.push({
+                    ...ex,
+                    date: data.date, // 使用文件日期作為排序依據
+                    createdAt: ex.createdAt || data.date // 若有精確時間則優先使用
+                });
               }
             });
           }
@@ -80,6 +84,11 @@ export default function DashboardView({ userData }) {
           }
         }
       });
+
+      // 找出最新的分析報告 (根據 createdAt 或 date 排序)
+      const latestAnalysisFeedback = analysisReports.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0] || null;
 
       const normalizedFatigue = {};
       Object.keys(muscleScore).forEach(muscle => {
@@ -196,7 +205,7 @@ export default function DashboardView({ userData }) {
               )}
             </div>
             
-            {/* 2. 動作分析報告 (連動部分) */}
+            {/* 2. 動作分析報告 (連動部分 - 加入防呆渲染) */}
             <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
                <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
                  {stats.latestAnalysis ? <BrainCircuit size={14}/> : <AlertCircle size={14}/>}
@@ -205,10 +214,13 @@ export default function DashboardView({ userData }) {
                {stats.latestAnalysis ? (
                  <div className="space-y-2">
                     <p className="text-xs text-gray-500 font-mono mb-1">
-                        來源: {stats.latestAnalysis.title || 'AI 分析報告'}
+                        來源: {String(stats.latestAnalysis.title || 'AI 分析報告')}
                     </p>
                     <p className="text-sm text-gray-300 leading-relaxed line-clamp-6">
-                        {stats.latestAnalysis.feedback}
+                        {/* 強制轉為字串顯示，防止物件導致崩潰 */}
+                        {typeof stats.latestAnalysis.feedback === 'string' 
+                            ? stats.latestAnalysis.feedback 
+                            : JSON.stringify(stats.latestAnalysis.feedback)}
                     </p>
                  </div>
                ) : (

@@ -1,26 +1,26 @@
-// ... existing imports ...
-import { updateAIContext } from '../utils/contextManager'; // 引入新工具
-
-import { User, Settings, Dumbbell, Calendar, ChevronRight, Save, Loader, Flame, Pill, Calculator, Activity, Percent } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
+// 引入我們剛寫好的 AI 記憶同步工具
+import { updateAIContext } from '../utils/contextManager';
 
 export default function FeatureViews({ view, userData }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // 初始化表單狀態，加入體脂率 (bodyFat)
+  // 初始化表單狀態，包含所有擴充欄位
   const [profile, setProfile] = useState({
     height: '',
     weight: '',
-    bodyFat: '',    // 新增：體脂率
+    bodyFat: '',    // 體脂率
+    muscleRate: '', // 肌肉率
+    bmr: '',        // 基礎代謝 (手動輸入)
     age: '',        
     gender: 'male', 
     activity: '1.2',
     goal: '增肌',
-    supplements: '',
-    bmr: '',       
-    muscleRate: '' 
+    supplements: ''
   });
 
   // 計算出的 TDEE 數值
@@ -32,14 +32,14 @@ export default function FeatureViews({ view, userData }) {
       setProfile({
         height: userData.height || '',
         weight: userData.weight || '',
-        bodyFat: userData.bodyFat || '',     // 讀取體脂率
+        bodyFat: userData.bodyFat || '',
+        muscleRate: userData.muscleRate || '',
+        bmr: userData.bmr || '',
         age: userData.age || '',
         gender: userData.gender || 'male',
         activity: userData.activity || '1.2',
         goal: userData.goal || '增肌',
-        supplements: userData.supplements || '',
-        bmr: userData.bmr || '',             
-        muscleRate: userData.muscleRate || '' 
+        supplements: userData.supplements || ''
       });
     }
   }, [userData]);
@@ -52,14 +52,14 @@ export default function FeatureViews({ view, userData }) {
   const calculateTDEE = () => {
     const act = parseFloat(profile.activity);
 
-    // 優先使用手動輸入的 BMR
+    // 1. 優先使用手動輸入的 BMR (如果有的話)
     const manualBmr = parseFloat(profile.bmr);
     if (manualBmr && manualBmr > 0 && act) {
         setCalculatedTDEE(Math.round(manualBmr * act));
         return;
     }
 
-    // 否則使用 Mifflin-St Jeor 公式
+    // 2. 否則使用 Mifflin-St Jeor 公式
     const w = parseFloat(profile.weight);
     const h = parseFloat(profile.height);
     const a = parseFloat(profile.age);
@@ -96,6 +96,7 @@ export default function FeatureViews({ view, userData }) {
 
     setIsSaving(true);
     try {
+      // 1. 儲存到 Firestore Users 集合
       await setDoc(doc(db, "users", user.uid), {
         ...profile, 
         tdee: calculatedTDEE, 
@@ -104,7 +105,7 @@ export default function FeatureViews({ view, userData }) {
         lastUpdated: new Date()
       }, { merge: true });
 
-      // 新增：觸發 AI Context 更新
+      // 2. 自動觸發 AI 記憶更新 (生成精簡版 Context)
       await updateAIContext();
 
       setIsEditing(false);
@@ -118,7 +119,7 @@ export default function FeatureViews({ view, userData }) {
   };
 
   if (view === 'training') {
-    return <div className="text-white">請前往個人檔案頁面查看新功能</div>;
+    return <div className="text-white p-8">訓練功能已移至儀表板，請點擊左側「總覽 Dashboard」或「訓練儀表板」。</div>;
   }
 
   if (view === 'profile') {
@@ -252,7 +253,7 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                {/* 體脂率 (新增) */}
+                {/* 體脂率與肌肉率 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
                     體脂率 (Body Fat)
@@ -268,8 +269,6 @@ export default function FeatureViews({ view, userData }) {
                     placeholder="例如: 18.5"
                   />
                 </div>
-
-                {/* 肌肉率 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
                     肌肉率 (Muscle Mass)

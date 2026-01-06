@@ -1,11 +1,10 @@
-// ... existing imports ...
-import { updateAIContext } from '../utils/contextManager'; // 引入新工具
-
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, MoreHorizontal } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
+import { updateAIContext } from '../utils/contextManager'; // 引入 AI 記憶同步工具
 
 // 日期格式化 (YYYY-MM-DD)
 const formatDate = (date) => {
@@ -104,8 +103,7 @@ export default function CalendarView() {
   };
 
   const handleDragOver = (e, dateStr) => {
-    e.preventDefault(); // 必須阻止默認行為才能允許 Drop
-    // 根據是否按住 Ctrl/Meta 鍵來決定顯示複製還是移動圖示
+    e.preventDefault(); 
     e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
     if (dragOverDate !== dateStr) {
       setDragOverDate(dateStr);
@@ -113,8 +111,6 @@ export default function CalendarView() {
   };
 
   const handleDragLeave = (e) => {
-    // 簡單處理：如果離開的目標是當前的 dragOverDate，則清除
-    // 實務上需要判斷是否真的離開了格子，這裡簡化處理
     // setDragOverDate(null); 
   };
 
@@ -124,10 +120,9 @@ export default function CalendarView() {
     const user = auth.currentUser;
     if (!user || !draggedWorkout) return;
 
-    const isCopy = e.ctrlKey || e.metaKey; // 按住 Ctrl 為複製
+    const isCopy = e.ctrlKey || e.metaKey; 
     const sourceDateStr = draggedWorkout.date;
 
-    // 如果目標日期跟來源日期一樣，且不是複製，就不做任何事
     if (sourceDateStr === targetDateStr && !isCopy) return;
 
     try {
@@ -137,22 +132,17 @@ export default function CalendarView() {
       const today = new Date();
       const isFuture = targetDate > today;
       
-      // 準備新資料
       const newData = {
         ...draggedWorkout,
         date: targetDateStr,
-        // 如果移動到未來，自動設為 planned；移動到過去或今天，保持原樣或設為 completed (視需求)
         status: isFuture ? 'planned' : (draggedWorkout.status === 'planned' ? 'completed' : draggedWorkout.status), 
         updatedAt: new Date().toISOString()
       };
-      // 移除 id 以便寫入 (id 是 doc key)
       const { id, ...dataToSave } = newData;
 
       if (isCopy) {
-        // 複製模式：新增一筆文件
         await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
       } else {
-        // 移動模式：更新原文件日期
         const docRef = doc(db, 'users', user.uid, 'calendar', draggedWorkout.id);
         await updateDoc(docRef, { 
             date: targetDateStr,
@@ -161,7 +151,10 @@ export default function CalendarView() {
         });
       }
 
-      await fetchMonthWorkouts(); // 重新整理畫面
+      // 拖曳操作後也觸發 AI 記憶更新
+      updateAIContext();
+
+      await fetchMonthWorkouts(); 
     } catch (error) {
       console.error("Drop error:", error);
       alert("操作失敗，請稍後再試");
@@ -216,10 +209,23 @@ export default function CalendarView() {
   };
 
   const handleSave = async () => {
-    // ... existing validation ...
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const isStrengthEmpty = editForm.type === 'strength' && editForm.exercises.length === 0 && !editForm.title;
+    const isRunEmpty = editForm.type === 'run' && !editForm.runDistance && !editForm.title;
+
+    if (isStrengthEmpty || isRunEmpty) {
+      alert("請輸入標題或內容");
+      return;
+    }
 
     const dateStr = formatDate(selectedDate);
-    // ... existing dataToSave construction ...
+    const dataToSave = {
+      ...editForm,
+      date: dateStr, 
+      updatedAt: new Date().toISOString()
+    };
 
     try {
       if (currentDocId) {
@@ -228,7 +234,7 @@ export default function CalendarView() {
         await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
       }
       
-      // 新增：觸發 AI Context 更新 (背景執行，不需 await 阻擋 UI)
+      // 自動更新 AI 記憶
       updateAIContext();
 
       await fetchMonthWorkouts();
@@ -249,7 +255,7 @@ export default function CalendarView() {
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'calendar', currentDocId));
       
-      // 新增：刪除也要更新 Context
+      // 自動更新 AI 記憶
       updateAIContext();
 
       await fetchMonthWorkouts();
@@ -279,14 +285,10 @@ export default function CalendarView() {
 
     setIsGenerating(true);
     try {
-      // 優化 Prompt：更精簡的指令
       const prompt = `
-        任務：健身課表生成
-        目標：${aiPrompt}
-        
-        回傳 JSON 陣列 (無 Markdown):
-        [{"name": "動作", "sets": "4", "reps": "8-12", "weight": "適重"}]
-        僅列出 3-5 個關鍵動作。
+        請為我設計一個針對「${aiPrompt}」的健身課表。
+        請直接回傳一個 JSON 陣列，不要有其他文字。
+        格式：[{"name": "動作名稱", "sets": "4", "reps": "8-12", "weight": "適重"}]
       `;
       const response = await runGemini(prompt, apiKey);
       const cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -363,12 +365,11 @@ export default function CalendarView() {
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
 
-            // 樣式判斷
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
             if (isDragOver) {
-                bgClass = 'bg-blue-900/40 border-blue-400 border-dashed scale-105 shadow-xl'; // 拖曳經過時的高亮
+                bgClass = 'bg-blue-900/40 border-blue-400 border-dashed scale-105 shadow-xl'; 
             } else if (isSelected) {
                 bgClass = 'bg-blue-900/20 border-blue-500';
                 textClass = 'text-blue-400';
@@ -377,11 +378,9 @@ export default function CalendarView() {
             return (
               <div 
                 key={idx}
-                // 1. 允許作為放置目標
                 onDragOver={(e) => handleDragOver(e, dateStr)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, dateStr)}
-                
                 onClick={() => handleDateClick(cellDate)}
                 className={`relative p-2 rounded-lg border transition-all cursor-pointer flex flex-col hover:bg-gray-700 aspect-square overflow-hidden ${bgClass} ${isToday ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-900' : ''}`}
               >
@@ -394,10 +393,8 @@ export default function CalendarView() {
                     return (
                         <div 
                             key={workout.id || wIdx}
-                            // 2. 設定可拖曳來源
                             draggable={true}
                             onDragStart={(e) => handleDragStart(e, workout)}
-                            
                             className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
                                 isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'

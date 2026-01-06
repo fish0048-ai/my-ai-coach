@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3 } from 'lucide-react';
-import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, MoreHorizontal } from 'lucide-react';
+import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
@@ -23,8 +23,12 @@ export default function CalendarView() {
   
   // Modal 狀態控制
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalView, setModalView] = useState('list'); // 'list' (清單) | 'form' (編輯/新增)
-  const [currentDocId, setCurrentDocId] = useState(null); // 目前正在編輯的文件 ID (null 代表新增)
+  const [modalView, setModalView] = useState('list'); // 'list' | 'form'
+  const [currentDocId, setCurrentDocId] = useState(null); 
+
+  // Drag & Drop 狀態
+  const [draggedWorkout, setDraggedWorkout] = useState(null);
+  const [dragOverDate, setDragOverDate] = useState(null);
 
   // 編輯表單狀態
   const [editForm, setEditForm] = useState({
@@ -67,15 +71,13 @@ export default function CalendarView() {
 
     setLoading(true);
     try {
-      // 抓取所有運動紀錄 (實務上建議用 where 篩選月份)
       const q = query(collection(db, 'users', user.uid, 'calendar')); 
       const querySnapshot = await getDocs(q);
       
-      // 將資料依照日期分組
       const groupedWorkouts = {};
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        const dateKey = data.date; // 確保資料庫有存 date 欄位
+        const dateKey = data.date;
         if (dateKey) {
           if (!groupedWorkouts[dateKey]) {
             groupedWorkouts[dateKey] = [];
@@ -91,14 +93,90 @@ export default function CalendarView() {
     }
   };
 
-  // 開啟 Modal (預設進入清單模式)
+  // --- Drag and Drop Logic ---
+
+  const handleDragStart = (e, workout) => {
+    e.dataTransfer.effectAllowed = 'copyMove';
+    e.dataTransfer.setData('application/json', JSON.stringify(workout));
+    setDraggedWorkout(workout);
+  };
+
+  const handleDragOver = (e, dateStr) => {
+    e.preventDefault(); // 必須阻止默認行為才能允許 Drop
+    // 根據是否按住 Ctrl/Meta 鍵來決定顯示複製還是移動圖示
+    e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
+    if (dragOverDate !== dateStr) {
+      setDragOverDate(dateStr);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    // 簡單處理：如果離開的目標是當前的 dragOverDate，則清除
+    // 實務上需要判斷是否真的離開了格子，這裡簡化處理
+    // setDragOverDate(null); 
+  };
+
+  const handleDrop = async (e, targetDateStr) => {
+    e.preventDefault();
+    setDragOverDate(null);
+    const user = auth.currentUser;
+    if (!user || !draggedWorkout) return;
+
+    const isCopy = e.ctrlKey || e.metaKey; // 按住 Ctrl 為複製
+    const sourceDateStr = draggedWorkout.date;
+
+    // 如果目標日期跟來源日期一樣，且不是複製，就不做任何事
+    if (sourceDateStr === targetDateStr && !isCopy) return;
+
+    try {
+      setLoading(true);
+      
+      const targetDate = new Date(targetDateStr);
+      const today = new Date();
+      const isFuture = targetDate > today;
+      
+      // 準備新資料
+      const newData = {
+        ...draggedWorkout,
+        date: targetDateStr,
+        // 如果移動到未來，自動設為 planned；移動到過去或今天，保持原樣或設為 completed (視需求)
+        status: isFuture ? 'planned' : (draggedWorkout.status === 'planned' ? 'completed' : draggedWorkout.status), 
+        updatedAt: new Date().toISOString()
+      };
+      // 移除 id 以便寫入 (id 是 doc key)
+      const { id, ...dataToSave } = newData;
+
+      if (isCopy) {
+        // 複製模式：新增一筆文件
+        await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+      } else {
+        // 移動模式：更新原文件日期
+        const docRef = doc(db, 'users', user.uid, 'calendar', draggedWorkout.id);
+        await updateDoc(docRef, { 
+            date: targetDateStr,
+            status: dataToSave.status,
+            updatedAt: new Date().toISOString()
+        });
+      }
+
+      await fetchMonthWorkouts(); // 重新整理畫面
+    } catch (error) {
+      console.error("Drop error:", error);
+      alert("操作失敗，請稍後再試");
+    } finally {
+      setLoading(false);
+      setDraggedWorkout(null);
+    }
+  };
+
+  // --- End Drag and Drop ---
+
   const handleDateClick = (date) => {
     setSelectedDate(date);
     setModalView('list');
     setIsModalOpen(true);
   };
 
-  // 準備新增運動
   const handleAddNew = () => {
     const dateStr = formatDate(selectedDate);
     const todayStr = formatDate(new Date());
@@ -115,11 +193,10 @@ export default function CalendarView() {
       runPower: '',
       runHeartRate: ''
     });
-    setCurrentDocId(null); // 新增模式
+    setCurrentDocId(null); 
     setModalView('form');
   };
 
-  // 準備編輯運動
   const handleEdit = (workout) => {
     setEditForm({
       status: workout.status || 'completed',
@@ -132,7 +209,7 @@ export default function CalendarView() {
       runPower: workout.runPower || '',
       runHeartRate: workout.runHeartRate || ''
     });
-    setCurrentDocId(workout.id); // 編輯模式
+    setCurrentDocId(workout.id); 
     setModalView('form');
   };
 
@@ -140,7 +217,6 @@ export default function CalendarView() {
     const user = auth.currentUser;
     if (!user) return;
     
-    // 簡單檢核
     const isStrengthEmpty = editForm.type === 'strength' && editForm.exercises.length === 0 && !editForm.title;
     const isRunEmpty = editForm.type === 'run' && !editForm.runDistance && !editForm.title;
 
@@ -152,21 +228,19 @@ export default function CalendarView() {
     const dateStr = formatDate(selectedDate);
     const dataToSave = {
       ...editForm,
-      date: dateStr, // 重要：這是分組依據
+      date: dateStr, 
       updatedAt: new Date().toISOString()
     };
 
     try {
       if (currentDocId) {
-        // 更新現有文件
         await setDoc(doc(db, 'users', user.uid, 'calendar', currentDocId), dataToSave);
       } else {
-        // 新增文件 (自動 ID)
         await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
       }
       
-      await fetchMonthWorkouts(); // 重新抓取更新畫面
-      setModalView('list'); // 回到清單頁
+      await fetchMonthWorkouts();
+      setModalView('list');
     } catch (error) {
       console.error("Error saving workout:", error);
       alert("儲存失敗");
@@ -174,7 +248,7 @@ export default function CalendarView() {
   };
 
   const handleDelete = async () => {
-    if (!currentDocId) return; // 新增模式下不能刪除
+    if (!currentDocId) return;
     const user = auth.currentUser;
     if (!user) return;
     
@@ -189,7 +263,6 @@ export default function CalendarView() {
     }
   };
 
-  // 處理動作名稱變更，並自動偵測肌群
   const handleExerciseNameChange = (idx, value) => {
     const newEx = [...editForm.exercises];
     newEx[idx].name = value;
@@ -245,7 +318,6 @@ export default function CalendarView() {
     setEditForm(prev => ({ ...prev, status: 'completed' }));
   };
 
-  // 日曆邏輯
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const days = [];
@@ -270,6 +342,11 @@ export default function CalendarView() {
         </div>
       </div>
 
+      <div className="bg-gray-800/50 p-2 rounded-lg text-xs text-gray-400 flex items-center justify-center gap-4">
+        <span className="flex items-center gap-1"><Move size={12}/> 拖曳可移動日期</span>
+        <span className="flex items-center gap-1"><Copy size={12}/> 按住 Ctrl 拖曳可複製</span>
+      </div>
+
       {/* 日曆網格 */}
       <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 p-4 overflow-y-auto">
         <div className="grid grid-cols-7 gap-2 mb-2 text-center text-gray-400 font-bold">
@@ -281,36 +358,52 @@ export default function CalendarView() {
             
             const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
             const dateStr = formatDate(cellDate);
-            const dayWorkouts = workouts[dateStr] || []; // 取得該日的所有運動
+            const dayWorkouts = workouts[dateStr] || []; 
             const isSelected = formatDate(selectedDate) === dateStr;
             const isToday = formatDate(new Date()) === dateStr;
+            const isDragOver = dragOverDate === dateStr;
 
             // 樣式判斷
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
-            if (isSelected) {
-              bgClass = 'bg-blue-900/20 border-blue-500';
-              textClass = 'text-blue-400';
+            
+            if (isDragOver) {
+                bgClass = 'bg-blue-900/40 border-blue-400 border-dashed scale-105 shadow-xl'; // 拖曳經過時的高亮
+            } else if (isSelected) {
+                bgClass = 'bg-blue-900/20 border-blue-500';
+                textClass = 'text-blue-400';
             }
 
             return (
               <div 
                 key={idx}
+                // 1. 允許作為放置目標
+                onDragOver={(e) => handleDragOver(e, dateStr)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, dateStr)}
+                
                 onClick={() => handleDateClick(cellDate)}
-                className={`relative p-2 rounded-lg border transition-all cursor-pointer flex flex-col hover:bg-gray-700 aspect-square ${bgClass} ${isToday ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-900' : ''}`}
+                className={`relative p-2 rounded-lg border transition-all cursor-pointer flex flex-col hover:bg-gray-700 aspect-square overflow-hidden ${bgClass} ${isToday ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-900' : ''}`}
               >
                 <span className={`text-sm font-bold ${textClass}`}>{day}</span>
                 
-                {/* 顯示當日運動小點點或標籤 */}
-                <div className="mt-1 flex flex-col gap-1 overflow-hidden">
+                <div className="mt-1 flex flex-col gap-1 w-full overflow-hidden">
                   {dayWorkouts.map((workout, wIdx) => {
                     const isRun = workout.type === 'run';
                     const isPlanned = workout.status === 'planned';
                     return (
-                        <div key={workout.id || wIdx} className={`text-[10px] px-1 rounded truncate flex items-center gap-1 ${
-                            isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
-                            isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
-                        }`}>
+                        <div 
+                            key={workout.id || wIdx}
+                            // 2. 設定可拖曳來源
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, workout)}
+                            
+                            className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
+                                isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
+                                isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
+                            }`}
+                            title={workout.title}
+                        >
                             {isPlanned && <Clock size={8} />}
                             {workout.title || (isRun ? '跑步' : '訓練')}
                         </div>
@@ -345,10 +438,9 @@ export default function CalendarView() {
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
             </div>
 
-            {/* Modal Content: 根據 modalView 切換顯示 */}
+            {/* Modal Content */}
             <div className="p-6 overflow-y-auto flex-1">
                 
-                {/* 模式 A: 清單模式 (List View) */}
                 {modalView === 'list' && (
                     <div className="space-y-4">
                         {(!workouts[formatDate(selectedDate)] || workouts[formatDate(selectedDate)].length === 0) ? (
@@ -396,10 +488,8 @@ export default function CalendarView() {
                     </div>
                 )}
 
-                {/* 模式 B: 表單模式 (Form View) - 包含原有的編輯邏輯 */}
                 {modalView === 'form' && (
                     <div className="space-y-6">
-                        {/* 類型切換 */}
                         <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700 mb-4">
                             <button
                             onClick={() => setEditForm(prev => ({ ...prev, type: 'strength' }))}

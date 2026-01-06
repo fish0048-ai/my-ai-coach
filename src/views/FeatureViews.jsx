@@ -1,32 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent } from 'lucide-react';
+import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
-// 引入我們剛寫好的 AI 記憶同步工具
 import { updateAIContext } from '../utils/contextManager';
 
 export default function FeatureViews({ view, userData }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // 初始化表單狀態，包含所有擴充欄位
+  // 初始化表單狀態
   const [profile, setProfile] = useState({
     height: '',
     weight: '',
-    bodyFat: '',    // 體脂率
-    muscleRate: '', // 肌肉率
-    bmr: '',        // 基礎代謝 (手動輸入)
+    bodyFat: '',    
+    muscleRate: '', 
+    bmr: '',        
     age: '',        
     gender: 'male', 
     activity: '1.2',
     goal: '增肌',
-    supplements: ''
+    supplements: '',
+    // 新增：訓練習慣
+    trainingDays: [], // ['Mon', 'Wed', 'Fri']
+    trainingTime: '20:00' // 預設時間
   });
 
-  // 計算出的 TDEE 數值
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
 
-  // 當從後端抓到 userData 時，更新表單內容
   useEffect(() => {
     if (userData) {
       setProfile({
@@ -39,27 +39,27 @@ export default function FeatureViews({ view, userData }) {
         gender: userData.gender || 'male',
         activity: userData.activity || '1.2',
         goal: userData.goal || '增肌',
-        supplements: userData.supplements || ''
+        supplements: userData.supplements || '',
+        // 讀取習慣設定，預設為空陣列
+        trainingDays: userData.trainingDays || [],
+        trainingTime: userData.trainingTime || '20:00'
       });
     }
   }, [userData]);
 
-  // 當身體數值改變時，自動計算 TDEE
   useEffect(() => {
     calculateTDEE();
   }, [profile.height, profile.weight, profile.age, profile.gender, profile.activity, profile.bmr]);
 
   const calculateTDEE = () => {
     const act = parseFloat(profile.activity);
-
-    // 1. 優先使用手動輸入的 BMR (如果有的話)
     const manualBmr = parseFloat(profile.bmr);
+    
     if (manualBmr && manualBmr > 0 && act) {
         setCalculatedTDEE(Math.round(manualBmr * act));
         return;
     }
 
-    // 2. 否則使用 Mifflin-St Jeor 公式
     const w = parseFloat(profile.weight);
     const h = parseFloat(profile.height);
     const a = parseFloat(profile.age);
@@ -77,7 +77,6 @@ export default function FeatureViews({ view, userData }) {
     }
   };
 
-  // 根據目標計算建議熱量
   const getTargetCalories = () => {
     if (!calculatedTDEE) return 0;
     switch (profile.goal) {
@@ -85,6 +84,17 @@ export default function FeatureViews({ view, userData }) {
       case '減脂': return calculatedTDEE - 400; 
       default: return calculatedTDEE; 
     }
+  };
+
+  // 處理訓練日切換
+  const toggleDay = (day) => {
+    if (!isEditing) return;
+    setProfile(prev => {
+        const days = prev.trainingDays.includes(day)
+            ? prev.trainingDays.filter(d => d !== day)
+            : [...prev.trainingDays, day];
+        return { ...prev, trainingDays: days };
+    });
   };
 
   const handleSave = async () => {
@@ -96,7 +106,6 @@ export default function FeatureViews({ view, userData }) {
 
     setIsSaving(true);
     try {
-      // 1. 儲存到 Firestore Users 集合
       await setDoc(doc(db, "users", user.uid), {
         ...profile, 
         tdee: calculatedTDEE, 
@@ -105,11 +114,10 @@ export default function FeatureViews({ view, userData }) {
         lastUpdated: new Date()
       }, { merge: true });
 
-      // 2. 自動觸發 AI 記憶更新 (生成精簡版 Context)
       await updateAIContext();
 
       setIsEditing(false);
-      alert("個人資料已更新！(AI 知識庫已同步)");
+      alert("個人資料已更新！(包含訓練習慣)");
     } catch (error) {
       console.error("儲存失敗:", error);
       alert("儲存失敗，請檢查網路連線。");
@@ -146,7 +154,6 @@ export default function FeatureViews({ view, userData }) {
               <h2 className="text-xl font-bold text-white">{userData?.name || '健身夥伴'}</h2>
               <p className="text-gray-400 text-sm mb-4">{userData?.email}</p>
               
-              {/* TDEE 摘要卡片 */}
               {calculatedTDEE > 0 && (
                 <div className="w-full bg-gray-900/50 rounded-lg p-4 border border-gray-700 mt-2">
                     <div className="text-xs text-gray-500 uppercase mb-1">每日建議攝取</div>
@@ -161,7 +168,6 @@ export default function FeatureViews({ view, userData }) {
                 </div>
               )}
 
-              {/* 肌肉率與體脂率摘要 */}
               <div className="grid grid-cols-2 gap-2 w-full mt-2">
                 {profile.bodyFat && (
                    <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700">
@@ -184,7 +190,50 @@ export default function FeatureViews({ view, userData }) {
               </div>
             </div>
             
-            {/* 補品清單 (唯讀預覽) */}
+            {/* 訓練習慣設定區塊 (新增) */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <CalendarIcon className="text-blue-500" />
+                    <h3 className="font-bold text-white">訓練習慣設定</h3>
+                </div>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs text-gray-500 uppercase font-semibold mb-2 block">預計訓練日</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                <button
+                                    key={day}
+                                    onClick={() => toggleDay(day)}
+                                    disabled={!isEditing}
+                                    className={`py-1.5 rounded text-xs font-medium transition-colors ${
+                                        profile.trainingDays.includes(day)
+                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
+                                            : 'bg-gray-900 text-gray-500 hover:bg-gray-700'
+                                    } ${!isEditing ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                    {day}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label className="text-xs text-gray-500 uppercase font-semibold mb-2 block flex items-center gap-1">
+                            <Clock size={12}/> 偏好時段
+                        </label>
+                        <input 
+                            type="time" 
+                            value={profile.trainingTime}
+                            disabled={!isEditing}
+                            onChange={(e) => setProfile({...profile, trainingTime: e.target.value})}
+                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-blue-500 outline-none disabled:opacity-50 appearance-none"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* 補品清單 */}
             {!isEditing && profile.supplements && (
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                     <h3 className="font-bold text-white mb-4 flex items-center gap-2">
@@ -231,7 +280,6 @@ export default function FeatureViews({ view, userData }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* 身高體重 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold">身高 (cm)</label>
                   <input 
@@ -253,7 +301,6 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                {/* 體脂率與肌肉率 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
                     體脂率 (Body Fat)
@@ -285,7 +332,6 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                {/* 基礎代謝 */}
                 <div className="col-span-1 sm:col-span-2 space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
                     基礎代謝 (BMR) 
@@ -301,7 +347,6 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                {/* 年齡性別 */}
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold">年齡</label>
                   <input 
@@ -326,7 +371,6 @@ export default function FeatureViews({ view, userData }) {
                   </select>
                 </div>
 
-                {/* 活動量 */}
                 <div className="col-span-1 sm:col-span-2 space-y-2">
                     <label className="text-xs text-gray-500 uppercase font-semibold">日常活動量</label>
                     <select 
@@ -343,7 +387,6 @@ export default function FeatureViews({ view, userData }) {
                     </select>
                 </div>
 
-                {/* 目標設定 */}
                 <div className="col-span-1 sm:col-span-2 space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold">訓練目標</label>
                   <select 
@@ -360,7 +403,6 @@ export default function FeatureViews({ view, userData }) {
               </div>
             </div>
 
-            {/* 補品紀錄區塊 */}
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Pill className="text-blue-500" />

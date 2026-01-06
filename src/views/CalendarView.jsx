@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, collection, getDocs, query } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
+import { detectMuscleGroup } from '../assets/data/exerciseDB'; // 引入自動標籤工具
 
 // 修正日期格式化
 const formatDate = (date) => {
@@ -21,12 +22,11 @@ export default function CalendarView() {
   
   // 編輯表單狀態
   const [editForm, setEditForm] = useState({
-    status: 'completed', // 'completed' | 'planned' (新增狀態欄位)
-    type: 'strength',    // 'strength' | 'run'
+    status: 'completed',
+    type: 'strength',
     title: '',
-    // 重訓資料
-    exercises: [], 
-    // 跑步資料
+    // 重訓資料結構更新：包含 targetMuscle 與 weight
+    exercises: [], // [{ name, sets, reps, weight, targetMuscle }]
     runDistance: '',   
     runDuration: '',   
     runPace: '',       
@@ -37,7 +37,6 @@ export default function CalendarView() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 自動計算跑步配速
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {
       const dist = parseFloat(editForm.runDistance);
@@ -55,23 +54,18 @@ export default function CalendarView() {
     fetchMonthWorkouts();
   }, [currentDate]);
 
-  // 當選取日期改變時的邏輯
   useEffect(() => {
     const dateStr = formatDate(selectedDate);
     if (workouts[dateStr]) {
-      // 載入既有資料
       setEditForm({ 
         type: 'strength',
-        status: 'completed', // 兼容舊資料
+        status: 'completed', 
         runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '',
         ...workouts[dateStr] 
       });
     } else {
-      // 新增資料：判斷是過去還是未來
       const todayStr = formatDate(new Date());
-      // 如果選取的日期 > 今天，預設為「計畫中」
       const isFuture = dateStr > todayStr;
-      
       resetForm(isFuture ? 'planned' : 'completed');
     }
   }, [selectedDate, workouts]);
@@ -110,11 +104,22 @@ export default function CalendarView() {
     }
   };
 
+  // 處理動作名稱變更，並自動偵測肌群
+  const handleExerciseNameChange = (idx, value) => {
+    const newEx = [...editForm.exercises];
+    newEx[idx].name = value;
+    // 自動標籤邏輯
+    const detectedMuscle = detectMuscleGroup(value);
+    if (detectedMuscle) {
+        newEx[idx].targetMuscle = detectedMuscle;
+    }
+    setEditForm({...editForm, exercises: newEx});
+  };
+
   const handleSave = async () => {
     const user = auth.currentUser;
     if (!user) return;
     
-    // 簡單檢核
     const isStrengthEmpty = editForm.type === 'strength' && editForm.exercises.length === 0 && !editForm.title;
     const isRunEmpty = editForm.type === 'run' && !editForm.runDistance && !editForm.title;
 
@@ -176,11 +181,17 @@ export default function CalendarView() {
       const generatedExercises = JSON.parse(cleanJson);
       
       if (Array.isArray(generatedExercises)) {
+        // AI 生成後也跑一次自動標籤
+        const taggedExercises = generatedExercises.map(ex => ({
+            ...ex,
+            targetMuscle: detectMuscleGroup(ex.name)
+        }));
+
         setEditForm(prev => ({
           ...prev,
           type: 'strength',
           title: prev.title || aiPrompt + " 訓練",
-          exercises: [...prev.exercises, ...generatedExercises]
+          exercises: [...prev.exercises, ...taggedExercises]
         }));
         setAiPrompt('');
       }
@@ -192,12 +203,10 @@ export default function CalendarView() {
     }
   };
 
-  // 轉換計畫為已完成
   const markAsDone = () => {
     setEditForm(prev => ({ ...prev, status: 'completed' }));
   };
 
-  // 日曆邏輯
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const days = [];
@@ -236,7 +245,6 @@ export default function CalendarView() {
             const isToday = formatDate(new Date()) === dateStr;
             const isPlanned = hasWorkout?.status === 'planned';
 
-            // 決定卡片樣式
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
@@ -245,14 +253,11 @@ export default function CalendarView() {
               textClass = 'text-blue-400';
             } else if (hasWorkout) {
               if (isPlanned) {
-                // 計畫中：虛線邊框，透明背景
                 bgClass = 'bg-gray-800 border-blue-400/50 border-dashed';
                 textClass = 'text-blue-300';
               } else if (hasWorkout.type === 'run') {
-                // 跑步已完成
                 bgClass = 'bg-orange-500/10 border-orange-500/30';
               } else {
-                // 重訓已完成
                 bgClass = 'bg-green-500/10 border-green-500/30';
               }
             }
@@ -264,7 +269,6 @@ export default function CalendarView() {
                 className={`relative p-2 rounded-lg border transition-all cursor-pointer flex flex-col hover:bg-gray-700 aspect-square ${bgClass} ${isToday ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-900' : ''}`}
               >
                 <span className={`text-sm font-bold ${textClass}`}>{day}</span>
-                
                 {hasWorkout && (
                   <div className={`mt-1 text-xs px-1 py-0.5 rounded truncate flex items-center gap-1
                     ${isPlanned ? 'text-blue-300 bg-blue-500/10' : 
@@ -283,7 +287,7 @@ export default function CalendarView() {
       {/* 編輯 Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
             
             {/* Modal Header */}
             <div className={`p-6 border-b flex justify-between items-center ${editForm.status === 'planned' ? 'border-blue-900 bg-blue-900/10' : 'border-gray-800'}`}>
@@ -304,7 +308,6 @@ export default function CalendarView() {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              {/* 類型切換 (僅編輯模式或新增時可用) */}
               <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700 mb-4">
                 <button
                   onClick={() => setEditForm(prev => ({ ...prev, type: 'strength' }))}
@@ -324,7 +327,6 @@ export default function CalendarView() {
                 </button>
               </div>
 
-              {/* 標題與 AI */}
               <div>
                 <label className="text-xs text-gray-500 uppercase font-semibold mb-1 block">標題 / 備註</label>
                 <input 
@@ -336,10 +338,8 @@ export default function CalendarView() {
                 />
               </div>
 
-              {/* 根據類型顯示不同表單 */}
               {editForm.type === 'strength' ? (
                 <>
-                  {/* AI 生成器 */}
                   <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 p-4 rounded-xl border border-purple-500/30">
                     <label className="text-xs text-purple-300 uppercase font-semibold mb-2 block flex items-center gap-1">
                       <Sparkles size={12} /> AI 智慧排程
@@ -364,31 +364,83 @@ export default function CalendarView() {
                     </div>
                   </div>
 
-                  {/* 動作列表 */}
+                  {/* 動作列表 Header */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <label className="text-xs text-gray-500 uppercase font-semibold">動作清單</label>
                       <button 
-                        onClick={() => setEditForm(prev => ({ ...prev, exercises: [...prev.exercises, { name: '', sets: 3, reps: '10', weight: '' }] }))}
+                        onClick={() => setEditForm(prev => ({ ...prev, exercises: [...prev.exercises, { name: '', sets: 3, reps: '10', weight: '', targetMuscle: '' }] }))}
                         className="text-xs flex items-center gap-1 text-blue-400 hover:text-blue-300"
                       >
                         <Plus size={12} /> 新增動作
                       </button>
                     </div>
+                    
+                    <div className="grid grid-cols-12 gap-2 text-xs text-gray-500 px-2 uppercase">
+                        <div className="col-span-1 text-center">#</div>
+                        <div className="col-span-4">動作名稱</div>
+                        <div className="col-span-2 text-center">組數</div>
+                        <div className="col-span-2 text-center">次數</div>
+                        <div className="col-span-2 text-center">重量 (kg)</div>
+                        <div className="col-span-1"></div>
+                    </div>
+
                     {editForm.exercises.map((ex, idx) => (
-                      <div key={idx} className="flex gap-2 items-center bg-gray-800 p-2 rounded-lg border border-gray-700">
-                        <div className="w-6 h-6 bg-gray-700 rounded flex items-center justify-center text-gray-400 font-mono text-xs">{idx + 1}</div>
-                        <input placeholder="動作名稱" value={ex.name} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].name = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-600" />
-                        <input placeholder="組數" value={ex.sets} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].sets = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="w-12 bg-gray-900 text-white text-sm text-center rounded border border-gray-700 py-1" />
-                        <span className="text-gray-500 text-xs">x</span>
-                        <input placeholder="次數" value={ex.reps} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].reps = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="w-14 bg-gray-900 text-white text-sm text-center rounded border border-gray-700 py-1" />
-                        <button onClick={() => { const newEx = editForm.exercises.filter((_, i) => i !== idx); setEditForm({...editForm, exercises: newEx}); }} className="p-2 text-gray-500 hover:text-red-400"><Trash2 size={16} /></button>
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-gray-800 p-2 rounded-lg border border-gray-700 group">
+                        <div className="col-span-1 w-6 h-6 bg-gray-700 rounded flex items-center justify-center text-gray-400 font-mono text-xs mx-auto">
+                          {idx + 1}
+                        </div>
+                        <div className="col-span-4 relative">
+                            <input 
+                                placeholder="動作名稱 (例: 臥推)"
+                                value={ex.name}
+                                onChange={e => handleExerciseNameChange(idx, e.target.value)}
+                                className="w-full bg-transparent text-white text-sm outline-none placeholder-gray-600"
+                            />
+                            {/* 顯示自動偵測到的部位標籤 */}
+                            {ex.targetMuscle && (
+                                <span className="absolute -bottom-3 left-0 text-[10px] text-green-400 bg-green-900/30 px-1 rounded flex items-center gap-0.5">
+                                    <Tag size={8} /> {ex.targetMuscle}
+                                </span>
+                            )}
+                        </div>
+                        <div className="col-span-2">
+                             <input 
+                                placeholder="3"
+                                value={ex.sets}
+                                onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].sets = e.target.value; setEditForm({...editForm, exercises: newEx}); }}
+                                className="w-full bg-gray-900 text-white text-sm text-center rounded border border-gray-700 py-1"
+                            />
+                        </div>
+                        <div className="col-span-2">
+                            <input 
+                                placeholder="10"
+                                value={ex.reps}
+                                onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].reps = e.target.value; setEditForm({...editForm, exercises: newEx}); }}
+                                className="w-full bg-gray-900 text-white text-sm text-center rounded border border-gray-700 py-1"
+                            />
+                        </div>
+                        <div className="col-span-2">
+                             <input 
+                                placeholder="kg"
+                                value={ex.weight}
+                                onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].weight = e.target.value; setEditForm({...editForm, exercises: newEx}); }}
+                                className="w-full bg-gray-900 text-white text-sm text-center rounded border border-gray-700 py-1"
+                            />
+                        </div>
+                        <div className="col-span-1 text-center">
+                            <button 
+                                onClick={() => { const newEx = editForm.exercises.filter((_, i) => i !== idx); setEditForm({...editForm, exercises: newEx}); }}
+                                className="p-1.5 text-gray-500 hover:text-red-400 rounded-lg hover:bg-gray-700"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </>
               ) : (
-                /* 跑步輸入表單 */
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs text-gray-500 uppercase font-semibold">距離 (km)</label>
@@ -417,12 +469,10 @@ export default function CalendarView() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="p-6 border-t border-gray-800 flex justify-between items-center">
               <button onClick={handleDelete} className="text-red-400 hover:text-red-300 flex items-center gap-2 px-4 py-2"><Trash2 size={18} /> 刪除</button>
               
               <div className="flex gap-3 items-center">
-                {/* 如果是計畫中，顯示「完成」按鈕 */}
                 {editForm.status === 'planned' && (
                   <button 
                     onClick={markAsDone}

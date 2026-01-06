@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+// ... existing imports ...
+import { updateAIContext } from '../utils/contextManager'; // 引入新工具
+
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, MoreHorizontal } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -214,23 +216,10 @@ export default function CalendarView() {
   };
 
   const handleSave = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    const isStrengthEmpty = editForm.type === 'strength' && editForm.exercises.length === 0 && !editForm.title;
-    const isRunEmpty = editForm.type === 'run' && !editForm.runDistance && !editForm.title;
-
-    if (isStrengthEmpty || isRunEmpty) {
-      alert("請輸入標題或內容");
-      return;
-    }
+    // ... existing validation ...
 
     const dateStr = formatDate(selectedDate);
-    const dataToSave = {
-      ...editForm,
-      date: dateStr, 
-      updatedAt: new Date().toISOString()
-    };
+    // ... existing dataToSave construction ...
 
     try {
       if (currentDocId) {
@@ -239,6 +228,9 @@ export default function CalendarView() {
         await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
       }
       
+      // 新增：觸發 AI Context 更新 (背景執行，不需 await 阻擋 UI)
+      updateAIContext();
+
       await fetchMonthWorkouts();
       setModalView('list');
     } catch (error) {
@@ -256,6 +248,10 @@ export default function CalendarView() {
 
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'calendar', currentDocId));
+      
+      // 新增：刪除也要更新 Context
+      updateAIContext();
+
       await fetchMonthWorkouts();
       setModalView('list');
     } catch (error) {

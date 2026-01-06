@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+// ... existing imports ...
+import { getAIContext } from '../../utils/contextManager'; // 引入讀取工具
+
 import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2 } from 'lucide-react';
 import { runGemini } from '../../utils/gemini';
 
@@ -60,12 +62,16 @@ export default function CoachChat({ isOpen, onClose, user }) {
     setIsLoading(true);
 
     try {
-        // --- Token 節省策略 ---
-        // 強制加上「省流指令」，限制 AI 的輸出長度
+        // 1. 獲取最新的使用者背景資料 (極簡版)
+        const userContext = await getAIContext();
+
+        // 2. 組合 System Prompt
         const systemPrompt = `
           角色：專業健身教練。
-          風格：繁體中文、幽默鼓勵、極度精簡。
-          限制：除非用戶要求「詳細」，否則回答請控制在 50 字以內，或列出 3 點關鍵即可。
+          風格：繁體中文、幽默鼓勵、極度精簡(50字內)。
+          
+          [使用者背景資料]
+          ${userContext}
           
           用戶問題：${userMessage}
         `;

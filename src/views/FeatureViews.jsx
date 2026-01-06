@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+// ... existing imports ...
+import { updateAIContext } from '../utils/contextManager'; // 引入新工具
+
 import { User, Settings, Dumbbell, Calendar, ChevronRight, Save, Loader, Flame, Pill, Calculator, Activity, Percent } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
@@ -102,8 +104,11 @@ export default function FeatureViews({ view, userData }) {
         lastUpdated: new Date()
       }, { merge: true });
 
+      // 新增：觸發 AI Context 更新
+      await updateAIContext();
+
       setIsEditing(false);
-      alert("個人資料已更新！包含體脂率數據。");
+      alert("個人資料已更新！(AI 知識庫已同步)");
     } catch (error) {
       console.error("儲存失敗:", error);
       alert("儲存失敗，請檢查網路連線。");

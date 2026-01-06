@@ -1,8 +1,7 @@
-// ... existing imports ...
-import { getAIContext } from '../../utils/contextManager'; // 引入讀取工具
-
-import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2, RefreshCw } from 'lucide-react';
 import { runGemini } from '../../utils/gemini';
+import { getAIContext, updateAIContext } from '../../utils/contextManager';
 
 export default function CoachChat({ isOpen, onClose, user }) {
   const [messages, setMessages] = useState([
@@ -10,6 +9,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false); // 同步狀態
   
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
   const [showSettings, setShowSettings] = useState(false);
@@ -40,11 +40,23 @@ export default function CoachChat({ isOpen, onClose, user }) {
     }
   };
 
-  // 清除對話紀錄
   const handleClearHistory = () => {
     setMessages([
         { role: 'model', text: `對話已重置。有什麼新問題嗎？` }
     ]);
+  };
+
+  // 手動同步舊資料
+  const handleSyncContext = async () => {
+    setIsSyncing(true);
+    try {
+        await updateAIContext();
+        alert("同步成功！AI 現在已經記得您的所有舊資料了。");
+    } catch (error) {
+        alert("同步失敗，請稍後再試。");
+    } finally {
+        setIsSyncing(false);
+    }
   };
 
   const handleSend = async () => {
@@ -62,16 +74,16 @@ export default function CoachChat({ isOpen, onClose, user }) {
     setIsLoading(true);
 
     try {
-        // 1. 獲取最新的使用者背景資料 (極簡版)
+        // 1. 獲取統整後的上下文 (Context)
         const userContext = await getAIContext();
 
-        // 2. 組合 System Prompt
+        // 2. 組合 Prompt
         const systemPrompt = `
           角色：專業健身教練。
           風格：繁體中文、幽默鼓勵、極度精簡(50字內)。
           
-          [使用者背景資料]
-          ${userContext}
+          [使用者目前狀態與近期訓練]
+          ${userContext || '目前無詳細資料'}
           
           用戶問題：${userMessage}
         `;
@@ -102,12 +114,11 @@ export default function CoachChat({ isOpen, onClose, user }) {
             </h3>
             <span className="text-xs text-green-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-              省流模式 On
+              線上
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* 清除對話按鈕 */}
           <button 
             onClick={handleClearHistory}
             className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
@@ -118,7 +129,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
           <button 
             onClick={() => setShowSettings(!showSettings)} 
             className={`p-2 rounded-lg transition-colors ${showSettings || !apiKey ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-            title="設定 API Key"
+            title="設定"
           >
             <Settings size={20} />
           </button>
@@ -157,15 +168,20 @@ export default function CoachChat({ isOpen, onClose, user }) {
                 <Save size={18} />
                 儲存設定
               </button>
+              
+              {/* 新增：手動同步按鈕 */}
+              <button
+                onClick={handleSyncContext}
+                disabled={isSyncing}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-gray-700 mt-2"
+              >
+                {isSyncing ? <Loader size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                {isSyncing ? '正在讀取舊資料...' : '同步歷史資料到 AI'}
+              </button>
+              <p className="text-[10px] text-gray-500 text-center">
+                點擊上方按鈕可讓 AI 讀取您過去所有的 Profile 與行事曆紀錄。
+              </p>
             </div>
-            <a 
-              href="https://aistudio.google.com/app/apikey" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-xs text-blue-400 hover:text-blue-300 hover:underline mt-4"
-            >
-              取得免費 API Key
-            </a>
           </div>
         ) : (
           <div className="p-4 space-y-4 min-h-full">
@@ -204,7 +220,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={apiKey ? "輸入問題 (AI 會精簡回答)..." : "請設定 API Key"}
+              placeholder={apiKey ? "輸入問題 (AI 會根據您的數據回答)..." : "請設定 API Key"}
               disabled={!apiKey}
               className="flex-1 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />

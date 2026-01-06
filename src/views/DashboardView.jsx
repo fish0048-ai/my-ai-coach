@@ -4,6 +4,17 @@ import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle } from 
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
+// 安全的日期解析函數，防止 Invalid Date 導致崩潰
+const safeTimestamp = (dateStr) => {
+    if (!dateStr) return 0;
+    try {
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    } catch {
+        return 0;
+    }
+};
+
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center space-x-4">
     <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
@@ -25,7 +36,7 @@ export default function DashboardView({ userData }) {
     muscleFatigue: {},
     latestAnalysis: null
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchWorkoutStats();
@@ -35,6 +46,7 @@ export default function DashboardView({ userData }) {
     const user = auth.currentUser;
     if (!user) return;
 
+    setLoading(true);
     try {
       const q = query(collection(db, 'users', user.uid, 'calendar'));
       const querySnapshot = await getDocs(q);
@@ -43,8 +55,6 @@ export default function DashboardView({ userData }) {
       let muscleScore = {}; 
       let totalWorkouts = 0;
       let totalRunDist = 0;
-      
-      // 用來收集所有分析報告以進行排序
       let analysisReports = [];
 
       const thirtyDaysAgo = new Date();
@@ -53,41 +63,47 @@ export default function DashboardView({ userData }) {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        
+        if (!data) return; // 防呆：防止空文件
+
         if (data.status === 'completed' && data.date >= todayStr) {
           // 排除純分析紀錄，只計算實體訓練次數
           if (data.type !== 'analysis') {
              totalWorkouts++;
           }
           
-          if (data.exercises) {
+          // 強制檢查 exercises 是否為陣列，防止資料結構錯誤導致崩潰
+          if (Array.isArray(data.exercises)) {
             data.exercises.forEach(ex => {
+              if (!ex) return; // 防呆：防止陣列中有 null
+
               // 1. 統計肌肉熱力圖 (排除純分析)
               if (ex.targetMuscle && ex.sets) {
                 const sets = parseInt(ex.sets) || 1;
                 muscleScore[ex.targetMuscle] = (muscleScore[ex.targetMuscle] || 0) + sets;
                 totalSets += sets;
               }
-              // 2. 收集動作分析報告 (加入日期以便排序)
+              // 2. 收集動作分析報告
               if (ex.type === 'analysis' && ex.feedback) {
                 analysisReports.push({
                     ...ex,
-                    date: data.date, // 使用文件日期作為排序依據
-                    createdAt: ex.createdAt || data.date // 若有精確時間則優先使用
+                    title: ex.title || 'AI 分析報告',
+                    feedback: ex.feedback,
+                    date: data.date, 
+                    createdAt: ex.createdAt || data.date
                 });
               }
             });
           }
 
           if (data.type === 'run' && data.runDistance) {
-            totalRunDist += parseFloat(data.runDistance);
+            totalRunDist += parseFloat(data.runDistance) || 0;
           }
         }
       });
 
-      // 找出最新的分析報告 (根據 createdAt 或 date 排序)
+      // 排序並取出最新報告 (使用安全的時間戳記轉換)
       const latestAnalysisFeedback = analysisReports.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        safeTimestamp(b.createdAt) - safeTimestamp(a.createdAt)
       )[0] || null;
 
       const normalizedFatigue = {};
@@ -109,6 +125,7 @@ export default function DashboardView({ userData }) {
 
     } catch (error) {
       console.error("Error calculating dashboard stats:", error);
+      // 發生錯誤時不做任何事，保持舊數據顯示，避免黑屏
     } finally {
       setLoading(false);
     }
@@ -205,7 +222,7 @@ export default function DashboardView({ userData }) {
               )}
             </div>
             
-            {/* 2. 動作分析報告 (連動部分 - 加入防呆渲染) */}
+            {/* 2. 動作分析報告 (連動部分 - 加入渲染防呆) */}
             <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
                <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
                  {stats.latestAnalysis ? <BrainCircuit size={14}/> : <AlertCircle size={14}/>}
@@ -217,10 +234,10 @@ export default function DashboardView({ userData }) {
                         來源: {String(stats.latestAnalysis.title || 'AI 分析報告')}
                     </p>
                     <p className="text-sm text-gray-300 leading-relaxed line-clamp-6">
-                        {/* 強制轉為字串顯示，防止物件導致崩潰 */}
-                        {typeof stats.latestAnalysis.feedback === 'string' 
-                            ? stats.latestAnalysis.feedback 
-                            : JSON.stringify(stats.latestAnalysis.feedback)}
+                        {/* 這裡加入 String() 強制轉型，防止物件直接渲染導致崩潰 */}
+                        {typeof stats.latestAnalysis.feedback === 'object' 
+                            ? JSON.stringify(stats.latestAnalysis.feedback) 
+                            : String(stats.latestAnalysis.feedback || '無詳細建議')}
                     </p>
                  </div>
                ) : (

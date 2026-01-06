@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-// 引用新頁面，記得加 .jsx
+// 引入行事曆頁面
 import DashboardView from './views/DashboardView.jsx'; 
 import FeatureViews from './views/FeatureViews.jsx'; 
-import AnalysisView from './views/AnalysisView.jsx'; // 新增這行
+import AnalysisView from './views/AnalysisView.jsx'; 
+import CalendarView from './views/CalendarView.jsx'; // 新增這行
 import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -76,9 +77,10 @@ export default function App() {
         return <FeatureViews view="training" />; 
       case 'profile':
         return <FeatureViews view="profile" userData={userData} />;
-      // 新增路由處理
       case 'analysis':
         return <AnalysisView />;
+      case 'calendar': // 新增路由
+        return <CalendarView />;
       default:
         return <DashboardView userData={userData} />;
     }

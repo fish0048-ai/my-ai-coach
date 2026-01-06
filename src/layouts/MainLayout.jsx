@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// 新增 ScanLine 圖標
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine } from 'lucide-react';
+// 新增 Calendar 圖標
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine, Calendar } from 'lucide-react';
 import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -61,12 +61,17 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             onClick={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
+            icon={Calendar} 
+            text="行事曆 Calendar" 
+            active={currentView === 'calendar'} 
+            onClick={() => { setCurrentView('calendar'); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
             icon={Dumbbell} 
             text="訓練計畫 Training" 
             active={currentView === 'training'} 
             onClick={() => { setCurrentView('training'); setIsSidebarOpen(false); }} 
           />
-          {/* 新增動作分析選項 */}
           <SidebarItem 
             icon={ScanLine} 
             text="動作分析 Analysis" 

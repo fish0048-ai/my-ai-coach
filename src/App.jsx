@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
 // 這裡加上 .jsx 副檔名，強制 Vercel 識別檔案類型
-import DashboardView from './views_temp/DashboardView.jsx'; 
-import FeatureViews from './views_temp/FeatureViews.jsx'; 
+import DashboardView from './views/DashboardView.jsx'; 
+import FeatureViews from './views/FeatureViews.jsx'; 
 import CoachChat from './components/AICoach/CoachChat';
 import { Loader } from 'lucide-react';
 

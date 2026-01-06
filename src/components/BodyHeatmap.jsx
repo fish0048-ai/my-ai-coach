@@ -72,20 +72,26 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
   const [hoveredMuscle, setHoveredMuscle] = useState(null);
   const [isCalibrating, setIsCalibrating] = useState(false);
   
-  // 校準數據: X位移, Y位移, 縮放比例
+  // 校準數據: X位移, Y位移, 縮放比例 (提供預設值)
   const [calibration, setCalibration] = useState({
     front: { x: 0, y: 0, scale: 1 },
     back: { x: 0, y: 0, scale: 1 }
   });
 
-  // 初始化時讀取 LocalStorage
+  // 初始化時讀取 LocalStorage (加入防呆機制)
   useEffect(() => {
     const saved = localStorage.getItem('heatmap_calibration');
     if (saved) {
       try {
-        setCalibration(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // 合併預設值，防止 parsed 為 null 或結構不完整導致崩潰
+        setCalibration(prev => ({
+          front: { ...prev.front, ...(parsed?.front || {}) },
+          back: { ...prev.back, ...(parsed?.back || {}) }
+        }));
       } catch (e) {
         console.error("Failed to load calibration", e);
+        // 如果讀取失敗，保持預設值，不需額外操作
       }
     }
   }, []);
@@ -93,11 +99,14 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
   // 儲存校準數據
   const updateCalibration = (key, delta) => {
     setCalibration(prev => {
-      const currentVal = prev[view][key];
+      // 確保 prev[view] 存在
+      const currentConfig = prev[view] || { x: 0, y: 0, scale: 1 };
+      const currentVal = currentConfig[key];
+      
       const newVal = {
         ...prev,
         [view]: {
-          ...prev[view],
+          ...currentConfig,
           [key]: parseFloat((currentVal + delta).toFixed(2))
         }
       };
@@ -115,7 +124,10 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
   };
 
   const currentImage = view === 'front' ? frontImage : backImage;
-  const { x, y, scale } = calibration[view];
+  
+  // 安全解構：確保 calibration[view] 存在，否則使用預設值
+  const currentCalibration = calibration[view] || { x: 0, y: 0, scale: 1 };
+  const { x, y, scale } = currentCalibration;
 
   return (
     <div className="flex flex-col h-full bg-gray-900 rounded-lg p-4 relative overflow-hidden border border-gray-800 shadow-xl">

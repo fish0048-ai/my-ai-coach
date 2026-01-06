@@ -86,7 +86,7 @@ export default function AnalysisView() {
     }
   };
 
-  // 儲存分析結果 (修正：只存數據與建議，不連結熱力圖)
+  // 儲存分析結果 (支援第一階段或第二階段儲存)
   const saveToCalendar = async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -99,12 +99,17 @@ export default function AnalysisView() {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
 
-        // 準備純分析紀錄，不包含 targetMuscle，避免干擾熱力圖
+        // 判斷是否有 AI 建議，決定標題和內容
+        const hasAI = !!aiFeedback;
+        const titleSuffix = hasAI ? 'AI 分析報告' : '自動分析數據';
+        const feedbackContent = hasAI ? aiFeedback : '僅包含基礎數據分析，未進行 AI 診斷。';
+
+        // 準備分析紀錄
         const analysisEntry = {
             id: Date.now().toString(), // 獨特 ID
             type: 'analysis', // 特殊類型
-            title: mode === 'bench' ? '臥推 AI 分析報告' : '跑步 AI 分析報告',
-            feedback: aiFeedback, // 保存 AI 建議
+            title: mode === 'bench' ? `臥推 ${titleSuffix}` : `跑步 ${titleSuffix}`,
+            feedback: feedbackContent, // 保存建議 (AI 或 預設)
             metrics: metrics,     // 保存原始數據
             score: metrics?.stability?.value || 'N/A', // 簡易分數
             createdAt: now.toISOString()
@@ -117,7 +122,6 @@ export default function AnalysisView() {
         if (docSnap.exists()) {
             const existingData = docSnap.data();
             const currentExercises = existingData.exercises || [];
-            // 將分析報告存入 exercises 陣列 (或是開一個新欄位 analysisReports，這裡為了相容性存入 exercises)
             newData = {
                 ...existingData,
                 exercises: [...currentExercises, analysisEntry],
@@ -135,7 +139,7 @@ export default function AnalysisView() {
         }
 
         await setDoc(docRef, newData);
-        alert("分析報告已上傳！請前往儀表板查看綜合建議。");
+        alert(`分析結果已上傳！${hasAI ? '包含 AI 建議。' : '僅包含數據。'}`);
 
     } catch (error) {
         console.error("儲存失敗:", error);
@@ -275,14 +279,15 @@ export default function AnalysisView() {
                     </button>
                  )}
 
-                 {analysisStep === 'ai_complete' && (
+                 {/* 儲存按鈕：只要有數據 (Metrics) 即可顯示 */}
+                 {metrics && (
                     <button 
                         onClick={saveToCalendar}
                         disabled={isSaving}
                         className="flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all hover:scale-105"
                     >
                         {isSaving ? <CheckCircle className="animate-spin" size={20} /> : <Save size={20} />}
-                        傳送報告至儀表板
+                        {aiFeedback ? '儲存完整報告' : '儲存分析數據'}
                     </button>
                  )}
                </div>

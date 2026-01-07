@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
+import WeatherWidget from '../components/WeatherWidget.jsx'; // 新增引入
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -103,13 +104,12 @@ export default function DashboardView({ userData }) {
         safeTimestamp(b.createdAt) - safeTimestamp(a.createdAt)
       )[0] || null;
 
-      // --- 關鍵修復：資料淨化 (Sanitization) ---
-      // 在寫入 State 之前，強制將所有內容轉為字串，防止物件渲染崩潰
+      // 資料淨化 (Sanitization)
       const safeLatestAnalysis = rawLatestAnalysis ? {
           title: String(rawLatestAnalysis.title || 'AI 分析報告'),
           feedback: typeof rawLatestAnalysis.feedback === 'object' 
-              ? JSON.stringify(rawLatestAnalysis.feedback) // 如果是物件就轉 JSON 字串
-              : String(rawLatestAnalysis.feedback || '無詳細建議') // 否則轉普通字串
+              ? JSON.stringify(rawLatestAnalysis.feedback) 
+              : String(rawLatestAnalysis.feedback || '無詳細建議')
       } : null;
 
       const normalizedFatigue = {};
@@ -126,7 +126,7 @@ export default function DashboardView({ userData }) {
         totalHours: Math.round(totalWorkouts * 0.8 * 10) / 10, 
         completedGoals: userData?.completedGoals || 0,
         muscleFatigue: normalizedFatigue,
-        latestAnalysis: safeLatestAnalysis // 使用處理過的資料
+        latestAnalysis: safeLatestAnalysis
       });
 
     } catch (error) {
@@ -138,13 +138,19 @@ export default function DashboardView({ userData }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            歡迎回來，{userData?.name || '健身夥伴'}
-          </h1>
-          <p className="text-gray-400">這是您過去 30 天的訓練概況</p>
+      {/* 頂部歡迎區與天氣 */}
+      <div className="flex flex-col gap-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              歡迎回來，{userData?.name || '健身夥伴'}
+            </h1>
+            <p className="text-gray-400">這是您過去 30 天的訓練概況</p>
+          </div>
         </div>
+
+        {/* 新增天氣小工具 */}
+        <WeatherWidget />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -169,7 +175,6 @@ export default function DashboardView({ userData }) {
         <StatCard 
           icon={Trophy} 
           label="達成目標" 
-          // 防呆：強制轉字串
           value={String(userData?.goal || '未設定')} 
           color="bg-yellow-500" 
         />
@@ -228,7 +233,7 @@ export default function DashboardView({ userData }) {
               )}
             </div>
             
-            {/* 2. 動作分析報告 (現在可以直接渲染了) */}
+            {/* 2. 動作分析報告 */}
             <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
                <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
                  {stats.latestAnalysis ? <Sparkles size={14}/> : <AlertCircle size={14}/>}

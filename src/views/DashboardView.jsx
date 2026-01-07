@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
-import WeatherWidget from '../components/WeatherWidget.jsx'; // 新增引入
-import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle } from 'lucide-react';
+import WeatherWidget from '../components/WeatherWidget.jsx'; 
+import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -35,7 +35,12 @@ export default function DashboardView({ userData }) {
     totalHours: 0,
     completedGoals: 0,
     muscleFatigue: {},
-    latestAnalysis: null
+    latestAnalysis: null,
+    // 週統計欄位
+    weeklyDistance: 0,
+    weeklyRuns: 0,
+    longestRun: 0,
+    zone2Percent: 0
   });
   const [loading, setLoading] = useState(false);
 
@@ -58,16 +63,35 @@ export default function DashboardView({ userData }) {
       let totalRunDist = 0;
       let analysisReports = [];
 
+      // 週統計變數
+      let weeklyDistance = 0;
+      let weeklyRuns = 0;
+      let longestRun = 0;
+      let zone2Minutes = 0;
+      let totalRunMinutes = 0;
+
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const todayStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+      // 計算本週起始日 (週一)
+      const now = new Date();
+      const day = now.getDay() || 7; 
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - day + 1);
+      weekStart.setHours(0,0,0,0);
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+
+      // 取得使用者最大心率 (估算：220 - 年齡)
+      const maxHR = 220 - (parseInt(userData?.age) || 30);
+      const zone2Lower = maxHR * 0.6;
+      const zone2Upper = maxHR * 0.7;
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         if (!data) return;
 
         if (data.status === 'completed' && data.date >= todayStr) {
-          // 排除純分析紀錄的次數統計
           if (data.type !== 'analysis') {
              totalWorkouts++;
           }
@@ -75,36 +99,49 @@ export default function DashboardView({ userData }) {
           if (Array.isArray(data.exercises)) {
             data.exercises.forEach(ex => {
               if (!ex) return;
-
-              // 1. 統計肌肉熱力圖
               if (ex.targetMuscle && ex.sets) {
                 const sets = parseInt(ex.sets) || 1;
                 muscleScore[ex.targetMuscle] = (muscleScore[ex.targetMuscle] || 0) + sets;
                 totalSets += sets;
               }
-              // 2. 收集動作分析報告
               if (ex.type === 'analysis') {
                 analysisReports.push({
                     title: ex.title,
                     feedback: ex.feedback,
-                    createdAt: ex.createdAt || data.date // 用於排序
+                    createdAt: ex.createdAt || data.date 
                 });
               }
             });
           }
 
           if (data.type === 'run' && data.runDistance) {
-            totalRunDist += parseFloat(data.runDistance) || 0;
+            const dist = parseFloat(data.runDistance) || 0;
+            const duration = parseFloat(data.runDuration) || 0;
+            const hr = parseFloat(data.runHeartRate) || 0;
+
+            totalRunDist += dist;
+
+            // 統計本週數據
+            if (data.date >= weekStartStr) {
+                weeklyDistance += dist;
+                weeklyRuns++;
+                if (dist > longestRun) longestRun = dist;
+                
+                totalRunMinutes += duration;
+                // Zone 2 判斷 (簡易判斷：若平均心率在區間內，視為整場都是 Zone 2)
+                // 更精確的做法需要每分鐘數據，這裡做簡易估算
+                if (hr >= zone2Lower && hr <= zone2Upper) {
+                    zone2Minutes += duration;
+                }
+            }
           }
         }
       });
 
-      // 取出最新報告
       const rawLatestAnalysis = analysisReports.sort((a, b) => 
         safeTimestamp(b.createdAt) - safeTimestamp(a.createdAt)
       )[0] || null;
 
-      // 資料淨化 (Sanitization)
       const safeLatestAnalysis = rawLatestAnalysis ? {
           title: String(rawLatestAnalysis.title || 'AI 分析報告'),
           feedback: typeof rawLatestAnalysis.feedback === 'object' 
@@ -126,7 +163,12 @@ export default function DashboardView({ userData }) {
         totalHours: Math.round(totalWorkouts * 0.8 * 10) / 10, 
         completedGoals: userData?.completedGoals || 0,
         muscleFatigue: normalizedFatigue,
-        latestAnalysis: safeLatestAnalysis
+        latestAnalysis: safeLatestAnalysis,
+        // 更新週統計
+        weeklyDistance: weeklyDistance.toFixed(1),
+        weeklyRuns: weeklyRuns,
+        longestRun: longestRun.toFixed(1),
+        zone2Percent: totalRunMinutes > 0 ? Math.round((zone2Minutes / totalRunMinutes) * 100) : 0
       });
 
     } catch (error) {
@@ -153,6 +195,7 @@ export default function DashboardView({ userData }) {
         <WeatherWidget />
       </div>
 
+      {/* 第一層：總覽統計 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           icon={Activity} 
@@ -178,6 +221,32 @@ export default function DashboardView({ userData }) {
           value={String(userData?.goal || '未設定')} 
           color="bg-yellow-500" 
         />
+      </div>
+
+      {/* 第二層：跑步週統計 (新增區塊) */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="text-green-400" />
+            <h3 className="text-lg font-bold text-white">本週跑步統計</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
+                <span className="text-xs text-gray-400 uppercase mb-1">週跑量</span>
+                <span className="text-2xl font-bold text-white">{stats.weeklyDistance} <span className="text-sm font-normal text-gray-500">km</span></span>
+            </div>
+            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
+                <span className="text-xs text-gray-400 uppercase mb-1">週次數</span>
+                <span className="text-2xl font-bold text-white">{stats.weeklyRuns} <span className="text-sm font-normal text-gray-500">次</span></span>
+            </div>
+            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
+                <span className="text-xs text-gray-400 uppercase mb-1">最長距離</span>
+                <span className="text-2xl font-bold text-white">{stats.longestRun} <span className="text-sm font-normal text-gray-500">km</span></span>
+            </div>
+            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
+                <span className="text-xs text-gray-400 uppercase mb-1">Zone 2 佔比</span>
+                <span className="text-2xl font-bold text-green-400">{stats.zone2Percent} <span className="text-sm font-normal text-gray-500">%</span></span>
+            </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

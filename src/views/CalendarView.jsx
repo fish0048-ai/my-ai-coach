@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2 } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
-import { updateAIContext } from '../utils/contextManager'; // 引入 AI 記憶同步工具
+import { updateAIContext } from '../utils/contextManager';
 
 // 日期格式化 (YYYY-MM-DD)
 const formatDate = (date) => {
@@ -41,7 +41,9 @@ export default function CalendarView() {
     runDuration: '',   
     runPace: '',       
     runPower: '',      
-    runHeartRate: ''   
+    runHeartRate: '',
+    runRPE: '',       // 新增：RPE (1-10)
+    notes: ''         // 新增：備註
   });
   
   const [aiPrompt, setAiPrompt] = useState('');
@@ -151,9 +153,7 @@ export default function CalendarView() {
         });
       }
 
-      // 拖曳操作後也觸發 AI 記憶更新
       updateAIContext();
-
       await fetchMonthWorkouts(); 
     } catch (error) {
       console.error("Drop error:", error);
@@ -186,7 +186,9 @@ export default function CalendarView() {
       runDuration: '',
       runPace: '',
       runPower: '',
-      runHeartRate: ''
+      runHeartRate: '',
+      runRPE: '',
+      notes: ''
     });
     setCurrentDocId(null); 
     setModalView('form');
@@ -202,7 +204,9 @@ export default function CalendarView() {
       runDuration: workout.runDuration || '',
       runPace: workout.runPace || '',
       runPower: workout.runPower || '',
-      runHeartRate: workout.runHeartRate || ''
+      runHeartRate: workout.runHeartRate || '',
+      runRPE: workout.runRPE || '',
+      notes: workout.notes || ''
     });
     setCurrentDocId(workout.id); 
     setModalView('form');
@@ -234,9 +238,7 @@ export default function CalendarView() {
         await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
       }
       
-      // 自動更新 AI 記憶
       updateAIContext();
-
       await fetchMonthWorkouts();
       setModalView('list');
     } catch (error) {
@@ -254,10 +256,7 @@ export default function CalendarView() {
 
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'calendar', currentDocId));
-      
-      // 自動更新 AI 記憶
       updateAIContext();
-
       await fetchMonthWorkouts();
       setModalView('list');
     } catch (error) {
@@ -641,6 +640,21 @@ export default function CalendarView() {
                             <div className="space-y-1">
                                 <label className="text-xs text-gray-500 uppercase font-semibold">平均心率 (bpm)</label>
                                 <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
+                            </div>
+                            {/* 新增 RPE 欄位 */}
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
+                                    <BarChart2 size={12} /> 自覺強度 (RPE 1-10)
+                                </label>
+                                <input type="number" min="1" max="10" value={editForm.runRPE} onChange={e => setEditForm({...editForm, runRPE: e.target.value})} placeholder="例如: 7" className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
+                            </div>
+                            
+                            {/* 新增 備註欄位 */}
+                            <div className="col-span-2 space-y-1">
+                                <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
+                                    <AlignLeft size={12} /> 訓練備註
+                                </label>
+                                <textarea rows="3" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} placeholder="今天感覺如何？天氣、路線..." className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none resize-none" />
                             </div>
                             </div>
                         )}

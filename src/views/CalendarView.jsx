@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame } from 'lucide-react';
+// 新增 RefreshCw 圖示
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -41,7 +42,7 @@ export default function CalendarView() {
     runHeartRate: '',
     runRPE: '',       
     notes: '',
-    calories: '' // 新增：卡路里欄位
+    calories: ''
   });
   
   const [aiPrompt, setAiPrompt] = useState('');
@@ -93,6 +94,26 @@ export default function CalendarView() {
     }
   };
 
+  // --- 手動同步功能 (新增) ---
+  const handleSync = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setLoading(true);
+    try {
+        // 1. 更新 AI 上下文記憶 (讀取最新 DB 資料寫入 summary)
+        await updateAIContext();
+        // 2. 重新抓取行事曆顯示資料
+        await fetchMonthWorkouts();
+        alert("同步完成！\n已更新雲端資料與 AI 記憶庫。");
+    } catch (error) {
+        console.error("Sync failed:", error);
+        alert("同步失敗，請檢查網路連線。");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   // --- CSV Import Logic ---
   const handleImportClick = () => {
     csvInputRef.current?.click();
@@ -134,7 +155,6 @@ export default function CalendarView() {
         headers.forEach((h, i) => idxMap[h] = i);
         const getVal = (row, col) => row[idxMap[col]] || '';
         
-        // 新增卡路里(cal)與總組數(sets)欄位對照
         const cols = isChinese ? 
             { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數' } :
             { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets' };
@@ -198,11 +218,10 @@ export default function CalendarView() {
             const distRaw = getVal(row, cols.dist);
             const runDistance = type === 'run' ? distRaw.replace(/,/g, '') : '';
             const hrRaw = getVal(row, cols.hr);
-            const runHeartRate = (hrRaw.includes('--') ? '' : hrRaw); // 重訓也要記心率
+            const runHeartRate = (hrRaw.includes('--') ? '' : hrRaw);
             const pwrRaw = getVal(row, cols.pwr);
             const runPower = type === 'run' ? (pwrRaw.includes('--') ? '' : pwrRaw) : '';
             
-            // 抓取卡路里與組數
             const calRaw = getVal(row, cols.cal);
             const calories = calRaw.replace(/,/g, '');
             const setsRaw = getVal(row, cols.sets);
@@ -216,7 +235,6 @@ export default function CalendarView() {
                runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
             }
 
-            // 處理備註：若是重訓且有總組數，寫入備註
             let notes = '';
             if (type === 'strength' && setsRaw && setsRaw !== '--') {
                 notes = `匯入數據: 總組數 ${setsRaw}`;
@@ -233,8 +251,8 @@ export default function CalendarView() {
                 runPace,
                 runPower,
                 runHeartRate,
-                calories, // 儲存卡路里
-                notes,    // 儲存備註
+                calories, 
+                notes,    
                 imported: true,
                 updatedAt: new Date().toISOString()
             };
@@ -278,6 +296,8 @@ export default function CalendarView() {
         if (csvInputRef.current) csvInputRef.current.value = '';
     };
   };
+
+  // --- Drag and Drop Logic ---
 
   const handleDragStart = (e, workout) => {
     e.dataTransfer.effectAllowed = 'copyMove';
@@ -523,6 +543,17 @@ export default function CalendarView() {
           運動行事曆
         </h1>
         <div className="flex items-center gap-2 md:gap-4">
+          {/* 同步按鈕 (新增) */}
+          <button 
+            onClick={handleSync}
+            disabled={loading}
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50"
+            title="手動同步雲端資料與 AI 記憶"
+          >
+            {loading ? <Loader size={16} className="animate-spin"/> : <RefreshCw size={16} />}
+            <span className="hidden md:inline">同步</span>
+          </button>
+
           <button 
             onClick={handleImportClick}
             className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600"
@@ -862,6 +893,7 @@ export default function CalendarView() {
                                 <label className="text-xs text-gray-500 uppercase font-semibold">平均心率 (bpm)</label>
                                 <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
                             </div>
+                            {/* 新增 RPE 欄位 */}
                             <div className="space-y-1">
                                 <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
                                     <BarChart2 size={12} /> 自覺強度 (RPE 1-10)
@@ -869,6 +901,7 @@ export default function CalendarView() {
                                 <input type="number" min="1" max="10" value={editForm.runRPE} onChange={e => setEditForm({...editForm, runRPE: e.target.value})} placeholder="例如: 7" className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
                             </div>
                             
+                            {/* 新增 備註欄位 */}
                             <div className="col-span-2 space-y-1">
                                 <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
                                     <AlignLeft size={12} /> 訓練備註

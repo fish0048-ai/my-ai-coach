@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// 新增 Heart 圖示
-import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer, Heart } from 'lucide-react';
+// 新增 BookOpen, TrendingUp 圖示
+import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer, Heart, BookOpen, TrendingUp } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
 import { updateAIContext } from '../utils/contextManager';
@@ -16,7 +16,7 @@ export default function FeatureViews({ view, userData }) {
     bodyFat: '',    
     muscleRate: '', 
     bmr: '',        
-    maxHeartRate: '', // 新增：最大心率 (手動輸入)
+    maxHeartRate: '', 
     age: '',        
     gender: 'male', 
     activity: '1.2',
@@ -33,6 +33,10 @@ export default function FeatureViews({ view, userData }) {
 
   // 計算實際使用的最大心率 (手動優先，否則用年齡估算)
   const activeMaxHR = parseInt(profile.maxHeartRate) || (profile.age ? 220 - parseInt(profile.age) : 0);
+
+  // 計算 Zone 2 範圍 (用於建議卡片)
+  const z2Lower = activeMaxHR ? Math.round(activeMaxHR * 0.6) : '--';
+  const z2Upper = activeMaxHR ? Math.round(activeMaxHR * 0.7) : '--';
 
   // 心率區間計算
   const heartRateZones = (() => {
@@ -56,7 +60,7 @@ export default function FeatureViews({ view, userData }) {
         bodyFat: userData.bodyFat || '',
         muscleRate: userData.muscleRate || '',
         bmr: userData.bmr || '',
-        maxHeartRate: userData.maxHeartRate || '', // 讀取最大心率
+        maxHeartRate: userData.maxHeartRate || '', 
         age: userData.age || '',
         gender: userData.gender || 'male',
         activity: userData.activity || '1.2',
@@ -368,7 +372,7 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="col-span-1 sm:col-span-2 space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
                     基礎代謝 (BMR) 
                     <span className="text-[10px] text-gray-400 lowercase">kcal/day</span>
@@ -530,6 +534,44 @@ export default function FeatureViews({ view, userData }) {
                               ))}
                           </div>
                       )}
+                    </div>
+
+                    {/* 新增：跑步基本建議 */}
+                    <div className="mt-6 pt-6 border-t border-gray-700">
+                      <div className="flex items-center gap-2 mb-3">
+                        <BookOpen className="text-blue-400" size={16} />
+                        <h4 className="text-sm font-bold text-gray-300">跑步訓練基本守則</h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 1. 跑量增幅限制 */}
+                        <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-600">
+                          <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="text-green-400" size={16} />
+                            <span className="text-xs font-bold text-gray-200">週跑量增幅限制</span>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-relaxed">
+                            為預防過度訓練與受傷，建議每週總跑量增加幅度控制在 <span className="text-green-400 font-bold">5% ~ 10%</span> 以內。
+                          </p>
+                        </div>
+
+                        {/* 2. Zone 2 建議 */}
+                        <div className="bg-gray-700/30 p-3 rounded-lg border border-gray-600">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Activity className="text-blue-400" size={16} />
+                            <span className="text-xs font-bold text-gray-200">Zone 2 有氧基礎</span>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-relaxed mb-2">
+                            建立有氧底層的最佳區間。體感應為「輕鬆、可全程鼻吸鼻吐、可聊天」。
+                          </p>
+                          <div className="bg-gray-800 p-2 rounded border border-gray-700 flex justify-between items-center">
+                            <span className="text-xs text-gray-500">目標心率</span>
+                            <span className="text-sm font-mono text-blue-300 font-bold">
+                              {z2Lower} - {z2Upper} <span className="text-[10px] font-normal text-gray-500">bpm</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                 </div>
             </div>

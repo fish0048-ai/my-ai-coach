@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
-import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar } from 'lucide-react';
+// 新增 BookOpen, TrendingUp 圖示
+import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -36,13 +37,19 @@ export default function DashboardView({ userData }) {
     completedGoals: 0,
     muscleFatigue: {},
     latestAnalysis: null,
-    // 週統計欄位
     weeklyDistance: 0,
     weeklyRuns: 0,
     longestRun: 0,
     zone2Percent: 0
   });
   const [loading, setLoading] = useState(false);
+
+  // 計算 Zone 2 範圍 (用於建議卡片)
+  const age = parseInt(userData?.age) || 30;
+  // 優先使用手動輸入的最大心率，否則用公式估算
+  const maxHR = parseInt(userData?.maxHeartRate) || (220 - age);
+  const z2Lower = Math.round(maxHR * 0.6);
+  const z2Upper = Math.round(maxHR * 0.7);
 
   useEffect(() => {
     fetchWorkoutStats();
@@ -63,7 +70,6 @@ export default function DashboardView({ userData }) {
       let totalRunDist = 0;
       let analysisReports = [];
 
-      // 週統計變數
       let weeklyDistance = 0;
       let weeklyRuns = 0;
       let longestRun = 0;
@@ -74,7 +80,6 @@ export default function DashboardView({ userData }) {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const todayStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-      // 計算本週起始日 (週一)
       const now = new Date();
       const day = now.getDay() || 7; 
       const weekStart = new Date(now);
@@ -82,10 +87,11 @@ export default function DashboardView({ userData }) {
       weekStart.setHours(0,0,0,0);
       const weekStartStr = weekStart.toISOString().split('T')[0];
 
-      // 取得使用者最大心率 (估算：220 - 年齡)
-      const maxHR = 220 - (parseInt(userData?.age) || 30);
-      const zone2Lower = maxHR * 0.6;
-      const zone2Upper = maxHR * 0.7;
+      // 使用計算好的區間來統計 Zone 2
+      // 注意：這裡使用 fetch 當時的 maxHR，若使用者剛改完資料可能需要重整
+      // 但 React 重繪會自動更新介面上的建議卡片，統計部分下次 fetch 會更新
+      const zone2LowerLimit = maxHR * 0.6;
+      const zone2UpperLimit = maxHR * 0.7;
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -121,16 +127,13 @@ export default function DashboardView({ userData }) {
 
             totalRunDist += dist;
 
-            // 統計本週數據
             if (data.date >= weekStartStr) {
                 weeklyDistance += dist;
                 weeklyRuns++;
                 if (dist > longestRun) longestRun = dist;
                 
                 totalRunMinutes += duration;
-                // Zone 2 判斷 (簡易判斷：若平均心率在區間內，視為整場都是 Zone 2)
-                // 更精確的做法需要每分鐘數據，這裡做簡易估算
-                if (hr >= zone2Lower && hr <= zone2Upper) {
+                if (hr >= zone2LowerLimit && hr <= zone2UpperLimit) {
                     zone2Minutes += duration;
                 }
             }
@@ -164,7 +167,6 @@ export default function DashboardView({ userData }) {
         completedGoals: userData?.completedGoals || 0,
         muscleFatigue: normalizedFatigue,
         latestAnalysis: safeLatestAnalysis,
-        // 更新週統計
         weeklyDistance: weeklyDistance.toFixed(1),
         weeklyRuns: weeklyRuns,
         longestRun: longestRun.toFixed(1),
@@ -223,7 +225,7 @@ export default function DashboardView({ userData }) {
         />
       </div>
 
-      {/* 第二層：跑步週統計 (新增區塊) */}
+      {/* 第二層：跑步週統計 */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
         <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="text-green-400" />
@@ -286,7 +288,41 @@ export default function DashboardView({ userData }) {
           </h3>
           
           <div className="space-y-4 flex-1">
-            {/* 1. 訓練量分析 */}
+            
+            {/* 1. 跑步訓練守則 (新增區塊) */}
+            <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
+                <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="text-blue-400" size={16} />
+                    <h4 className="text-sm font-bold text-gray-200">跑步訓練基本守則</h4>
+                </div>
+                
+                <div className="space-y-3">
+                    <div className="bg-gray-800/50 p-2 rounded border border-gray-700/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <TrendingUp className="text-green-400" size={14} />
+                            <span className="text-xs font-bold text-gray-300">週跑量增幅</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 leading-relaxed">
+                            建議每週總里程增加控制在 <span className="text-green-400 font-bold">5%~10%</span> 以內，預防受傷。
+                        </p>
+                    </div>
+
+                    <div className="bg-gray-800/50 p-2 rounded border border-gray-700/50">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Heart className="text-blue-400" size={14} />
+                            <span className="text-xs font-bold text-gray-300">Zone 2 有氧區間</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 leading-relaxed mb-1">
+                            基礎有氧耐力區間 (目標心率):
+                        </p>
+                        <span className="text-sm font-mono text-blue-300 font-bold block text-center bg-gray-900 rounded py-1 border border-gray-700">
+                            {z2Lower} - {z2Upper} <span className="text-[10px] font-normal text-gray-500">bpm</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* 2. 訓練量分析 */}
             <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
               <h4 className="font-bold text-white mb-2 text-sm">肌群平衡</h4>
               {Object.keys(stats.muscleFatigue).length > 0 ? (
@@ -302,7 +338,7 @@ export default function DashboardView({ userData }) {
               )}
             </div>
             
-            {/* 2. 動作分析報告 */}
+            {/* 3. 動作分析報告 */}
             <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
                <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
                  {stats.latestAnalysis ? <Sparkles size={14}/> : <AlertCircle size={14}/>}

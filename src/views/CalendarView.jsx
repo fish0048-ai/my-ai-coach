@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 新增 RefreshCw 圖示
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -19,17 +18,23 @@ export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   
+  // workouts: key 為日期字串 (YYYY-MM-DD), value 為該日期的運動陣列
   const [workouts, setWorkouts] = useState({});
   const [loading, setLoading] = useState(false);
+  
+  // Modal 狀態控制
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalView, setModalView] = useState('list'); 
+  const [modalView, setModalView] = useState('list'); // 'list' | 'form'
   const [currentDocId, setCurrentDocId] = useState(null); 
 
+  // Drag & Drop 狀態
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
 
+  // CSV Upload
   const csvInputRef = useRef(null);
 
+  // 編輯表單狀態
   const [editForm, setEditForm] = useState({
     status: 'completed',
     type: 'strength',
@@ -62,6 +67,7 @@ export default function CalendarView() {
     }
   }, [editForm.runDistance, editForm.runDuration, editForm.type]);
 
+  // 切換月份時重新抓取資料
   useEffect(() => {
     fetchMonthWorkouts();
   }, [currentDate]);
@@ -94,16 +100,14 @@ export default function CalendarView() {
     }
   };
 
-  // --- 手動同步功能 (新增) ---
+  // --- 手動同步功能 ---
   const handleSync = async () => {
     const user = auth.currentUser;
     if (!user) return;
 
     setLoading(true);
     try {
-        // 1. 更新 AI 上下文記憶 (讀取最新 DB 資料寫入 summary)
         await updateAIContext();
-        // 2. 重新抓取行事曆顯示資料
         await fetchMonthWorkouts();
         alert("同步完成！\n已更新雲端資料與 AI 記憶庫。");
     } catch (error) {
@@ -156,8 +160,8 @@ export default function CalendarView() {
         const getVal = (row, col) => row[idxMap[col]] || '';
         
         const cols = isChinese ? 
-            { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數' } :
-            { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets' };
+            { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數', reps: '總次數' } :
+            { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets', reps: 'Total Reps' };
 
         const user = auth.currentUser;
         if (!user) return { success: false, message: "請先登入" };
@@ -225,6 +229,7 @@ export default function CalendarView() {
             const calRaw = getVal(row, cols.cal);
             const calories = calRaw.replace(/,/g, '');
             const setsRaw = getVal(row, cols.sets);
+            const repsRaw = getVal(row, cols.reps);
             
             let runPace = '';
             if (type === 'run' && parseFloat(runDistance) > 0 && duration > 0) {
@@ -235,9 +240,27 @@ export default function CalendarView() {
                runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
             }
 
+            // 處理 exercises：如果 CSV 沒有詳細動作，我們根據總組數生成一個摘要項目
+            let exercises = [];
             let notes = '';
-            if (type === 'strength' && setsRaw && setsRaw !== '--') {
-                notes = `匯入數據: 總組數 ${setsRaw}`;
+            
+            if (type === 'strength') {
+                const totalSets = parseInt(setsRaw) || 0;
+                const totalReps = parseInt(repsRaw) || 0;
+                
+                if (totalSets > 0) {
+                    const avgReps = totalReps > 0 ? Math.round(totalReps / totalSets) : 0;
+                    
+                    exercises.push({
+                        name: "綜合肌力訓練 (匯入數據)",
+                        sets: totalSets,
+                        reps: avgReps > 0 ? avgReps : "N/A",
+                        weight: 0, 
+                        targetMuscle: "" 
+                    });
+                    
+                    notes = `匯入摘要: 總組數 ${totalSets}, 總次數 ${totalReps}`;
+                }
             }
 
             const dataToSave = {
@@ -245,7 +268,7 @@ export default function CalendarView() {
                 status: 'completed',
                 type,
                 title: title || (type === 'run' ? '跑步訓練' : '肌力訓練'),
-                exercises: [],
+                exercises,
                 runDistance,
                 runDuration,
                 runPace,
@@ -364,6 +387,8 @@ export default function CalendarView() {
       setDraggedWorkout(null);
     }
   };
+
+  // --- End Drag and Drop ---
 
   const handleDateClick = (date) => {
     setSelectedDate(date);
@@ -543,7 +568,6 @@ export default function CalendarView() {
           運動行事曆
         </h1>
         <div className="flex items-center gap-2 md:gap-4">
-          {/* 同步按鈕 (新增) */}
           <button 
             onClick={handleSync}
             disabled={loading}

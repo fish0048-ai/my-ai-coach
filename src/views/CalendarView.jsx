@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -31,6 +31,9 @@ export default function CalendarView() {
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
 
+  // CSV Upload
+  const csvInputRef = useRef(null);
+
   // 編輯表單狀態
   const [editForm, setEditForm] = useState({
     status: 'completed',
@@ -42,8 +45,8 @@ export default function CalendarView() {
     runPace: '',       
     runPower: '',      
     runHeartRate: '',
-    runRPE: '',       // 新增：RPE (1-10)
-    notes: ''         // 新增：備註
+    runRPE: '',       
+    notes: ''         
   });
   
   const [aiPrompt, setAiPrompt] = useState('');
@@ -94,6 +97,143 @@ export default function CalendarView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- CSV Import Logic ---
+  const handleImportClick = () => {
+    csvInputRef.current?.click();
+  };
+
+  const handleCSVUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target.result;
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) {
+        alert("CSV 檔案格式錯誤或無資料");
+        setLoading(false);
+        return;
+      }
+
+      // 簡易 CSV 解析器 (處理逗號與引號)
+      const parseLine = (line) => {
+        const res = [];
+        let cur = '';
+        let inQuote = false;
+        for (let char of line) {
+          if (char === '"') {
+            inQuote = !inQuote;
+          } else if (char === ',' && !inQuote) {
+            res.push(cur);
+            cur = '';
+          } else {
+            cur += char;
+          }
+        }
+        res.push(cur);
+        return res.map(s => s.replace(/^"|"$/g, '').trim()); // 移除前後引號
+      };
+
+      // 解析標題列
+      const headers = parseLine(lines[0]);
+      const idxMap = {};
+      headers.forEach((h, i) => idxMap[h] = i);
+
+      // 輔助取值函式
+      const getVal = (row, colName) => {
+        const idx = idxMap[colName];
+        return idx !== undefined && row[idx] ? row[idx] : '';
+      };
+
+      const user = auth.currentUser;
+      if (!user) {
+          alert("請先登入");
+          setLoading(false);
+          return;
+      }
+
+      let importCount = 0;
+
+      // 遍歷每一行資料
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseLine(lines[i]);
+        if (row.length < headers.length) continue;
+
+        const activityTypeRaw = getVal(row, '活動類型');
+        const dateRaw = getVal(row, '日期'); // 例如 "2026-01-05 21:37:07"
+        const title = getVal(row, '標題');
+        const distanceRaw = getVal(row, '距離');
+        const durationRaw = getVal(row, '時間'); // "00:52:50"
+        const hrRaw = getVal(row, '平均心率');
+        const powerRaw = getVal(row, '平均功率');
+
+        // 1. 判斷類型
+        let type = 'strength';
+        if (activityTypeRaw.includes('跑步') || activityTypeRaw.includes('步行') || activityTypeRaw.includes('健走')) {
+          type = 'run';
+        }
+
+        // 2. 處理日期
+        const dateParts = dateRaw.split(' ');
+        const dateStr = dateParts[0]; // 取出 YYYY-MM-DD
+
+        // 3. 處理時間 (轉換為分鐘)
+        let duration = 0;
+        const timeParts = durationRaw.split(':').map(Number);
+        if (timeParts.length === 3) duration = timeParts[0] * 60 + timeParts[1] + timeParts[2]/60;
+        else if (timeParts.length === 2) duration = timeParts[0] + timeParts[1]/60;
+        
+        // 4. 處理跑步數據
+        const runDistance = type === 'run' ? distanceRaw.replace(',', '') : '';
+        const runDuration = type === 'run' ? Math.round(duration).toString() : ''; // 存整數分鐘
+        const runHeartRate = type === 'run' ? (hrRaw === '--' ? '' : hrRaw) : '';
+        const runPower = type === 'run' ? (powerRaw === '--' ? '' : powerRaw) : '';
+        
+        // 計算配速
+        let runPace = '';
+        if (type === 'run' && parseFloat(runDistance) > 0 && duration > 0) {
+           const dist = parseFloat(runDistance);
+           const paceVal = duration / dist; 
+           const pm = Math.floor(paceVal);
+           const ps = Math.round((paceVal - pm) * 60);
+           runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
+        }
+
+        const dataToSave = {
+          date: dateStr,
+          status: 'completed', // 匯入的通常是已完成紀錄
+          type: type,
+          title: title || (type === 'run' ? '跑步訓練' : '肌力訓練'),
+          exercises: [], // CSV 通常沒有詳細動作清單，故留空
+          runDistance,
+          runDuration,
+          runPace,
+          runPower,
+          runHeartRate,
+          updatedAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+          importCount++;
+        } catch (e) {
+          console.error("Import error row " + i, e);
+        }
+      }
+
+      // 更新 AI Context 與 畫面
+      await updateAIContext();
+      await fetchMonthWorkouts();
+      setLoading(false);
+      alert(`成功匯入 ${importCount} 筆訓練紀錄！`);
+      // 清空 input 讓同個檔案可以再選一次
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    };
+    reader.readAsText(file);
   };
 
   // --- Drag and Drop Logic ---
@@ -328,18 +468,39 @@ export default function CalendarView() {
 
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
+      {/* 隱藏的檔案上傳 Input */}
+      <input 
+        type="file" 
+        ref={csvInputRef} 
+        onChange={handleCSVUpload} 
+        accept=".csv" 
+        className="hidden" 
+      />
+
       {/* 頂部導覽列 */}
       <div className="flex justify-between items-center bg-gray-800 p-4 rounded-xl border border-gray-700">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <CalendarIcon className="text-blue-500" />
           運動行事曆
         </h1>
-        <div className="flex items-center gap-4">
-          <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-700 rounded-full text-white"><ChevronLeft /></button>
-          <span className="text-xl font-mono text-white min-w-[140px] text-center">
-            {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月
-          </span>
-          <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-700 rounded-full text-white"><ChevronRight /></button>
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* CSV 匯入按鈕 */}
+          <button 
+            onClick={handleImportClick}
+            className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600"
+            title="匯入 Garmin/運動APP CSV"
+          >
+            <Upload size={16} /> 
+            <span className="hidden md:inline">匯入 CSV</span>
+          </button>
+
+          <div className="flex items-center gap-2 bg-gray-900 rounded-lg p-1">
+            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-gray-700 rounded-md text-white"><ChevronLeft size={20}/></button>
+            <span className="text-sm md:text-base font-mono text-white min-w-[100px] text-center">
+                {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月
+            </span>
+            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-gray-700 rounded-md text-white"><ChevronRight size={20}/></button>
+          </div>
         </div>
       </div>
 

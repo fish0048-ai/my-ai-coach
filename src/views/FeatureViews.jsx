@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer } from 'lucide-react';
+// 新增 Heart 圖示
+import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer, Heart } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
 import { updateAIContext } from '../utils/contextManager';
@@ -20,16 +21,29 @@ export default function FeatureViews({ view, userData }) {
     activity: '1.2',
     goal: '增肌',
     supplements: '',
-    // 一般訓練習慣
     trainingDays: [], 
     trainingTime: '20:00',
-    // 新增：跑步專項習慣
-    longRunDay: '',    // 長距離日
-    intervalDay: '',   // 間歇日
-    easyRunDays: []    // 輕鬆跑日 (多選)
+    longRunDay: '',    
+    intervalDay: '',   
+    easyRunDays: []    
   });
 
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
+
+  // 心率區間計算 (基於年齡)
+  const heartRateZones = (() => {
+    const age = parseInt(profile.age);
+    if (!age) return [];
+    const maxHR = 220 - age;
+    
+    return [
+      { label: 'Z1 恢復跑 (Recovery)', range: `${Math.round(maxHR * 0.5)} - ${Math.round(maxHR * 0.6)}`, color: 'text-gray-400', bg: 'bg-gray-700/30' },
+      { label: 'Z2 有氧耐力 (Aerobic)', range: `${Math.round(maxHR * 0.6)} - ${Math.round(maxHR * 0.7)}`, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+      { label: 'Z3 節奏跑 (Tempo)', range: `${Math.round(maxHR * 0.7)} - ${Math.round(maxHR * 0.8)}`, color: 'text-green-400', bg: 'bg-green-500/10' },
+      { label: 'Z4 乳酸閾值 (Threshold)', range: `${Math.round(maxHR * 0.8)} - ${Math.round(maxHR * 0.9)}`, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+      { label: 'Z5 最大攝氧 (VO2 Max)', range: `${Math.round(maxHR * 0.9)} - ${maxHR}`, color: 'text-red-400', bg: 'bg-red-500/10' },
+    ];
+  })();
 
   useEffect(() => {
     if (userData) {
@@ -46,7 +60,6 @@ export default function FeatureViews({ view, userData }) {
         supplements: userData.supplements || '',
         trainingDays: userData.trainingDays || [],
         trainingTime: userData.trainingTime || '20:00',
-        // 讀取跑步設定
         longRunDay: userData.longRunDay || '',
         intervalDay: userData.intervalDay || '',
         easyRunDays: userData.easyRunDays || []
@@ -93,7 +106,6 @@ export default function FeatureViews({ view, userData }) {
     }
   };
 
-  // 處理一般訓練日切換
   const toggleDay = (day) => {
     if (!isEditing) return;
     setProfile(prev => {
@@ -104,7 +116,6 @@ export default function FeatureViews({ view, userData }) {
     });
   };
 
-  // 處理輕鬆跑日切換
   const toggleEasyRunDay = (day) => {
     if (!isEditing) return;
     setProfile(prev => {
@@ -135,7 +146,7 @@ export default function FeatureViews({ view, userData }) {
       await updateAIContext();
 
       setIsEditing(false);
-      alert("個人資料與跑步習慣已更新！");
+      alert("個人資料已更新！");
     } catch (error) {
       console.error("儲存失敗:", error);
       alert("儲存失敗，請檢查網路連線。");
@@ -424,7 +435,7 @@ export default function FeatureViews({ view, userData }) {
               </div>
             </div>
 
-            {/* 新增：跑步訓練安排 */}
+            {/* 跑步訓練安排 (新增區塊) */}
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Timer className="text-orange-500" />
@@ -477,6 +488,28 @@ export default function FeatureViews({ view, userData }) {
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* 心率區間自動計算 (新增區塊) */}
+                    <div className="mt-6 pt-6 border-t border-gray-700">
+                      <div className="flex items-center justify-between mb-4">
+                         <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
+                           <Heart size={12} className="text-red-500" /> 心率區間 (估算最大心率: {profile.age ? 220 - parseInt(profile.age) : '--'})
+                         </label>
+                      </div>
+                      
+                      {!profile.age ? (
+                          <div className="text-sm text-gray-500 text-center py-2">請先輸入「年齡」以計算心率區間</div>
+                      ) : (
+                          <div className="space-y-2">
+                              {heartRateZones.map((z, idx) => (
+                                  <div key={idx} className={`flex justify-between items-center p-2 rounded ${z.bg}`}>
+                                      <span className={`text-xs font-bold ${z.color}`}>{z.label}</span>
+                                      <span className="text-xs text-white font-mono">{z.range} bpm</span>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
                     </div>
                 </div>
             </div>

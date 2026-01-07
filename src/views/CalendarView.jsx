@@ -6,7 +6,7 @@ import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext } from '../utils/contextManager';
 
-// 日期格式化 (YYYY-MM-DD)
+// 日期格式化 (YYYY-MM-DD) - 統一使用此函式確保格式一致
 const formatDate = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -84,6 +84,7 @@ export default function CalendarView() {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         const dateKey = data.date;
+        // 確保日期存在且格式正確
         if (dateKey) {
           if (!groupedWorkouts[dateKey]) {
             groupedWorkouts[dateKey] = [];
@@ -135,15 +136,16 @@ export default function CalendarView() {
           }
         }
         res.push(cur);
-        return res.map(s => s.replace(/^"|"$/g, '').trim()); // 移除前後引號
+        // 移除前後引號與空白
+        return res.map(s => s.replace(/^"|"$/g, '').trim()); 
       };
 
-      // 解析標題列
-      const headers = parseLine(lines[0]);
+      // 解析標題列 (去除 BOM 和空白)
+      // BOM (\uFEFF) 常出現在 Excel/Garmin 匯出的 CSV 開頭
+      const headers = parseLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').trim());
       const idxMap = {};
       headers.forEach((h, i) => idxMap[h] = i);
 
-      // 輔助取值函式
       const getVal = (row, colName) => {
         const idx = idxMap[colName];
         return idx !== undefined && row[idx] ? row[idx] : '';
@@ -161,13 +163,13 @@ export default function CalendarView() {
       // 遍歷每一行資料
       for (let i = 1; i < lines.length; i++) {
         const row = parseLine(lines[i]);
-        if (row.length < headers.length) continue;
+        if (row.length < headers.length) continue; 
 
         const activityTypeRaw = getVal(row, '活動類型');
-        const dateRaw = getVal(row, '日期'); // 例如 "2026-01-05 21:37:07"
+        const dateRaw = getVal(row, '日期'); 
         const title = getVal(row, '標題');
         const distanceRaw = getVal(row, '距離');
-        const durationRaw = getVal(row, '時間'); // "00:52:50"
+        const durationRaw = getVal(row, '時間');
         const hrRaw = getVal(row, '平均心率');
         const powerRaw = getVal(row, '平均功率');
 
@@ -177,23 +179,40 @@ export default function CalendarView() {
           type = 'run';
         }
 
-        // 2. 處理日期
-        const dateParts = dateRaw.split(' ');
-        const dateStr = dateParts[0]; // 取出 YYYY-MM-DD
+        // 2. 處理日期 (關鍵修正)
+        // 嘗試解析日期字串，並統一格式化為 YYYY-MM-DD
+        let dateStr = '';
+        try {
+            // 取出日期部分 (兼容 2026-01-05 21:37:07 或 2026/1/5)
+            const datePart = dateRaw.split(' ')[0];
+            const d = new Date(datePart);
+            if (!isNaN(d.getTime())) {
+                dateStr = formatDate(d); // 使用統一的 formatDate 函式
+            } else {
+                console.warn(`Row ${i}: Invalid date format "${dateRaw}"`);
+                continue;
+            }
+        } catch (err) {
+            console.warn(`Row ${i}: Date parse error`, err);
+            continue;
+        }
 
         // 3. 處理時間 (轉換為分鐘)
         let duration = 0;
-        const timeParts = durationRaw.split(':').map(Number);
-        if (timeParts.length === 3) duration = timeParts[0] * 60 + timeParts[1] + timeParts[2]/60;
-        else if (timeParts.length === 2) duration = timeParts[0] + timeParts[1]/60;
+        if (durationRaw.includes(':')) {
+            const timeParts = durationRaw.split(':').map(Number);
+            if (timeParts.length === 3) duration = timeParts[0] * 60 + timeParts[1] + timeParts[2]/60;
+            else if (timeParts.length === 2) duration = timeParts[0] + timeParts[1]/60;
+        } else {
+            duration = parseFloat(durationRaw) || 0;
+        }
         
         // 4. 處理跑步數據
-        const runDistance = type === 'run' ? distanceRaw.replace(',', '') : '';
-        const runDuration = type === 'run' ? Math.round(duration).toString() : ''; // 存整數分鐘
+        const runDistance = type === 'run' ? distanceRaw.replace(/,/g, '') : '';
+        const runDuration = type === 'run' ? Math.round(duration).toString() : '';
         const runHeartRate = type === 'run' ? (hrRaw === '--' ? '' : hrRaw) : '';
         const runPower = type === 'run' ? (powerRaw === '--' ? '' : powerRaw) : '';
         
-        // 計算配速
         let runPace = '';
         if (type === 'run' && parseFloat(runDistance) > 0 && duration > 0) {
            const dist = parseFloat(runDistance);
@@ -205,15 +224,16 @@ export default function CalendarView() {
 
         const dataToSave = {
           date: dateStr,
-          status: 'completed', // 匯入的通常是已完成紀錄
+          status: 'completed', 
           type: type,
           title: title || (type === 'run' ? '跑步訓練' : '肌力訓練'),
-          exercises: [], // CSV 通常沒有詳細動作清單，故留空
+          exercises: [], 
           runDistance,
           runDuration,
           runPace,
           runPower,
           runHeartRate,
+          imported: true,
           updatedAt: new Date().toISOString()
         };
 
@@ -225,12 +245,11 @@ export default function CalendarView() {
         }
       }
 
-      // 更新 AI Context 與 畫面
+      // 更新與重整
       await updateAIContext();
       await fetchMonthWorkouts();
       setLoading(false);
       alert(`成功匯入 ${importCount} 筆訓練紀錄！`);
-      // 清空 input 讓同個檔案可以再選一次
       if (csvInputRef.current) csvInputRef.current.value = '';
     };
     reader.readAsText(file);

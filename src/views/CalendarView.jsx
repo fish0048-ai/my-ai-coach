@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -40,12 +40,14 @@ export default function CalendarView() {
     runPower: '',      
     runHeartRate: '',
     runRPE: '',       
-    notes: ''         
+    notes: '',
+    calories: '' // 新增：卡路里欄位
   });
   
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // 自動計算跑步配速
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {
       const dist = parseFloat(editForm.runDistance);
@@ -91,7 +93,7 @@ export default function CalendarView() {
     }
   };
 
-  // --- 強化的 CSV 匯入邏輯 (包含編碼偵測與防重複) ---
+  // --- CSV Import Logic ---
   const handleImportClick = () => {
     csvInputRef.current?.click();
   };
@@ -102,7 +104,6 @@ export default function CalendarView() {
 
     setLoading(true);
 
-    // 定義處理 CSV 內容的核心函式
     const processCSVContent = async (text) => {
         const lines = text.split(/\r\n|\n/).filter(l => l.trim());
         if (lines.length < 2) return { success: false, message: "檔案無內容" };
@@ -122,11 +123,9 @@ export default function CalendarView() {
 
         const headers = parseLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').trim());
         
-        // 1. 檢查標題是否正確 (判斷編碼是否正確)
         const isChinese = headers.includes('活動類型');
         const isEnglish = headers.includes('Activity Type');
         
-        // 如果中英文標題都沒找到，代表可能是亂碼 (需要換編碼重試)
         if (!isChinese && !isEnglish) {
             return { success: false, retryBig5: true };
         }
@@ -135,18 +134,16 @@ export default function CalendarView() {
         headers.forEach((h, i) => idxMap[h] = i);
         const getVal = (row, col) => row[idxMap[col]] || '';
         
-        // 欄位對照表
+        // 新增卡路里(cal)與總組數(sets)欄位對照
         const cols = isChinese ? 
-            { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率' } :
-            { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power' };
+            { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數' } :
+            { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets' };
 
         const user = auth.currentUser;
         if (!user) return { success: false, message: "請先登入" };
 
         let importCount = 0;
         let dupCount = 0;
-
-        // 取得目前已有的所有訓練，用於檢查重複
         const existingDocs = Object.values(workouts).flat();
 
         for (let i = 1; i < lines.length; i++) {
@@ -156,9 +153,7 @@ export default function CalendarView() {
             const activityTypeRaw = getVal(row, cols.type);
             const dateRaw = getVal(row, cols.date);
             
-            // 2. 精確日期解析 (Regex 抓取 YYYY-MM-DD，忽略時間)
             let dateStr = '';
-            // 匹配 2026-01-05 或 2026/1/5
             const dateMatch = dateRaw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
             if (dateMatch) {
                 const y = dateMatch[1];
@@ -166,19 +161,17 @@ export default function CalendarView() {
                 const d = dateMatch[3].padStart(2, '0');
                 dateStr = `${y}-${m}-${d}`;
             } else {
-                continue; // 日期格式不對就跳過
+                continue;
             }
 
             const title = getVal(row, cols.title);
             
-            // 3. 判斷類型
             let type = 'strength';
             const tRaw = activityTypeRaw.toLowerCase();
             if (tRaw.includes('run') || tRaw.includes('跑') || tRaw.includes('walk') || tRaw.includes('走')) {
                 type = 'run';
             }
 
-            // 4. 解析時間
             const durRaw = getVal(row, cols.time);
             let duration = 0;
             if (durRaw.includes(':')) {
@@ -190,12 +183,10 @@ export default function CalendarView() {
             }
             const runDuration = Math.round(duration).toString();
 
-            // 5. 防重複檢查 (同一天、同標題、同類型、同時間長度)
             const isDup = existingDocs.some(d => 
                 d.date === dateStr && 
                 d.title === (title || (type==='run'?'跑步訓練':'肌力訓練')) &&
                 d.type === type &&
-                // 跑步時間容許 1 分鐘誤差
                 (type !== 'run' || Math.abs(parseFloat(d.runDuration||0) - parseFloat(runDuration)) < 1)
             );
 
@@ -204,13 +195,17 @@ export default function CalendarView() {
                 continue;
             }
 
-            // 6. 準備數據
             const distRaw = getVal(row, cols.dist);
             const runDistance = type === 'run' ? distRaw.replace(/,/g, '') : '';
             const hrRaw = getVal(row, cols.hr);
-            const runHeartRate = type === 'run' ? (hrRaw.includes('--') ? '' : hrRaw) : '';
+            const runHeartRate = (hrRaw.includes('--') ? '' : hrRaw); // 重訓也要記心率
             const pwrRaw = getVal(row, cols.pwr);
             const runPower = type === 'run' ? (pwrRaw.includes('--') ? '' : pwrRaw) : '';
+            
+            // 抓取卡路里與組數
+            const calRaw = getVal(row, cols.cal);
+            const calories = calRaw.replace(/,/g, '');
+            const setsRaw = getVal(row, cols.sets);
             
             let runPace = '';
             if (type === 'run' && parseFloat(runDistance) > 0 && duration > 0) {
@@ -219,6 +214,12 @@ export default function CalendarView() {
                const pm = Math.floor(paceVal);
                const ps = Math.round((paceVal - pm) * 60);
                runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
+            }
+
+            // 處理備註：若是重訓且有總組數，寫入備註
+            let notes = '';
+            if (type === 'strength' && setsRaw && setsRaw !== '--') {
+                notes = `匯入數據: 總組數 ${setsRaw}`;
             }
 
             const dataToSave = {
@@ -232,6 +233,8 @@ export default function CalendarView() {
                 runPace,
                 runPower,
                 runHeartRate,
+                calories, // 儲存卡路里
+                notes,    // 儲存備註
                 imported: true,
                 updatedAt: new Date().toISOString()
             };
@@ -243,15 +246,13 @@ export default function CalendarView() {
         return { success: true, count: importCount, dupCount };
     };
 
-    // 第一次嘗試：UTF-8
     const readerUtf8 = new FileReader();
     readerUtf8.onload = async (e) => {
         const text = e.target.result;
         const result = await processCSVContent(text);
         
         if (result.retryBig5) {
-            console.log("UTF-8 parsing failed (headers mismatch), retrying with Big5...");
-            // 第二次嘗試：Big5 (針對 Excel/Garmin 中文版 CSV)
+            console.log("Retry with Big5...");
             const readerBig5 = new FileReader();
             readerBig5.onload = async (e2) => {
                 const textBig5 = e2.target.result;
@@ -271,14 +272,12 @@ export default function CalendarView() {
             await fetchMonthWorkouts();
             alert(`匯入完成！\n成功新增：${res.count} 筆\n重複略過：${res.dupCount} 筆`);
         } else {
-            alert(res.message || "匯入失敗，請確認檔案格式");
+            alert(res.message || "匯入失敗");
         }
         setLoading(false);
         if (csvInputRef.current) csvInputRef.current.value = '';
     };
   };
-
-  // --- Drag and Drop Logic ---
 
   const handleDragStart = (e, workout) => {
     e.dataTransfer.effectAllowed = 'copyMove';
@@ -346,8 +345,6 @@ export default function CalendarView() {
     }
   };
 
-  // --- End Drag and Drop ---
-
   const handleDateClick = (date) => {
     setSelectedDate(date);
     setModalView('list');
@@ -370,7 +367,8 @@ export default function CalendarView() {
       runPower: '',
       runHeartRate: '',
       runRPE: '',
-      notes: ''
+      notes: '',
+      calories: ''
     });
     setCurrentDocId(null); 
     setModalView('form');
@@ -388,7 +386,8 @@ export default function CalendarView() {
       runPower: workout.runPower || '',
       runHeartRate: workout.runHeartRate || '',
       runRPE: workout.runRPE || '',
-      notes: workout.notes || ''
+      notes: workout.notes || '',
+      calories: workout.calories || ''
     });
     setCurrentDocId(workout.id); 
     setModalView('form');
@@ -510,7 +509,6 @@ export default function CalendarView() {
 
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
-      {/* 隱藏的檔案上傳 Input */}
       <input 
         type="file" 
         ref={csvInputRef} 
@@ -519,14 +517,12 @@ export default function CalendarView() {
         className="hidden" 
       />
 
-      {/* 頂部導覽列 */}
       <div className="flex justify-between items-center bg-gray-800 p-4 rounded-xl border border-gray-700">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <CalendarIcon className="text-blue-500" />
           運動行事曆
         </h1>
         <div className="flex items-center gap-2 md:gap-4">
-          {/* CSV 匯入按鈕 */}
           <button 
             onClick={handleImportClick}
             className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600"
@@ -551,7 +547,6 @@ export default function CalendarView() {
         <span className="flex items-center gap-1"><Copy size={12}/> 按住 Ctrl 拖曳可複製</span>
       </div>
 
-      {/* 日曆網格 */}
       <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 p-4 overflow-y-auto">
         <div className="grid grid-cols-7 gap-2 mb-2 text-center text-gray-400 font-bold">
           {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d}>{d}</div>)}
@@ -615,12 +610,9 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {/* 共用 Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
-            
-            {/* Modal Header */}
             <div className="p-6 border-b border-gray-800 flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -637,7 +629,6 @@ export default function CalendarView() {
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6 overflow-y-auto flex-1">
                 
                 {modalView === 'list' && (
@@ -667,7 +658,9 @@ export default function CalendarView() {
                                             <p className="text-gray-400 text-xs mt-1">
                                                 {workout.type === 'run' 
                                                     ? `${workout.runDistance || 0} km • ${workout.runDuration || 0} min` 
-                                                    : `${workout.exercises?.length || 0} 個動作`}
+                                                    : workout.notes 
+                                                        ? `${workout.notes.split(' ')[2] || 0} 組 • ${workout.runDuration || 0} min`
+                                                        : `${workout.exercises?.length || 0} 個動作`}
                                             </p>
                                         </div>
                                     </div>
@@ -818,6 +811,31 @@ export default function CalendarView() {
                                 </div>
                                 ))}
                             </div>
+
+                            {/* 新增：訓練數據總覽區塊 (讓匯入的數據可見) */}
+                            <div className="mt-6 pt-6 border-t border-gray-700 grid grid-cols-2 gap-4">
+                                <h4 className="col-span-2 text-xs text-gray-500 uppercase font-semibold mb-1">訓練數據總覽 (選填)</h4>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1"><Timer size={12} /> 總時間 (分)</label>
+                                    <input type="number" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="例如: 60" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1"><Flame size={12} /> 卡路里 (kcal)</label>
+                                    <input type="number" value={editForm.calories} onChange={e => setEditForm({...editForm, calories: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="例如: 300" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1"><Heart size={12} /> 平均心率 (bpm)</label>
+                                    <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="例如: 130" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1"><BarChart2 size={12} /> RPE (1-10)</label>
+                                    <input type="number" min="1" max="10" value={editForm.runRPE} onChange={e => setEditForm({...editForm, runRPE: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="例如: 8" />
+                                </div>
+                                <div className="col-span-2 space-y-1">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1"><AlignLeft size={12} /> 備註</label>
+                                    <textarea rows="2" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none" placeholder="訓練心得..." />
+                                </div>
+                            </div>
                             </>
                         ) : (
                             <div className="grid grid-cols-2 gap-4">
@@ -844,7 +862,6 @@ export default function CalendarView() {
                                 <label className="text-xs text-gray-500 uppercase font-semibold">平均心率 (bpm)</label>
                                 <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
                             </div>
-                            {/* 新增 RPE 欄位 */}
                             <div className="space-y-1">
                                 <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
                                     <BarChart2 size={12} /> 自覺強度 (RPE 1-10)
@@ -852,7 +869,6 @@ export default function CalendarView() {
                                 <input type="number" min="1" max="10" value={editForm.runRPE} onChange={e => setEditForm({...editForm, runRPE: e.target.value})} placeholder="例如: 7" className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
                             </div>
                             
-                            {/* 新增 備註欄位 */}
                             <div className="col-span-2 space-y-1">
                                 <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
                                     <AlignLeft size={12} /> 訓練備註

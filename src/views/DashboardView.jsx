@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
-// 新增 BookOpen, TrendingUp 圖示
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -87,9 +86,6 @@ export default function DashboardView({ userData }) {
       weekStart.setHours(0,0,0,0);
       const weekStartStr = weekStart.toISOString().split('T')[0];
 
-      // 使用計算好的區間來統計 Zone 2
-      // 注意：這裡使用 fetch 當時的 maxHR，若使用者剛改完資料可能需要重整
-      // 但 React 重繪會自動更新介面上的建議卡片，統計部分下次 fetch 會更新
       const zone2LowerLimit = maxHR * 0.6;
       const zone2UpperLimit = maxHR * 0.7;
 
@@ -193,7 +189,7 @@ export default function DashboardView({ userData }) {
           </div>
         </div>
 
-        {/* 新增天氣小工具 */}
+        {/* 天氣小工具 */}
         <WeatherWidget />
       </div>
 
@@ -289,56 +285,56 @@ export default function DashboardView({ userData }) {
           
           <div className="space-y-4 flex-1">
             
-            {/* 1. 跑步訓練守則 (新增區塊) */}
+            {/* 1. 重訓建議 (肌群平衡) */}
             <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
-                <div className="flex items-center gap-2 mb-3">
-                    <BookOpen className="text-blue-400" size={16} />
-                    <h4 className="text-sm font-bold text-gray-200">跑步訓練基本守則</h4>
+                <div className="flex items-center gap-2 mb-2">
+                    <Dumbbell className="text-blue-400" size={16} />
+                    <h4 className="font-bold text-white text-sm">重訓：肌群平衡</h4>
                 </div>
-                
-                <div className="space-y-3">
-                    <div className="bg-gray-800/50 p-2 rounded border border-gray-700/50">
-                        <div className="flex items-center gap-2 mb-1">
-                            <TrendingUp className="text-green-400" size={14} />
-                            <span className="text-xs font-bold text-gray-300">週跑量增幅</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 leading-relaxed">
-                            建議每週總里程增加控制在 <span className="text-green-400 font-bold">5%~10%</span> 以內，預防受傷。
-                        </p>
-                    </div>
-
-                    <div className="bg-gray-800/50 p-2 rounded border border-gray-700/50">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Heart className="text-blue-400" size={14} />
-                            <span className="text-xs font-bold text-gray-300">Zone 2 有氧區間</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 leading-relaxed mb-1">
-                            基礎有氧耐力區間 (目標心率):
-                        </p>
-                        <span className="text-sm font-mono text-blue-300 font-bold block text-center bg-gray-900 rounded py-1 border border-gray-700">
-                            {z2Lower} - {z2Upper} <span className="text-[10px] font-normal text-gray-500">bpm</span>
+                {Object.keys(stats.muscleFatigue).length > 0 ? (
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                        數據顯示
+                        <span className="text-green-400 font-bold mx-1">
+                            {Object.entries(stats.muscleFatigue).sort((a,b) => b[1]-a[1])[0][0]} 
                         </span>
-                    </div>
-                </div>
+                        是您最近最強化的部位。建議這幾天可以安排拮抗肌群或核心訓練來平衡身體發展。
+                    </p>
+                ) : (
+                    <p className="text-sm text-gray-400">開始紀錄您的第一次重訓，AI 將為您分析肌群分佈。</p>
+                )}
             </div>
 
-            {/* 2. 訓練量分析 */}
+            {/* 2. 跑步建議 (動態化) */}
             <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
-              <h4 className="font-bold text-white mb-2 text-sm">肌群平衡</h4>
-              {Object.keys(stats.muscleFatigue).length > 0 ? (
-                <p className="text-sm text-gray-400 leading-relaxed">
-                   數據顯示
-                   <span className="text-green-400 font-bold mx-1">
-                     {Object.entries(stats.muscleFatigue).sort((a,b) => b[1]-a[1])[0][0]} 
-                   </span>
-                   是您最近最強化的部位。建議這幾天可以安排拮抗肌群或核心訓練來平衡身體發展。
-                </p>
-              ) : (
-                <p className="text-sm text-gray-400">開始紀錄您的第一次重訓，AI 將為您分析肌群分佈。</p>
-              )}
+                <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="text-orange-400" size={16} />
+                    <h4 className="font-bold text-white text-sm">跑步：進度管理</h4>
+                </div>
+                {parseFloat(stats.weeklyDistance) > 0 ? (
+                    <div className="space-y-2">
+                        <p className="text-sm text-gray-400 leading-relaxed">
+                            本週跑量 <span className="text-white font-bold">{stats.weeklyDistance} km</span>。
+                            為預防受傷，下週總里程建議控制在 <span className="text-orange-400 font-bold">{(parseFloat(stats.weeklyDistance) * 1.1).toFixed(1)} km</span> 以內 (10%原則)。
+                        </p>
+                        <div className="text-xs text-gray-500 bg-gray-800/50 p-2 rounded border border-gray-700/50 flex justify-between items-center">
+                            <span>Zone 2 目標心率</span>
+                            <span className="font-mono text-blue-300 font-bold">{z2Lower} - {z2Upper} bpm</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        <p className="text-sm text-gray-400 leading-relaxed">
+                            本週尚未有跑步紀錄。建議安排一次輕鬆跑，將心率維持在 <span className="text-blue-400 font-bold">Zone 2</span> 以建立有氧底層。
+                        </p>
+                        <div className="text-xs text-gray-500 bg-gray-800/50 p-2 rounded border border-gray-700/50 flex justify-between items-center">
+                            <span>Zone 2 目標心率</span>
+                            <span className="font-mono text-blue-300 font-bold">{z2Lower} - {z2Upper} bpm</span>
+                        </div>
+                    </div>
+                )}
             </div>
             
-            {/* 3. 動作分析報告 */}
+            {/* 3. 動作分析報告 (連動部分) */}
             <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
                <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
                  {stats.latestAnalysis ? <Sparkles size={14}/> : <AlertCircle size={14}/>}

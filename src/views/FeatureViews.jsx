@@ -16,6 +16,7 @@ export default function FeatureViews({ view, userData }) {
     bodyFat: '',    
     muscleRate: '', 
     bmr: '',        
+    maxHeartRate: '', // 新增：最大心率 (手動輸入)
     age: '',        
     gender: 'male', 
     activity: '1.2',
@@ -30,11 +31,13 @@ export default function FeatureViews({ view, userData }) {
 
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
 
-  // 心率區間計算 (基於年齡)
+  // 計算實際使用的最大心率 (手動優先，否則用年齡估算)
+  const activeMaxHR = parseInt(profile.maxHeartRate) || (profile.age ? 220 - parseInt(profile.age) : 0);
+
+  // 心率區間計算
   const heartRateZones = (() => {
-    const age = parseInt(profile.age);
-    if (!age) return [];
-    const maxHR = 220 - age;
+    if (!activeMaxHR) return [];
+    const maxHR = activeMaxHR;
     
     return [
       { label: 'Z1 恢復跑 (Recovery)', range: `${Math.round(maxHR * 0.5)} - ${Math.round(maxHR * 0.6)}`, color: 'text-gray-400', bg: 'bg-gray-700/30' },
@@ -53,6 +56,7 @@ export default function FeatureViews({ view, userData }) {
         bodyFat: userData.bodyFat || '',
         muscleRate: userData.muscleRate || '',
         bmr: userData.bmr || '',
+        maxHeartRate: userData.maxHeartRate || '', // 讀取最大心率
         age: userData.age || '',
         gender: userData.gender || 'male',
         activity: userData.activity || '1.2',
@@ -364,7 +368,7 @@ export default function FeatureViews({ view, userData }) {
                   />
                 </div>
 
-                <div className="col-span-1 sm:col-span-2 space-y-2">
+                <div className="space-y-2">
                   <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
                     基礎代謝 (BMR) 
                     <span className="text-[10px] text-gray-400 lowercase">kcal/day</span>
@@ -375,6 +379,22 @@ export default function FeatureViews({ view, userData }) {
                     disabled={!isEditing}
                     onChange={(e) => setProfile({...profile, bmr: e.target.value})}
                     placeholder={calculatedTDEE && !profile.bmr ? `自動估算: ${Math.round(calculatedTDEE / parseFloat(profile.activity))}` : "InBody 測量值"}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none disabled:opacity-50 placeholder-gray-600"
+                  />
+                </div>
+
+                {/* 新增：最大心率 (手動輸入) */}
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+                    最大心率 (Max HR)
+                    <span className="text-[10px] text-gray-400 lowercase">bpm</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    value={profile.maxHeartRate}
+                    disabled={!isEditing}
+                    onChange={(e) => setProfile({...profile, maxHeartRate: e.target.value})}
+                    placeholder={profile.age ? `自動估算: ${220 - parseInt(profile.age)}` : "實測值"}
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none disabled:opacity-50 placeholder-gray-600"
                   />
                 </div>
@@ -490,16 +510,16 @@ export default function FeatureViews({ view, userData }) {
                         </div>
                     </div>
 
-                    {/* 心率區間自動計算 (新增區塊) */}
+                    {/* 心率區間自動計算 */}
                     <div className="mt-6 pt-6 border-t border-gray-700">
                       <div className="flex items-center justify-between mb-4">
                          <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
-                           <Heart size={12} className="text-red-500" /> 心率區間 (估算最大心率: {profile.age ? 220 - parseInt(profile.age) : '--'})
+                           <Heart size={12} className="text-red-500" /> 心率區間 (最大心率: {activeMaxHR || '--'} bpm {profile.maxHeartRate ? '(自訂)' : '(估算)'})
                          </label>
                       </div>
                       
-                      {!profile.age ? (
-                          <div className="text-sm text-gray-500 text-center py-2">請先輸入「年齡」以計算心率區間</div>
+                      {!activeMaxHR ? (
+                          <div className="text-sm text-gray-500 text-center py-2">請輸入「年齡」或「最大心率」以計算區間</div>
                       ) : (
                           <div className="space-y-2">
                               {heartRateZones.map((z, idx) => (

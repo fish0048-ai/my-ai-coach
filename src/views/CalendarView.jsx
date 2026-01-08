@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw } from 'lucide-react';
-import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, AlertTriangle } from 'lucide-react';
+import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
@@ -18,23 +18,17 @@ export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // workouts: key 為日期字串 (YYYY-MM-DD), value 為該日期的運動陣列
   const [workouts, setWorkouts] = useState({});
   const [loading, setLoading] = useState(false);
-  
-  // Modal 狀態控制
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalView, setModalView] = useState('list'); // 'list' | 'form'
+  const [modalView, setModalView] = useState('list'); 
   const [currentDocId, setCurrentDocId] = useState(null); 
 
-  // Drag & Drop 狀態
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
 
-  // CSV Upload
   const csvInputRef = useRef(null);
 
-  // 編輯表單狀態
   const [editForm, setEditForm] = useState({
     status: 'completed',
     type: 'strength',
@@ -67,7 +61,6 @@ export default function CalendarView() {
     }
   }, [editForm.runDistance, editForm.runDuration, editForm.type]);
 
-  // 切換月份時重新抓取資料
   useEffect(() => {
     fetchMonthWorkouts();
   }, [currentDate]);
@@ -100,7 +93,6 @@ export default function CalendarView() {
     }
   };
 
-  // --- 手動同步功能 ---
   const handleSync = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -118,7 +110,6 @@ export default function CalendarView() {
     }
   };
 
-  // --- CSV Import Logic ---
   const handleImportClick = () => {
     csvInputRef.current?.click();
   };
@@ -159,6 +150,7 @@ export default function CalendarView() {
         headers.forEach((h, i) => idxMap[h] = i);
         const getVal = (row, col) => row[idxMap[col]] || '';
         
+        // 欄位對照
         const cols = isChinese ? 
             { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數', reps: '總次數' } :
             { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets', reps: 'Total Reps' };
@@ -167,8 +159,9 @@ export default function CalendarView() {
         if (!user) return { success: false, message: "請先登入" };
 
         let importCount = 0;
-        let dupCount = 0;
-        const existingDocs = Object.values(workouts).flat();
+        let updateCount = 0;
+        // 先抓取目前所有的紀錄，用來比對重複
+        const currentData = await fetchCurrentWorkoutsForCheck(user.uid); 
 
         for (let i = 1; i < lines.length; i++) {
             const row = parseLine(lines[i]);
@@ -207,18 +200,6 @@ export default function CalendarView() {
             }
             const runDuration = Math.round(duration).toString();
 
-            const isDup = existingDocs.some(d => 
-                d.date === dateStr && 
-                d.title === (title || (type==='run'?'跑步訓練':'肌力訓練')) &&
-                d.type === type &&
-                (type !== 'run' || Math.abs(parseFloat(d.runDuration||0) - parseFloat(runDuration)) < 1)
-            );
-
-            if (isDup) {
-                dupCount++;
-                continue;
-            }
-
             const distRaw = getVal(row, cols.dist);
             const runDistance = type === 'run' ? distRaw.replace(/,/g, '') : '';
             const hrRaw = getVal(row, cols.hr);
@@ -240,7 +221,6 @@ export default function CalendarView() {
                runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
             }
 
-            // 處理 exercises：如果 CSV 沒有詳細動作，我們根據總組數生成一個摘要項目
             let exercises = [];
             let notes = '';
             
@@ -250,7 +230,6 @@ export default function CalendarView() {
                 
                 if (totalSets > 0) {
                     const avgReps = totalReps > 0 ? Math.round(totalReps / totalSets) : 0;
-                    
                     exercises.push({
                         name: "綜合肌力訓練 (匯入數據)",
                         sets: totalSets,
@@ -258,7 +237,6 @@ export default function CalendarView() {
                         weight: 0, 
                         targetMuscle: "" 
                     });
-                    
                     notes = `匯入摘要: 總組數 ${totalSets}, 總次數 ${totalReps}`;
                 }
             }
@@ -280,11 +258,38 @@ export default function CalendarView() {
                 updatedAt: new Date().toISOString()
             };
 
-            await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
-            importCount++;
+            // 檢查是否已存在 (根據日期、標題、類型)
+            const existingDoc = currentData.find(d => 
+                d.date === dateStr && 
+                d.title === dataToSave.title && 
+                d.type === type
+            );
+
+            try {
+                if (existingDoc) {
+                    // 如果已存在，更新它 (覆蓋舊的空資料)
+                    await updateDoc(doc(db, 'users', user.uid, 'calendar', existingDoc.id), dataToSave);
+                    updateCount++;
+                } else {
+                    // 如果不存在，新增
+                    await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+                    importCount++;
+                }
+            } catch (e) {
+                console.error("Import error row " + i, e);
+            }
         }
 
-        return { success: true, count: importCount, dupCount };
+        return { success: true, count: importCount, updateCount };
+    };
+
+    // 輔助函式：取得目前所有資料以便比對
+    const fetchCurrentWorkoutsForCheck = async (uid) => {
+        const q = query(collection(db, 'users', uid, 'calendar'));
+        const sn = await getDocs(q);
+        const res = [];
+        sn.forEach(d => res.push({ id: d.id, ...d.data() }));
+        return res;
     };
 
     const readerUtf8 = new FileReader();
@@ -311,7 +316,7 @@ export default function CalendarView() {
         if (res.success) {
             await updateAIContext();
             await fetchMonthWorkouts();
-            alert(`匯入完成！\n成功新增：${res.count} 筆\n重複略過：${res.dupCount} 筆`);
+            alert(`匯入完成！\n新增：${res.count} 筆\n更新：${res.updateCount} 筆`);
         } else {
             alert(res.message || "匯入失敗");
         }
@@ -387,8 +392,6 @@ export default function CalendarView() {
       setDraggedWorkout(null);
     }
   };
-
-  // --- End Drag and Drop ---
 
   const handleDateClick = (date) => {
     setSelectedDate(date);
@@ -714,7 +717,10 @@ export default function CalendarView() {
                                                 {workout.type === 'run' 
                                                     ? `${workout.runDistance || 0} km • ${workout.runDuration || 0} min` 
                                                     : workout.notes 
-                                                        ? `${workout.notes.split(' ')[2] || 0} 組 • ${workout.runDuration || 0} min`
+                                                        ? (() => {
+                                                            const match = workout.notes.match(/總組數\s*(\d+)/);
+                                                            return match ? `${match[1]} 組 • ${workout.runDuration || 0} min` : `${workout.exercises?.length || 0} 個動作`;
+                                                        })()
                                                         : `${workout.exercises?.length || 0} 個動作`}
                                             </p>
                                         </div>

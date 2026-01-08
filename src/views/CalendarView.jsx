@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -113,7 +113,6 @@ export default function CalendarView() {
   };
 
   const handleImportClick = () => {
-    // 這裡可以做一個簡單的選擇視窗，或是直接觸發 FIT 上傳 (目前預設都走 fileInputRef)
     fileInputRef.current?.click();
   };
 
@@ -134,7 +133,7 @@ export default function CalendarView() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- 1. FIT 檔案處理邏輯 ---
+  // --- 1. FIT 檔案處理邏輯 (重構版) ---
   const handleFitUpload = (file) => {
       setLoading(true);
       const reader = new FileReader();
@@ -167,12 +166,6 @@ export default function CalendarView() {
               const timestamp = new Date(session.start_time);
               const dateStr = formatDate(timestamp);
               
-              if (!dateStr) {
-                  alert("無法讀取活動日期");
-                  setLoading(false);
-                  return;
-              }
-
               const isRunning = session.sport === 'running';
               const type = isRunning ? 'run' : 'strength';
 
@@ -184,25 +177,42 @@ export default function CalendarView() {
 
               let exercises = [];
 
-              if (type === 'strength' && data.sets && data.sets.length > 0) {
-                  data.sets.forEach((set, idx) => {
-                      if (!set.repetition_count || set.repetition_count === 0) return;
+              // --- 讀取詳細 Sets (支援 data.set 或 data.sets) ---
+              const rawSets = data.set || data.sets || [];
+              
+              if (type === 'strength' && rawSets.length > 0) {
+                  // 1. 過濾有效組數 (repetition_count > 0)
+                  const validSets = rawSets.filter(s => s.repetition_count && s.repetition_count > 0);
 
-                      const weight = set.weight ? Math.round(set.weight) : 0;
-                      const reps = set.repetition_count;
+                  // 2. 智慧合併邏輯
+                  validSets.forEach((s) => {
+                      // FIT 的 weight 單位通常是 kg (有些裝置是 N，這裡假設標準 parser 輸出為 kg)
+                      const weight = s.weight ? Math.round(s.weight) : 0;
+                      const reps = s.repetition_count;
                       
-                      const setLabel = set.wkt_step_label || (set.category ? `動作 (類別${set.category})` : `動作 ${exercises.length + 1}`);
-
-                      exercises.push({
-                          name: setLabel,
-                          sets: 1, 
-                          reps: reps,
-                          weight: weight,
-                          targetMuscle: "" 
-                      });
+                      // 嘗試取得動作名稱 (類別)
+                      // category 13 = Chest, 15 = Legs 等 (需要完整對照表)
+                      // 這裡先顯示 "訓練動作 (類別X)" 讓使用者知道有抓到
+                      const name = s.wkt_step_label || (s.category ? `重訓動作 (類別${s.category})` : `重訓動作`);
+                      
+                      // 檢查是否跟「上一筆」相同，是的話合併組數
+                      const lastEx = exercises[exercises.length - 1];
+                      if (lastEx && lastEx.name === name && lastEx.weight == weight && lastEx.reps == reps) {
+                          lastEx.sets += 1;
+                      } else {
+                          // 新動作
+                          exercises.push({
+                              name,
+                              sets: 1, 
+                              reps: reps,
+                              weight: weight,
+                              targetMuscle: "" // 留空讓使用者或 AI 補
+                          });
+                      }
                   });
               }
 
+              // 如果沒有解析出 Set，但有總結數據 (兜底)
               if (exercises.length === 0 && type === 'strength') {
                   exercises.push({
                       name: "匯入訓練 (無詳細組數)",
@@ -215,7 +225,7 @@ export default function CalendarView() {
 
               const dataToSave = {
                   date: dateStr,
-                  status: 'completed', // 確保有 status
+                  status: 'completed',
                   type,
                   title: isRunning ? '跑步訓練 (FIT)' : '重訓 (FIT匯入)',
                   exercises,
@@ -225,7 +235,7 @@ export default function CalendarView() {
                   runPower: power,
                   runHeartRate: hr,
                   calories,
-                  notes: '由 Garmin FIT 檔案匯入，包含詳細每組數據',
+                  notes: `由 Garmin FIT 匯入。${exercises.length > 0 ? `包含 ${exercises.length} 項詳細動作資料。` : ''}`,
                   imported: true,
                   updatedAt: new Date().toISOString()
               };
@@ -243,7 +253,7 @@ export default function CalendarView() {
                       await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
                       await updateAIContext();
                       await fetchMonthWorkouts();
-                      alert(`FIT 檔案匯入成功！\n日期：${dateStr}\n類型：${type === 'strength' ? '重訓' : '跑步'}\n詳細組數：${exercises.length}`);
+                      alert(`FIT 匯入成功！\n日期：${dateStr}\n成功解析 ${exercises.length} 項動作細節。`);
                   }
               } catch (e) {
                   console.error("Save failed", e);

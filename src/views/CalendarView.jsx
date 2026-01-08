@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, AlertTriangle } from 'lucide-react';
-import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode } from 'lucide-react';
+import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext } from '../utils/contextManager';
+import FitParser from 'fit-file-parser'; // 引入 FIT 解析器
 
 // 日期格式化 (YYYY-MM-DD)
 const formatDate = (date) => {
@@ -17,17 +18,15 @@ const formatDate = (date) => {
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
   const [workouts, setWorkouts] = useState({});
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalView, setModalView] = useState('list'); 
   const [currentDocId, setCurrentDocId] = useState(null); 
-
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
 
-  const csvInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const [editForm, setEditForm] = useState({
     status: 'completed',
@@ -47,7 +46,6 @@ export default function CalendarView() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 自動計算跑步配速
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {
       const dist = parseFloat(editForm.runDistance);
@@ -101,23 +99,185 @@ export default function CalendarView() {
     try {
         await updateAIContext();
         await fetchMonthWorkouts();
-        alert("同步完成！\n已更新雲端資料與 AI 記憶庫。");
+        alert("同步完成！");
     } catch (error) {
         console.error("Sync failed:", error);
-        alert("同步失敗，請檢查網路連線。");
+        alert("同步失敗");
     } finally {
         setLoading(false);
     }
   };
 
+  // --- 檔案匯入邏輯 (支援 .csv 與 .fit) ---
   const handleImportClick = () => {
-    csvInputRef.current?.click();
+    fileInputRef.current?.click();
   };
 
-  const handleCSVUpload = async (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileName = file.name.toLowerCase();
+    
+    if (fileName.endsWith('.fit')) {
+        await handleFitUpload(file);
+    } else if (fileName.endsWith('.csv')) {
+        await handleCSVUpload(file);
+    } else {
+        alert("僅支援 .fit 或 .csv 檔案");
+    }
+    
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // 1. FIT 檔案處理邏輯 (針對詳細資料)
+  const handleFitUpload = (file) => {
+      setLoading(true);
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+          const blob = event.target.result;
+          const fitParser = new FitParser({
+              force: true,
+              speedUnit: 'km/h',
+              lengthUnit: 'km',
+              temperatureUnit: 'celsius',
+              elapsedRecordField: true,
+              mode: 'cascade',
+          });
+
+          fitParser.parse(blob, async (error, data) => {
+              if (error) {
+                  console.error(error);
+                  alert("FIT 檔案解析失敗");
+                  setLoading(false);
+                  return;
+              }
+
+              // 確保有活動資料
+              if (!data.activity || !data.sessions || data.sessions.length === 0) {
+                  alert("FIT 檔案中無活動資料");
+                  setLoading(false);
+                  return;
+              }
+
+              const session = data.sessions[0];
+              const timestamp = new Date(session.start_time);
+              const dateStr = formatDate(timestamp);
+              
+              // 判斷類型
+              const isRunning = session.sport === 'running';
+              const type = isRunning ? 'run' : 'strength';
+
+              // 準備基礎資料
+              const duration = Math.round((session.total_elapsed_time || 0) / 60).toString();
+              const distance = isRunning ? (session.total_distance || 0).toFixed(2) : '';
+              const calories = Math.round(session.total_calories || 0).toString();
+              const hr = Math.round(session.avg_heart_rate || 0).toString();
+              const power = Math.round(session.avg_power || 0).toString();
+
+              let exercises = [];
+
+              // --- 關鍵：處理重訓 Sets ---
+              if (type === 'strength' && data.sets && data.sets.length > 0) {
+                  // 智慧合併邏輯：將連續且類似的 Sets 合併顯示
+                  let currentExercise = null;
+
+                  data.sets.forEach((set, idx) => {
+                      // 過濾掉休息時間 (repetition_count = 0 或 undefined)
+                      if (!set.repetition_count || set.repetition_count === 0) return;
+
+                      const weight = set.weight ? Math.round(set.weight) : 0;
+                      const reps = set.repetition_count;
+                      
+                      // 由於 FIT 檔案通常沒有具體動作名稱 (除非手動輸入)，我們使用 "動作 N" 或 "類別 ID"
+                      // 如果有 category 欄位 (例如 13=胸)，可以嘗試標記，這裡先統一處理
+                      const category = set.category ? `動作 ${set.category}` : `動作 ${exercises.length + 1}`;
+                      
+                      // 判斷是否可以合併到上一組 (這裡簡化：只要是連續的 active set 就視為同一動作的下一組)
+                      // 實務上 Garmin 的動作切換通常中間會夾雜休息
+                      // 我們這裡採用簡單策略：如果這是新的一輪動作 (例如上一組結束後過了很久)，或是第一組
+                      
+                      // 簡單實作：每個 Set 都列出來太長，嘗試每 3-4 組自動合併？
+                      // 不，為了精確，我們將「具有相同 Category」的連續 Sets 合併
+                      // 若無 Category，則全部列出太亂。
+                      
+                      // 策略：直接列出，但標題優化
+                      // 或者：如果使用者希望看到 "組數"，我們手動統計
+                      
+                      // 這裡採用：建立詳細清單
+                      exercises.push({
+                          name: set.category ? `訓練動作 (類別${set.category})` : `訓練動作 ${exercises.length + 1}`,
+                          sets: 1, // FIT 的 set message 就是 1 組
+                          reps: reps,
+                          weight: weight,
+                          targetMuscle: "" // 讓使用者自己補
+                      });
+                  });
+
+                  // 進階合併 (Optional): 將名稱相同的連續動作合併
+                  // 這裡先保持展開，讓使用者看到每一組的真實數據
+              }
+
+              // 如果沒有解析出 Set (可能是跑步或舊裝置)，但有摘要
+              if (exercises.length === 0 && type === 'strength') {
+                  exercises.push({
+                      name: "匯入訓練 (無詳細組數)",
+                      sets: session.total_sets || 1,
+                      reps: session.total_reps || "N/A",
+                      weight: 0,
+                      targetMuscle: ""
+                  });
+              }
+
+              const dataToSave = {
+                  date: dateStr,
+                  status: 'completed',
+                  type,
+                  title: isRunning ? '跑步訓練 (FIT)' : '重訓 (FIT匯入)',
+                  exercises,
+                  runDistance: distance,
+                  runDuration: duration,
+                  runPace: '', // 可後續計算
+                  runPower: power,
+                  runHeartRate: hr,
+                  calories,
+                  notes: '由 Garmin FIT 檔案匯入，包含詳細每組數據',
+                  imported: true,
+                  updatedAt: new Date().toISOString()
+              };
+
+              // 計算配速
+              if (isRunning && parseFloat(distance) > 0 && parseFloat(duration) > 0) {
+                  const paceVal = parseFloat(duration) / parseFloat(distance);
+                  const pm = Math.floor(paceVal);
+                  const ps = Math.round((paceVal - pm) * 60);
+                  dataToSave.runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
+              }
+
+              // 寫入資料庫
+              try {
+                  const user = auth.currentUser;
+                  if (user) {
+                      await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+                      await updateAIContext();
+                      await fetchMonthWorkouts();
+                      alert(`FIT 檔案匯入成功！\n日期：${dateStr}\n類型：${type === 'strength' ? '重訓' : '跑步'}`);
+                  }
+              } catch (e) {
+                  console.error("Save failed", e);
+                  alert("儲存失敗");
+              } finally {
+                  setLoading(false);
+              }
+          });
+      };
+      reader.readAsArrayBuffer(file);
+  };
+
+  // 2. CSV 檔案處理邏輯 (保持原樣，處理摘要)
+  const handleCSVUpload = async (file) => {
     setLoading(true);
 
     const processCSVContent = async (text) => {
@@ -150,7 +310,6 @@ export default function CalendarView() {
         headers.forEach((h, i) => idxMap[h] = i);
         const getVal = (row, col) => row[idxMap[col]] || '';
         
-        // 欄位對照
         const cols = isChinese ? 
             { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數', reps: '總次數' } :
             { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets', reps: 'Total Reps' };
@@ -160,7 +319,6 @@ export default function CalendarView() {
 
         let importCount = 0;
         let updateCount = 0;
-        // 先抓取目前所有的紀錄，用來比對重複
         const currentData = await fetchCurrentWorkoutsForCheck(user.uid); 
 
         for (let i = 1; i < lines.length; i++) {
@@ -182,7 +340,6 @@ export default function CalendarView() {
             }
 
             const title = getVal(row, cols.title);
-            
             let type = 'strength';
             const tRaw = activityTypeRaw.toLowerCase();
             if (tRaw.includes('run') || tRaw.includes('跑') || tRaw.includes('walk') || tRaw.includes('走')) {
@@ -206,7 +363,6 @@ export default function CalendarView() {
             const runHeartRate = (hrRaw.includes('--') ? '' : hrRaw);
             const pwrRaw = getVal(row, cols.pwr);
             const runPower = type === 'run' ? (pwrRaw.includes('--') ? '' : pwrRaw) : '';
-            
             const calRaw = getVal(row, cols.cal);
             const calories = calRaw.replace(/,/g, '');
             const setsRaw = getVal(row, cols.sets);
@@ -225,19 +381,26 @@ export default function CalendarView() {
             let notes = '';
             
             if (type === 'strength') {
-                const totalSets = parseInt(setsRaw) || 0;
-                const totalReps = parseInt(repsRaw) || 0;
+                const totalSets = setsRaw && setsRaw !== '--' ? parseInt(setsRaw) : 0;
+                const totalReps = repsRaw && repsRaw !== '--' ? parseInt(repsRaw) : 0;
                 
-                if (totalSets > 0) {
-                    const avgReps = totalReps > 0 ? Math.round(totalReps / totalSets) : 0;
+                if (totalSets > 0 || totalReps > 0 || calories > 0 || duration > 0) {
+                    const displaySets = totalSets > 0 ? totalSets : 1;
+                    const displayReps = totalSets > 0 && totalReps > 0 ? Math.round(totalReps / totalSets) : (totalReps > 0 ? totalReps : 0);
+                    
                     exercises.push({
-                        name: "綜合肌力訓練 (匯入數據)",
-                        sets: totalSets,
-                        reps: avgReps > 0 ? avgReps : "N/A",
+                        name: `匯入訓練 (共 ${displaySets} 組)`,
+                        sets: displaySets,
+                        reps: displayReps > 0 ? displayReps : "N/A",
                         weight: 0, 
                         targetMuscle: "" 
                     });
-                    notes = `匯入摘要: 總組數 ${totalSets}, 總次數 ${totalReps}`;
+                    
+                    let noteParts = [];
+                    if (totalSets) noteParts.push(`總組數: ${totalSets}`);
+                    if (totalReps) noteParts.push(`總次數: ${totalReps}`);
+                    if (calories) noteParts.push(`消耗: ${calories} kcal`);
+                    notes = noteParts.join(', ');
                 }
             }
 
@@ -258,7 +421,6 @@ export default function CalendarView() {
                 updatedAt: new Date().toISOString()
             };
 
-            // 檢查是否已存在 (根據日期、標題、類型)
             const existingDoc = currentData.find(d => 
                 d.date === dateStr && 
                 d.title === dataToSave.title && 
@@ -267,11 +429,9 @@ export default function CalendarView() {
 
             try {
                 if (existingDoc) {
-                    // 如果已存在，更新它 (覆蓋舊的空資料)
                     await updateDoc(doc(db, 'users', user.uid, 'calendar', existingDoc.id), dataToSave);
                     updateCount++;
                 } else {
-                    // 如果不存在，新增
                     await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
                     importCount++;
                 }
@@ -283,22 +443,12 @@ export default function CalendarView() {
         return { success: true, count: importCount, updateCount };
     };
 
-    // 輔助函式：取得目前所有資料以便比對
-    const fetchCurrentWorkoutsForCheck = async (uid) => {
-        const q = query(collection(db, 'users', uid, 'calendar'));
-        const sn = await getDocs(q);
-        const res = [];
-        sn.forEach(d => res.push({ id: d.id, ...d.data() }));
-        return res;
-    };
-
     const readerUtf8 = new FileReader();
     readerUtf8.onload = async (e) => {
         const text = e.target.result;
         const result = await processCSVContent(text);
         
         if (result.retryBig5) {
-            console.log("Retry with Big5...");
             const readerBig5 = new FileReader();
             readerBig5.onload = async (e2) => {
                 const textBig5 = e2.target.result;
@@ -321,8 +471,16 @@ export default function CalendarView() {
             alert(res.message || "匯入失敗");
         }
         setLoading(false);
-        if (csvInputRef.current) csvInputRef.current.value = '';
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
+  };
+
+  const fetchCurrentWorkoutsForCheck = async (uid) => {
+        const q = query(collection(db, 'users', uid, 'calendar'));
+        const sn = await getDocs(q);
+        const res = [];
+        sn.forEach(d => res.push({ id: d.id, ...d.data() }));
+        return res;
   };
 
   // --- Drag and Drop Logic ---
@@ -559,9 +717,9 @@ export default function CalendarView() {
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
       <input 
         type="file" 
-        ref={csvInputRef} 
-        onChange={handleCSVUpload} 
-        accept=".csv" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        accept=".csv, .fit" 
         className="hidden" 
       />
 
@@ -584,10 +742,10 @@ export default function CalendarView() {
           <button 
             onClick={handleImportClick}
             className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600"
-            title="匯入 Garmin/運動APP CSV"
+            title="匯入 Garmin/運動APP CSV 或 FIT"
           >
             <Upload size={16} /> 
-            <span className="hidden md:inline">匯入 CSV</span>
+            <span className="hidden md:inline">匯入檔案</span>
           </button>
 
           <div className="flex items-center gap-2 bg-gray-900 rounded-lg p-1">
@@ -645,6 +803,17 @@ export default function CalendarView() {
                   {dayWorkouts.map((workout, wIdx) => {
                     const isRun = workout.type === 'run';
                     const isPlanned = workout.status === 'planned';
+                    
+                    // 摘要顯示邏輯：跑步顯示距離，重訓顯示組數或卡路里
+                    let summaryText = workout.title || '訓練';
+                    if (isRun) {
+                        // 跑步不變
+                    } else {
+                        // 重訓：嘗試顯示卡路里或組數
+                        if (workout.calories) summaryText += ` (${workout.calories}cal)`;
+                        else if (workout.exercises?.length > 0) summaryText += ` (${workout.exercises.length}項目)`;
+                    }
+
                     return (
                         <div 
                             key={workout.id || wIdx}
@@ -654,10 +823,10 @@ export default function CalendarView() {
                                 isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
                             }`}
-                            title={workout.title}
+                            title={summaryText}
                         >
                             {isPlanned && <Clock size={8} />}
-                            {workout.title || (isRun ? '跑步' : '訓練')}
+                            {summaryText}
                         </div>
                     );
                   })}

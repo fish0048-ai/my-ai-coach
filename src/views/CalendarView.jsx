@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -7,7 +7,9 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 
+// 日期格式化 (YYYY-MM-DD)
 const formatDate = (date) => {
+  if (!date || isNaN(date.getTime())) return '';
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -17,15 +19,18 @@ const formatDate = (date) => {
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  
   const [workouts, setWorkouts] = useState({});
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalView, setModalView] = useState('list'); 
   const [currentDocId, setCurrentDocId] = useState(null); 
+
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
 
   const fileInputRef = useRef(null);
+  const csvInputRef = useRef(null);
 
   const [editForm, setEditForm] = useState({
     status: 'completed',
@@ -108,6 +113,7 @@ export default function CalendarView() {
   };
 
   const handleImportClick = () => {
+    // 這裡可以做一個簡單的選擇視窗，或是直接觸發 FIT 上傳 (目前預設都走 fileInputRef)
     fileInputRef.current?.click();
   };
 
@@ -128,7 +134,7 @@ export default function CalendarView() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- 1. FIT 檔案處理邏輯 (修正版) ---
+  // --- 1. FIT 檔案處理邏輯 ---
   const handleFitUpload = (file) => {
       setLoading(true);
       const reader = new FileReader();
@@ -141,7 +147,6 @@ export default function CalendarView() {
               lengthUnit: 'km',
               temperatureUnit: 'celsius',
               elapsedRecordField: true,
-              // 移除 mode: 'cascade'，使用預設的扁平模式，這樣比較容易讀取 sets
           });
 
           fitParser.parse(blob, async (error, data) => {
@@ -152,10 +157,8 @@ export default function CalendarView() {
                   return;
               }
 
-              // 修正：放寬檢查，只要有 sessions 就視為有效
               if (!data.sessions || data.sessions.length === 0) {
                   alert("FIT 檔案中找不到 Session 資料");
-                  console.log("Parsed Data:", data); // Debug 用
                   setLoading(false);
                   return;
               }
@@ -164,11 +167,15 @@ export default function CalendarView() {
               const timestamp = new Date(session.start_time);
               const dateStr = formatDate(timestamp);
               
-              // 判斷類型 (Garmin sport enum: 1=running, 2=cycling, etc. 文字版通常是 'running')
+              if (!dateStr) {
+                  alert("無法讀取活動日期");
+                  setLoading(false);
+                  return;
+              }
+
               const isRunning = session.sport === 'running';
               const type = isRunning ? 'run' : 'strength';
 
-              // 準備基礎資料
               const duration = Math.round((session.total_elapsed_time || 0) / 60).toString();
               const distance = isRunning ? (session.total_distance || 0).toFixed(2) : '';
               const calories = Math.round(session.total_calories || 0).toString();
@@ -177,20 +184,13 @@ export default function CalendarView() {
 
               let exercises = [];
 
-              // --- 讀取 Sets (在扁平模式下，sets 會是頂層陣列) ---
               if (type === 'strength' && data.sets && data.sets.length > 0) {
                   data.sets.forEach((set, idx) => {
-                      // 過濾：repetition_count 必須存在且大於 0 (排除休息組)
-                      // 有些裝置休息組的 rep 是 0 或 undefined
                       if (!set.repetition_count || set.repetition_count === 0) return;
 
-                      // Garmin 的重量單位通常是 kg 或 lbs，視裝置設定，FitParser 預設可能轉為 kg
                       const weight = set.weight ? Math.round(set.weight) : 0;
                       const reps = set.repetition_count;
                       
-                      // 嘗試從 category 或 sub_sport 判斷動作名稱 (FIT 裡的動作代碼需要查表)
-                      // 這裡先顯示為 "Set X" 或 "動作類別 X"，讓使用者事後補上名稱
-                      // 如果有 wkt_step_label 則使用它
                       const setLabel = set.wkt_step_label || (set.category ? `動作 (類別${set.category})` : `動作 ${exercises.length + 1}`);
 
                       exercises.push({
@@ -198,12 +198,11 @@ export default function CalendarView() {
                           sets: 1, 
                           reps: reps,
                           weight: weight,
-                          targetMuscle: "" // 需要 AI 或使用者手動補標籤
+                          targetMuscle: "" 
                       });
                   });
               }
 
-              // 如果沒有解析出 Set 但有摘要
               if (exercises.length === 0 && type === 'strength') {
                   exercises.push({
                       name: "匯入訓練 (無詳細組數)",
@@ -216,7 +215,7 @@ export default function CalendarView() {
 
               const dataToSave = {
                   date: dateStr,
-                  status: 'completed',
+                  status: 'completed', // 確保有 status
                   type,
                   title: isRunning ? '跑步訓練 (FIT)' : '重訓 (FIT匯入)',
                   exercises,
@@ -461,10 +460,11 @@ export default function CalendarView() {
             alert(res.message || "匯入失敗");
         }
         setLoading(false);
-        if (csvInputRef.current) csvInputRef.current.value = '';
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
   };
 
+  // --- Drag and Drop Logic ---
   const handleDragStart = (e, workout) => {
     e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('application/json', JSON.stringify(workout));
@@ -694,6 +694,7 @@ export default function CalendarView() {
 
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
+      {/* 隱藏的檔案上傳 Input */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -701,6 +702,8 @@ export default function CalendarView() {
         accept=".csv, .fit" 
         className="hidden" 
       />
+      
+      {/* CSV 匯入的 Ref 指向同一個 handler (保留向下相容，但實際上都用 fileInputRef 即可) */}
       <input 
         type="file" 
         ref={csvInputRef} 
@@ -790,14 +793,23 @@ export default function CalendarView() {
                     const isRun = workout.type === 'run';
                     const isPlanned = workout.status === 'planned';
                     
-                    // 摘要顯示邏輯：跑步顯示距離，重訓顯示組數或卡路里
                     let summaryText = workout.title || '訓練';
                     if (isRun) {
                         // 跑步不變
                     } else {
                         // 重訓：嘗試顯示卡路里或組數
                         if (workout.calories) summaryText += ` (${workout.calories}cal)`;
-                        else if (workout.exercises?.length > 0) summaryText += ` (${workout.exercises[0].sets}組)`;
+                        // 防呆：確保 exercises 存在且有元素
+                        else if (Array.isArray(workout.exercises) && workout.exercises.length > 0) {
+                             const firstEx = workout.exercises[0];
+                             // 如果是匯入的摘要動作，顯示組數
+                             if (firstEx.name && firstEx.name.includes('匯入')) {
+                                 summaryText += ` (${firstEx.sets}組)`;
+                             } else {
+                                 // 一般動作，顯示項目數
+                                 summaryText += ` (${workout.exercises.length}項目)`;
+                             }
+                        }
                     }
 
                     return (

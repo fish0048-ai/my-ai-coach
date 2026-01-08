@@ -133,7 +133,7 @@ export default function CalendarView() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- 1. FIT 檔案處理邏輯 (診斷模式) ---
+  // --- 1. FIT 檔案處理邏輯 (重構版) ---
   const handleFitUpload = (file) => {
       setLoading(true);
       const reader = new FileReader();
@@ -151,167 +151,138 @@ export default function CalendarView() {
           fitParser.parse(blob, async (error, data) => {
               if (error) {
                   console.error("FIT Parse Error:", error);
-                  alert("FIT 檔案解析失敗，詳細錯誤請看 Console (F12)。");
+                  alert("FIT 檔案解析失敗，請確認檔案完整性。");
                   setLoading(false);
                   return;
               }
 
-              // --- 診斷日誌 ---
-              console.log("=== FIT FILE DEBUG START ===");
-              console.log("Full Data Object:", data);
+              // 1. 嘗試取得活動摘要 (Session)
+              // 優先順序: data.sessions -> data.session -> data.activity?.sessions -> 透過 records 計算
+              let session = {};
+              if (data.sessions && data.sessions.length > 0) session = data.sessions[0];
+              else if (data.session && data.session.length > 0) session = data.session[0];
+              else if (data.activity && data.activity.sessions && data.activity.sessions.length > 0) session = data.activity.sessions[0];
               
-              if (!data) {
-                  alert("錯誤：FIT 檔案解析結果為空。");
-                  setLoading(false);
-                  return;
+              // 2. 決定日期
+              let dateStr = "";
+              if (session.start_time) {
+                  dateStr = formatDate(new Date(session.start_time));
+              } else if (data.records && data.records.length > 0) {
+                  dateStr = formatDate(new Date(data.records[0].timestamp));
+              } else {
+                  dateStr = formatDate(new Date()); // 萬一都沒抓到，用今天
               }
 
-              // 檢查常見的根目錄欄位
-              console.log("Available Keys:", Object.keys(data));
-              
-              // 嘗試抓取 session
-              let sessions = data.sessions || data.session || [];
-              if (sessions.length === 0 && data.activity && data.activity.sessions) {
-                  sessions = data.activity.sessions;
+              // 3. 決定類型
+              // sport: 1=running, 2=cycling, 4=strength (Garmin SDK)
+              const sport = session.sport || '';
+              const subSport = session.sub_sport || '';
+              let type = 'strength'; // 預設重訓
+              if (sport === 'running' || subSport === 'treadmill' || sport === 1) {
+                  type = 'run';
               }
-              
-              console.log("Sessions Found:", sessions);
 
-              if (sessions.length === 0) {
-                  // 如果找不到 session，彈出視窗告訴使用者結構長怎樣
-                  alert(`找不到活動摘要 (Session)。\n資料欄位: ${Object.keys(data).join(', ')}`);
-                  // 嘗試繼續，看能不能只抓 sets 或 records
-              }
-              
-              const session = sessions.length > 0 ? sessions[0] : {};
-              const startTime = session.start_time ? new Date(session.start_time) : new Date();
-              const dateStr = formatDate(startTime);
-
-              const isRunning = session.sport === 'running' || session.sub_sport === 'treadmill';
-              const type = isRunning ? 'run' : 'strength';
-
-              console.log("Detected Type:", type);
-
+              // 4. 提取基礎數據
               const duration = Math.round((session.total_elapsed_time || 0) / 60).toString();
-              const distance = isRunning ? (session.total_distance || 0).toFixed(2) : '';
+              const distance = (session.total_distance || 0).toFixed(2);
               const calories = Math.round(session.total_calories || 0).toString();
               const hr = Math.round(session.avg_heart_rate || 0).toString();
               const power = Math.round(session.avg_power || 0).toString();
 
+              // 5. 提取詳細 Sets
               let exercises = [];
-
-              // --- 嘗試讀取 Sets ---
-              // 記錄下到底哪裡有 sets
-              const setsSource = data.sets ? 'data.sets' : (data.set ? 'data.set' : 'none');
-              console.log("Sets Source:", setsSource);
-              
               const rawSets = data.sets || data.set || [];
-              console.log("Raw Sets Data:", rawSets);
               
-              if (type === 'strength' && rawSets.length > 0) {
-                  rawSets.forEach((set, idx) => {
-                      // 過濾
-                      if (!set.repetition_count || set.repetition_count === 0) return;
+              if (rawSets.length > 0) {
+                  rawSets.forEach((s) => {
+                      // 過濾無效組 (rest)
+                      // 只要有 reps 就視為訓練組
+                      if (!s.repetition_count) return;
 
-                      let weight = set.weight || 0;
-                      // 單位校正
-                      if (weight > 1000) weight = weight / 1000;
-                      const reps = set.repetition_count;
-                      
+                      const weight = s.weight ? Math.round(s.weight) : 0;
+                      // 單位校正: 如果重量 > 1000，視為公克，轉為公斤
+                      const finalWeight = weight > 1000 ? Math.round(weight / 1000) : weight;
+                      const reps = s.repetition_count;
+
+                      // 動作名稱映射
                       let name = "訓練動作";
-                      if (set.wkt_step_label) {
-                          name = set.wkt_step_label;
-                      } else if (set.category) {
-                           const catMap = { 
-                               13: '胸部', 15: '腿部', 3: '腹部', 1: '背部', 2: '手臂', 23: '肩膀' 
-                           };
-                           name = catMap[set.category] ? `${catMap[set.category]}訓練` : `動作(類別${set.category})`;
+                      if (s.wkt_step_label) {
+                          name = s.wkt_step_label;
+                      } else if (s.category !== undefined) {
+                          const catMap = { 
+                              13: '胸部訓練', 1: '背部訓練', 15: '腿部訓練', 
+                              2: '手臂訓練', 3: '核心/腹部', 23: '肩膀訓練', 11: '健身房'
+                          };
+                          name = catMap[s.category] || `動作 (類別${s.category})`;
                       }
 
-                      // 合併邏輯
+                      // 智慧合併：如果跟上一組完全一樣 (名稱、重量、次數)，則合併 sets
                       const lastEx = exercises[exercises.length - 1];
-                      if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - weight) < 0.1 && lastEx.reps === reps) {
+                      if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - finalWeight) < 1 && lastEx.reps === reps) {
                           lastEx.sets += 1;
                       } else {
                           exercises.push({
                               name: name,
-                              sets: 1, 
+                              sets: 1,
                               reps: reps,
-                              weight: Math.round(weight), 
+                              weight: finalWeight,
                               targetMuscle: detectMuscleGroup(name) || "" 
                           });
                       }
                   });
               }
 
-              console.log("Final Exercises List:", exercises);
-
               // 兜底
               if (exercises.length === 0 && type === 'strength') {
-                  const totalSets = session.total_sets || session.num_sets || 0;
-                  const totalReps = session.total_reps || session.num_reps || 0;
-                  
-                  if (totalSets > 0) {
-                      exercises.push({
-                          name: "匯入訓練 (無詳細組數)",
-                          sets: totalSets,
-                          reps: totalReps || "N/A",
-                          weight: 0,
-                          targetMuscle: ""
-                      });
-                  } else {
-                      // 如果連總數都沒有，嘗試從 records 抓取 (最後手段)
-                      if (data.records && data.records.length > 0) {
-                          console.log("Fallback: Checking records for info...", data.records[0]);
-                          exercises.push({
-                              name: "匯入訓練 (僅有軌跡/心率數據)",
-                              sets: 1,
-                              reps: "N/A",
-                              weight: 0,
-                              targetMuscle: ""
-                          });
-                      }
-                  }
+                  exercises.push({
+                      name: "匯入訓練 (無詳細動作)",
+                      sets: session.total_sets || 1,
+                      reps: session.total_reps || "N/A",
+                      weight: 0,
+                      targetMuscle: ""
+                  });
               }
 
+              // 建構資料物件
               const dataToSave = {
                   date: dateStr,
                   status: 'completed',
                   type,
-                  title: isRunning ? '跑步訓練 (FIT)' : '重訓 (FIT匯入)',
+                  title: type === 'run' ? '跑步訓練 (FIT)' : `重訓 (${exercises.length}項動作)`,
                   exercises,
-                  runDistance: distance,
+                  runDistance: type === 'run' ? distance : '',
                   runDuration: duration,
                   runPace: '', 
                   runPower: power,
                   runHeartRate: hr,
                   calories,
-                  notes: `由 Garmin FIT 匯入。共解析 ${exercises.length} 項動作。`,
+                  notes: `由 Garmin FIT 匯入。${rawSets.length > 0 ? `原始紀錄共 ${rawSets.length} 組。` : ''}`,
                   imported: true,
                   updatedAt: new Date().toISOString()
               };
 
-              if (isRunning && parseFloat(distance) > 0 && parseFloat(duration) > 0) {
+              // 計算配速
+              if (type === 'run' && parseFloat(distance) > 0 && parseFloat(duration) > 0) {
                   const paceVal = parseFloat(duration) / parseFloat(distance);
                   const pm = Math.floor(paceVal);
                   const ps = Math.round((paceVal - pm) * 60);
                   dataToSave.runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
               }
 
+              // 上傳
               try {
                   const user = auth.currentUser;
                   if (user) {
                       await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
                       await updateAIContext();
                       await fetchMonthWorkouts();
-                      alert(`FIT 匯入成功！\n日期：${dateStr}\n成功解析 ${exercises.length} 項動作。\n請按 F12 查看 Console 確認詳細結構。`);
+                      alert(`FIT 匯入成功！\n日期：${dateStr}\n解析出 ${exercises.length} 個合併後的動作項目。`);
                   }
               } catch (e) {
                   console.error("Save failed", e);
                   alert("儲存失敗");
               } finally {
                   setLoading(false);
-                  console.log("=== FIT FILE DEBUG END ===");
               }
           });
       };
@@ -522,11 +493,12 @@ export default function CalendarView() {
             alert(res.message || "匯入失敗");
         }
         setLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (csvInputRef.current) csvInputRef.current.value = '';
     };
   };
 
   // --- Drag and Drop Logic ---
+
   const handleDragStart = (e, workout) => {
     e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('application/json', JSON.stringify(workout));
@@ -542,6 +514,7 @@ export default function CalendarView() {
   };
 
   const handleDragLeave = (e) => {
+    // setDragOverDate(null); 
   };
 
   const handleDrop = async (e, targetDateStr) => {
@@ -756,7 +729,6 @@ export default function CalendarView() {
 
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
-      {/* 隱藏的檔案上傳 Input */}
       <input 
         type="file" 
         ref={fileInputRef} 

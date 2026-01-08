@@ -1,10 +1,15 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
 import App from './App.jsx'
-import './index.css' // 👈 這行非常重要，沒有它就沒有樣式
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+// --- 新增：FIT 檔案解析所需的 Buffer Polyfill ---
+import { Buffer } from 'buffer';
+window.Buffer = Buffer;
+// ---------------------------------------------
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
     <App />
-  </React.StrictMode>,
+  </StrictMode>,
 )

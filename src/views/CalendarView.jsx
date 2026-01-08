@@ -133,7 +133,7 @@ export default function CalendarView() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- 1. FIT 檔案處理邏輯 (深度解析版) ---
+  // --- 1. FIT 檔案處理邏輯 (重構版) ---
   const handleFitUpload = (file) => {
       setLoading(true);
       const reader = new FileReader();
@@ -146,7 +146,7 @@ export default function CalendarView() {
               lengthUnit: 'km',
               temperatureUnit: 'celsius',
               elapsedRecordField: true,
-              // 確保使用預設模式，不使用 cascade
+              // 移除 mode: 'cascade'，使用預設的扁平模式，更容易讀取 sets
           });
 
           fitParser.parse(blob, async (error, data) => {
@@ -163,13 +163,11 @@ export default function CalendarView() {
                   setLoading(false);
                   return;
               }
-
+              
               // 尋找 session (活動摘要)
-              // 有些 fit 檔案 session 放在 sessions 陣列，有些可能在 session 物件
               const sessions = data.sessions || data.session || [];
               if (sessions.length === 0) {
                   console.warn("No sessions found in FIT file", data);
-                  // 嘗試繼續，看有沒有 records
               }
               
               const session = sessions.length > 0 ? sessions[0] : {};
@@ -177,38 +175,30 @@ export default function CalendarView() {
               const dateStr = formatDate(startTime);
 
               // 判斷類型
-              // sport: 1=running, 2=cycling, etc. 
               const isRunning = session.sport === 'running' || session.sub_sport === 'treadmill';
               const type = isRunning ? 'run' : 'strength';
 
               const duration = Math.round((session.total_elapsed_time || 0) / 60).toString();
-              const distance = (session.total_distance || 0).toFixed(2);
+              const distance = isRunning ? (session.total_distance || 0).toFixed(2) : '';
               const calories = Math.round(session.total_calories || 0).toString();
               const hr = Math.round(session.avg_heart_rate || 0).toString();
               const power = Math.round(session.avg_power || 0).toString();
 
               let exercises = [];
 
-              // --- 深度挖掘 Sets 資料 ---
-              // 不同的 parser 版本或裝置，sets 可能在 'sets', 'set', 甚至是 'record' 中
-              // 我們把所有可能的來源都找一遍
+              // --- 讀取詳細 Sets (支援 data.set 或 data.sets) ---
+              // 在扁平模式下，所有 set 資料應該會在 data.sets 或 data.set 陣列中
               const rawSets = data.sets || data.set || [];
               
               if (type === 'strength' && rawSets.length > 0) {
                   rawSets.forEach((s) => {
-                      // 1. 必須是有效組數 (repetition_count 存在且 > 0)
-                      // 部分裝置休息時間 rep 會是 undefined 或 0
+                      // 1. 過濾有效組數 (repetition_count 存在且 > 0)
                       if (!s.repetition_count || s.repetition_count === 0) return;
 
-                      // 2. 處理重量 (Garmin 單位通常是 kg 或 N，Parser 通常已轉為 kg)
-                      // 如果 weight 是 undefined，設為 0 (自重訓練)
                       const weight = s.weight ? Math.round(s.weight) : 0;
                       const reps = s.repetition_count;
                       
                       // 3. 處理動作名稱
-                      // wkt_step_label: 使用者在手錶上自定義的名稱
-                      // category / sub_category: Garmin 的內建編碼 (需要 Mapping)
-                      // 這裡若無名稱，顯示 "類別X"
                       let name = "訓練動作";
                       if (s.wkt_step_label) {
                           name = s.wkt_step_label;
@@ -218,14 +208,20 @@ export default function CalendarView() {
                           name = catMap[s.category] ? `${catMap[s.category]}訓練` : `動作 (類別${s.category})`;
                       }
 
-                      // 4. 寫入清單 (不合併，保留每一組的真實性)
-                      exercises.push({
-                          name: name,
-                          sets: 1, 
-                          reps: reps,
-                          weight: weight,
-                          targetMuscle: detectMuscleGroup(name) || "" // 嘗試自動標記
-                      });
+                      // 4. 寫入清單 (智慧合併連續相同動作)
+                      const lastEx = exercises[exercises.length - 1];
+                      if (lastEx && lastEx.name === name && lastEx.weight == weight && lastEx.reps == reps) {
+                          // 如果名稱、重量、次數都一樣，就合併組數
+                          lastEx.sets += 1;
+                      } else {
+                          exercises.push({
+                              name: name,
+                              sets: 1, 
+                              reps: reps,
+                              weight: weight,
+                              targetMuscle: detectMuscleGroup(name) || "" 
+                          });
+                      }
                   });
               }
 
@@ -275,7 +271,7 @@ export default function CalendarView() {
                       await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
                       await updateAIContext();
                       await fetchMonthWorkouts();
-                      alert(`FIT 匯入成功！\n日期：${dateStr}\n成功讀取 ${exercises.length} 組動作數據。`);
+                      alert(`FIT 匯入成功！\n日期：${dateStr}\n成功讀取 ${exercises.length} 項目。`);
                   }
               } catch (e) {
                   console.error("Save failed", e);

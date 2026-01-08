@@ -133,7 +133,7 @@ export default function CalendarView() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- 1. FIT 檔案處理邏輯 (終極強化版) ---
+  // --- 1. FIT 檔案處理邏輯 (診斷模式) ---
   const handleFitUpload = (file) => {
       setLoading(true);
       const reader = new FileReader();
@@ -151,34 +151,46 @@ export default function CalendarView() {
           fitParser.parse(blob, async (error, data) => {
               if (error) {
                   console.error("FIT Parse Error:", error);
-                  alert("FIT 檔案解析失敗，請確認檔案是否損毀。");
+                  alert("FIT 檔案解析失敗，詳細錯誤請看 Console (F12)。");
                   setLoading(false);
                   return;
               }
 
-              // Debug: 印出整個結構，方便開發者除錯
-              console.log("Parsed FIT Data:", data);
+              // --- 診斷日誌 ---
+              console.log("=== FIT FILE DEBUG START ===");
+              console.log("Full Data Object:", data);
+              
+              if (!data) {
+                  alert("錯誤：FIT 檔案解析結果為空。");
+                  setLoading(false);
+                  return;
+              }
 
-              // 尋找 session (活動摘要)
-              // 兼容不同 parser 版本的輸出結構 (sessions, session, activity.sessions)
+              // 檢查常見的根目錄欄位
+              console.log("Available Keys:", Object.keys(data));
+              
+              // 嘗試抓取 session
               let sessions = data.sessions || data.session || [];
               if (sessions.length === 0 && data.activity && data.activity.sessions) {
                   sessions = data.activity.sessions;
               }
               
-              // 若完全找不到 Session，嘗試從 records 推算時間，或報錯
+              console.log("Sessions Found:", sessions);
+
               if (sessions.length === 0) {
-                  console.warn("No sessions found, trying to fallback...");
+                  // 如果找不到 session，彈出視窗告訴使用者結構長怎樣
+                  alert(`找不到活動摘要 (Session)。\n資料欄位: ${Object.keys(data).join(', ')}`);
+                  // 嘗試繼續，看能不能只抓 sets 或 records
               }
               
               const session = sessions.length > 0 ? sessions[0] : {};
-              // 如果沒有 start_time，使用檔案上傳時間
               const startTime = session.start_time ? new Date(session.start_time) : new Date();
               const dateStr = formatDate(startTime);
 
-              // 判斷類型
               const isRunning = session.sport === 'running' || session.sub_sport === 'treadmill';
               const type = isRunning ? 'run' : 'strength';
+
+              console.log("Detected Type:", type);
 
               const duration = Math.round((session.total_elapsed_time || 0) / 60).toString();
               const distance = isRunning ? (session.total_distance || 0).toFixed(2) : '';
@@ -188,45 +200,35 @@ export default function CalendarView() {
 
               let exercises = [];
 
-              // --- 讀取詳細 Sets (全面搜尋) ---
-              // 搜尋順序: data.sets -> data.set -> data.records (有些舊裝置把 set 混在 record 裡)
-              let rawSets = data.sets || data.set || [];
+              // --- 嘗試讀取 Sets ---
+              // 記錄下到底哪裡有 sets
+              const setsSource = data.sets ? 'data.sets' : (data.set ? 'data.set' : 'none');
+              console.log("Sets Source:", setsSource);
               
-              // 如果 type 是重訓，但找不到 sets，嘗試檢查 records 是否有標記
-              if (type === 'strength' && rawSets.length === 0 && data.records) {
-                  // 這裡可以加入針對 records 的進階過濾，但通常 fit-file-parser 會處理好 sets
-                  console.log("No explicit sets found, checking records...");
-              }
-
+              const rawSets = data.sets || data.set || [];
+              console.log("Raw Sets Data:", rawSets);
+              
               if (type === 'strength' && rawSets.length > 0) {
                   rawSets.forEach((set, idx) => {
-                      // 過濾無效組數
-                      // 有些裝置的 repetition_count 是 undefined，但它是有效組 (例如計時動作)
-                      // 我們放寬條件：只要 category 存在，或 wkt_step_label 存在，就算一組
-                      if (!set.repetition_count && !set.wkt_step_label && !set.category) return;
+                      // 過濾
+                      if (!set.repetition_count || set.repetition_count === 0) return;
 
                       let weight = set.weight || 0;
-                      // 單位校正：如果重量 > 1000 (例如 50000)，很可能是公克，轉為公斤
+                      // 單位校正
                       if (weight > 1000) weight = weight / 1000;
+                      const reps = set.repetition_count;
                       
-                      const reps = set.repetition_count || 0; // 若為 0 可能是計時動作
-                      
-                      // 動作名稱解析
-                      // wkt_step_label: 自定義名稱
-                      // category: 內建類別 (13=Chest, etc.)
                       let name = "訓練動作";
                       if (set.wkt_step_label) {
                           name = set.wkt_step_label;
                       } else if (set.category) {
-                           // 簡易對照表
                            const catMap = { 
-                               13: '胸部(Chest)', 15: '腿部(Legs)', 3: '腹部(Abs)', 1: '背部(Back)', 
-                               2: '手臂(Arms)', 23: '肩膀(Shoulders)' 
+                               13: '胸部', 15: '腿部', 3: '腹部', 1: '背部', 2: '手臂', 23: '肩膀' 
                            };
-                           name = catMap[set.category] || `動作 (類別${set.category})`;
+                           name = catMap[set.category] ? `${catMap[set.category]}訓練` : `動作(類別${set.category})`;
                       }
 
-                      // 智慧合併：如果上一組跟這一組完全一樣，就合併
+                      // 合併邏輯
                       const lastEx = exercises[exercises.length - 1];
                       if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - weight) < 0.1 && lastEx.reps === reps) {
                           lastEx.sets += 1;
@@ -235,14 +237,16 @@ export default function CalendarView() {
                               name: name,
                               sets: 1, 
                               reps: reps,
-                              weight: Math.round(weight), // 取整數顯示
+                              weight: Math.round(weight), 
                               targetMuscle: detectMuscleGroup(name) || "" 
                           });
                       }
                   });
               }
 
-              // 兜底：如果真的沒抓到任何 sets，使用總結數據
+              console.log("Final Exercises List:", exercises);
+
+              // 兜底
               if (exercises.length === 0 && type === 'strength') {
                   const totalSets = session.total_sets || session.num_sets || 0;
                   const totalReps = session.total_reps || session.num_reps || 0;
@@ -255,6 +259,18 @@ export default function CalendarView() {
                           weight: 0,
                           targetMuscle: ""
                       });
+                  } else {
+                      // 如果連總數都沒有，嘗試從 records 抓取 (最後手段)
+                      if (data.records && data.records.length > 0) {
+                          console.log("Fallback: Checking records for info...", data.records[0]);
+                          exercises.push({
+                              name: "匯入訓練 (僅有軌跡/心率數據)",
+                              sets: 1,
+                              reps: "N/A",
+                              weight: 0,
+                              targetMuscle: ""
+                          });
+                      }
                   }
               }
 
@@ -288,13 +304,14 @@ export default function CalendarView() {
                       await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
                       await updateAIContext();
                       await fetchMonthWorkouts();
-                      alert(`FIT 匯入成功！\n日期：${dateStr}\n成功讀取 ${exercises.length} 項動作細節。\n(若無詳細動作，可能是檔案本身未紀錄)`);
+                      alert(`FIT 匯入成功！\n日期：${dateStr}\n成功解析 ${exercises.length} 項動作。\n請按 F12 查看 Console 確認詳細結構。`);
                   }
               } catch (e) {
                   console.error("Save failed", e);
                   alert("儲存失敗");
               } finally {
                   setLoading(false);
+                  console.log("=== FIT FILE DEBUG END ===");
               }
           });
       };

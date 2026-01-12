@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Activity, Play, RotateCcw, CheckCircle, Upload, Cpu, Sparkles, BrainCircuit, Save } from 'lucide-react';
+import { Camera, Activity, Play, RotateCcw, CheckCircle, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
@@ -9,10 +9,10 @@ export default function AnalysisView() {
   const [videoFile, setVideoFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  // 狀態機
+  // 狀態機：idle -> analyzing_internal -> internal_complete -> analyzing_ai -> ai_complete
   const [analysisStep, setAnalysisStep] = useState('idle');
   
-  // 儲存數據
+  // 儲存數據 (改為可編輯狀態)
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -29,6 +29,23 @@ export default function AnalysisView() {
     }
   };
 
+  // 輔助：更新特定指標數值
+  const updateMetric = (key, newValue) => {
+    setMetrics(prev => {
+        const newMetrics = { ...prev };
+        newMetrics[key] = { ...newMetrics[key], value: newValue };
+        
+        // 簡單的動態狀態判斷邏輯 (可根據需求擴充)
+        if (key === 'cadence') {
+            const val = parseInt(newValue);
+            if (val >= 170) newMetrics[key].status = 'good';
+            else newMetrics[key].status = 'warning';
+        }
+        
+        return newMetrics;
+    });
+  };
+
   const performInternalAnalysis = () => {
     if (!videoFile) {
         alert("請先上傳影片！");
@@ -36,18 +53,19 @@ export default function AnalysisView() {
     }
     setAnalysisStep('analyzing_internal');
     
-    // 模擬電腦視覺運算
+    // 模擬電腦視覺運算 (實際上這裡是模擬數據，因此開放使用者修正)
     setTimeout(() => {
       const result = mode === 'bench' ? {
-          trajectory: { label: '槓鈴軌跡', value: '垂直', status: 'good' },
-          velocity: { label: '離心速度', value: '2.5 秒', status: 'good' },
-          elbowAngle: { label: '手肘角度', value: '78°', status: 'warning', hint: '角度稍大，增加肩部壓力' },
-          stability: { label: '推舉穩定度', value: '92%', status: 'good' }
+          trajectory: { label: '槓鈴軌跡', value: '垂直', unit: '', status: 'good' },
+          velocity: { label: '離心速度', value: '2.5', unit: '秒', status: 'good' },
+          elbowAngle: { label: '手肘角度', value: '78', unit: '度', status: 'warning', hint: '建議 45-75 度' },
+          stability: { label: '推舉穩定度', value: '92', unit: '%', status: 'good' }
       } : {
-          cadence: { label: '步頻', value: '162 spm', status: 'warning', hint: '目標: 170-180 spm' },
-          verticalOscillation: { label: '垂直振幅', value: '8.5 cm', status: 'good' },
-          groundTime: { label: '觸地時間', value: '240 ms', status: 'good' },
-          lean: { label: '軀幹前傾', value: '5°', status: 'good' }
+          // 預設模擬值 (使用者可修改)
+          cadence: { label: '步頻 (Cadence)', value: '165', unit: 'spm', status: 'warning', hint: '目標: 170+ spm' },
+          verticalOscillation: { label: '垂直振幅', value: '8.5', unit: 'cm', status: 'good', hint: '越低越好' },
+          groundTime: { label: '觸地時間', value: '240', unit: 'ms', status: 'good', hint: '優秀跑者 < 200ms' },
+          lean: { label: '軀幹前傾', value: '5', unit: '度', status: 'good', hint: '建議 5-10 度' }
       };
       
       setMetrics(result);
@@ -62,55 +80,36 @@ export default function AnalysisView() {
         return;
     }
     
-    // 防呆：如果沒有數據，不呼叫 AI
-    if (!metrics) {
-        alert("請先完成第一階段數據分析！");
-        return;
-    }
-    
     setAnalysisStep('analyzing_ai');
 
-    // 優化 Prompt：去除冗言贅字，直接給予指令與 JSON
-    // 這大約可以節省 20-30 tokens
+    // 傳送給 AI 的是「修正後」的 metrics
     const prompt = `
-      任務：健身動作分析
-      動作：${mode === 'bench' ? '臥推' : '跑步'}
-      數據：${JSON.stringify(metrics)}
+      角色：專業生物力學分析師與跑步教練。
+      任務：分析以下「${mode === 'bench' ? '臥推' : '跑步'}」數據。
+      注意：這些數據已經過使用者校正(例如手錶實測)。
       
-      請回覆 JSON 格式：
-      {
-        "score": "1-10分",
-        "suggestion": "針對warning項目的簡短建議(50字內)",
-        "tip": "一個修正技巧(20字內)"
-      }
-      不需Markdown，直接JSON。
+      [數據]
+      ${JSON.stringify(metrics)}
+      
+      請給出：
+      1. 評分 (1-10)。
+      2. 針對數據的具體優化建議 (例如：如果步頻 182 很棒，請給予肯定；如果垂直振幅過高，給予修正技巧)。
+      3. 一個立即可用的訓練意象 (Cue)。
+      
+      回答限制：繁體中文，專業且精簡，200字內。
     `;
 
     try {
-        const responseText = await runGemini(prompt, apiKey);
-        
-        // 嘗試解析 JSON，如果 AI 還是回傳了文字，則直接顯示
-        let feedbackDisplay = responseText;
-        try {
-            // 清理可能存在的 markdown code block
-            const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const result = JSON.parse(cleanJson);
-            feedbackDisplay = `評分: ${result.score}/10\n建議: ${result.suggestion}\n技巧: ${result.tip}`;
-        } catch (e) {
-            // 解析失敗就顯示原始文字
-            feedbackDisplay = responseText;
-        }
-
-        setAiFeedback(feedbackDisplay);
+        const response = await runGemini(prompt, apiKey);
+        setAiFeedback(response);
         setAnalysisStep('ai_complete');
     } catch (error) {
         console.error(error);
-        setAiFeedback("連線錯誤或 API Key 無效。");
+        setAiFeedback("連線逾時或 API Key 無效，無法取得 AI 建議。");
         setAnalysisStep('internal_complete');
     }
   };
 
-  // 儲存分析結果 (支援第一階段或第二階段儲存)
   const saveToCalendar = async () => {
     const user = auth.currentUser;
     if (!user) {
@@ -123,19 +122,13 @@ export default function AnalysisView() {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
 
-        // 判斷是否有 AI 建議，決定標題和內容
-        const hasAI = !!aiFeedback;
-        const titleSuffix = hasAI ? 'AI 分析報告' : '自動分析數據';
-        const feedbackContent = hasAI ? aiFeedback : '僅包含基礎數據分析，未進行 AI 診斷。';
-
-        // 準備分析紀錄
         const analysisEntry = {
-            id: Date.now().toString(), // 獨特 ID
-            type: 'analysis', // 特殊類型
-            title: mode === 'bench' ? `臥推 ${titleSuffix}` : `跑步 ${titleSuffix}`,
-            feedback: feedbackContent, // 保存建議 (AI 或 預設)
-            metrics: metrics,     // 保存原始數據
-            score: metrics?.stability?.value || 'N/A', // 簡易分數
+            id: Date.now().toString(),
+            type: 'analysis',
+            title: mode === 'bench' ? '臥推 AI 分析報告' : '跑步 AI 分析報告',
+            feedback: aiFeedback,
+            metrics: metrics,     
+            score: '已分析', 
             createdAt: now.toISOString()
         };
 
@@ -155,7 +148,7 @@ export default function AnalysisView() {
             newData = {
                 date: dateStr,
                 status: 'completed',
-                type: 'strength', // 預設容器類型
+                type: 'strength', 
                 title: '今日訓練與分析',
                 exercises: [analysisEntry],
                 updatedAt: now.toISOString()
@@ -163,7 +156,7 @@ export default function AnalysisView() {
         }
 
         await setDoc(docRef, newData);
-        alert(`分析結果已上傳！${hasAI ? '包含 AI 建議。' : '僅包含數據。'}`);
+        alert("分析報告已上傳！請前往儀表板查看綜合建議。");
 
     } catch (error) {
         console.error("儲存失敗:", error);
@@ -188,7 +181,7 @@ export default function AnalysisView() {
     <div className="space-y-6 animate-fadeIn">
       <input 
         type="file" 
-        ref={fileInputRef}
+        ref={fileInputRef} 
         onChange={handleFileChange}
         accept="video/*" 
         className="hidden" 
@@ -198,9 +191,9 @@ export default function AnalysisView() {
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Camera className="text-blue-500" />
-          AI 動作分析
-          <span className="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-1 rounded border border-gray-700">
-            兩階段省流模式
+          動作分析校正
+          <span className="text-xs font-normal text-gray-400 bg-gray-800 px-2 py-1 rounded border border-gray-700">
+            人機協作模式
           </span>
         </h1>
         
@@ -234,7 +227,7 @@ export default function AnalysisView() {
             {analysisStep === 'analyzing_internal' && (
               <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
                 <Cpu size={48} className="text-blue-500 animate-pulse mb-4" />
-                <p className="text-blue-400 font-mono">正在提取骨架節點 (本機運算)...</p>
+                <p className="text-blue-400 font-mono">正在提取骨架節點...</p>
                 <div className="w-48 h-1 bg-gray-700 rounded-full mt-4 overflow-hidden">
                   <div className="h-full bg-blue-500 animate-progress"></div>
                 </div>
@@ -244,7 +237,7 @@ export default function AnalysisView() {
             {analysisStep === 'analyzing_ai' && (
               <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
                 <BrainCircuit size={48} className="text-purple-500 animate-pulse mb-4" />
-                <p className="text-purple-400 font-mono">AI 正在思考改善建議 (雲端運算)...</p>
+                <p className="text-purple-400 font-mono">AI 正在根據您的數據進行診斷...</p>
               </div>
             )}
 
@@ -282,7 +275,7 @@ export default function AnalysisView() {
                   className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
                 >
                   <Cpu size={20} />
-                  第一階段：數據分析
+                  第一階段：初步分析
                 </button>
               </>
             )}
@@ -299,19 +292,18 @@ export default function AnalysisView() {
                       className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all hover:scale-105 animate-pulse-slow"
                     >
                       <Sparkles size={20} />
-                      第二階段：AI 教練建議
+                      第二階段：AI 診斷
                     </button>
                  )}
 
-                 {/* 儲存按鈕：只要有數據 (Metrics) 即可顯示 */}
-                 {metrics && (
+                 {analysisStep === 'ai_complete' && (
                     <button 
                         onClick={saveToCalendar}
                         disabled={isSaving}
                         className="flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all hover:scale-105"
                     >
                         {isSaving ? <CheckCircle className="animate-spin" size={20} /> : <Save size={20} />}
-                        {aiFeedback ? '儲存完整報告' : '儲存分析數據'}
+                        儲存報告
                     </button>
                  )}
                </div>
@@ -319,24 +311,50 @@ export default function AnalysisView() {
           </div>
         </div>
 
-        {/* 右側：數據面板 */}
+        {/* 右側：數據面板 (可編輯) */}
         <div className="space-y-4">
           <div className={`bg-gray-800 rounded-xl border border-gray-700 p-5 transition-all duration-500 ${metrics ? 'opacity-100 translate-x-0' : 'opacity-50 translate-x-4'}`}>
-            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-              <Activity size={18} className="text-blue-400" />
-              生物力學數據
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                <Activity size={18} className="text-blue-400" />
+                分析數據 (可點擊修正)
+                </h3>
+                {analysisStep === 'internal_complete' && (
+                    <span className="text-[10px] text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20 flex items-center gap-1">
+                        <Edit2 size={10} /> 若不準請手動修改
+                    </span>
+                )}
+            </div>
             
             {metrics ? (
               <div className="space-y-4">
-                {Object.values(metrics).map((metric, idx) => (
-                    <MetricItem 
-                        key={idx}
-                        label={metric.label} 
-                        value={metric.value} 
-                        status={metric.status} 
-                        hint={metric.hint} 
-                    />
+                {Object.entries(metrics).map(([key, metric]) => (
+                    <div key={key} className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 hover:border-blue-500 transition-colors group">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-gray-400 text-sm">{metric.label}</span>
+                            <div className="flex items-center gap-1">
+                                <input 
+                                    type="text"
+                                    value={metric.value}
+                                    onChange={(e) => updateMetric(key, e.target.value)}
+                                    className={`bg-transparent text-right font-bold w-16 outline-none border-b border-dashed border-gray-600 focus:border-blue-500 transition-colors ${
+                                        metric.status === 'good' ? 'text-green-400' : 'text-yellow-400'
+                                    }`}
+                                />
+                                <span className="text-xs text-gray-500">{metric.unit}</span>
+                            </div>
+                        </div>
+                        {/* 狀態條 */}
+                        <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden mb-1">
+                            <div 
+                                className={`h-full rounded-full transition-all duration-500 ${metric.status === 'good' ? 'bg-green-500' : 'bg-yellow-500'}`} 
+                                style={{ width: metric.status === 'good' ? '100%' : '60%' }}
+                            ></div>
+                        </div>
+                        {metric.hint && (
+                            <span className="text-[10px] text-gray-500 block">{metric.hint}</span>
+                        )}
+                    </div>
                 ))}
               </div>
             ) : (
@@ -352,7 +370,7 @@ export default function AnalysisView() {
               <>
                 <h3 className="text-white font-bold mb-3 flex items-center gap-2">
                   <Sparkles size={18} className="text-yellow-400" />
-                  AI 教練建議
+                  AI 教練診斷
                 </h3>
                 <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar">
                   {aiFeedback}
@@ -360,8 +378,10 @@ export default function AnalysisView() {
               </>
             ) : (
                metrics && analysisStep !== 'analyzing_ai' && (
-                <div className="text-center py-4">
-                    <p className="text-gray-500 text-[10px]">點擊第二階段按鈕取得建議</p>
+                <div className="text-center py-4 bg-gray-800/30 rounded-lg">
+                    <AlertCircle size={24} className="mx-auto text-purple-400 mb-2 opacity-50" />
+                    <p className="text-purple-200 text-xs mb-1">確認上方數據無誤後</p>
+                    <p className="text-gray-500 text-[10px]">點擊「第二階段」取得準確建議</p>
                 </div>
                )
             )}
@@ -371,23 +391,3 @@ export default function AnalysisView() {
     </div>
   );
 }
-
-const MetricItem = ({ label, value, status, hint }) => (
-  <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex flex-col gap-1">
-    <div className="flex justify-between items-center">
-      <span className="text-gray-400 text-sm">{label}</span>
-      <span className={`font-bold ${status === 'good' ? 'text-green-400' : 'text-yellow-400'}`}>
-        {value}
-      </span>
-    </div>
-    <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
-      <div 
-        className={`h-full rounded-full transition-all duration-1000 ${status === 'good' ? 'bg-green-500' : 'bg-yellow-500'}`} 
-        style={{ width: status === 'good' ? '100%' : '60%' }}
-      ></div>
-    </div>
-    {hint && (
-      <span className="text-[10px] text-gray-400 mt-1">{hint}</span>
-    )}
-  </div>
-);

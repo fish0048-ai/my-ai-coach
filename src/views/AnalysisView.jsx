@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Camera, Activity, Play, RotateCcw, CheckCircle, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, Activity, Play, RotateCcw, CheckCircle, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
@@ -8,14 +8,135 @@ export default function AnalysisView() {
   const [mode, setMode] = useState('bench'); // 'bench' | 'run'
   const [videoFile, setVideoFile] = useState(null);
   const fileInputRef = useRef(null);
+  const canvasRef = useRef(null); // 新增：Canvas 參照
 
   // 狀態機：idle -> analyzing_internal -> internal_complete -> analyzing_ai -> ai_complete
   const [analysisStep, setAnalysisStep] = useState('idle');
+  const [showSkeleton, setShowSkeleton] = useState(true); // 新增：控制是否顯示骨架
   
   // 儲存數據 (改為可編輯狀態)
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- 骨架繪製邏輯 ---
+  useEffect(() => {
+    let animationFrameId;
+    
+    const draw = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || !showSkeleton || !videoFile) return;
+      
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      const time = Date.now() / 1000; // 用於動畫的時間參數
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // 定義繪製節點的輔助函式
+      const drawPoint = (x, y, color = '#3b82f6') => {
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+      };
+
+      const drawBone = (x1, y1, x2, y2, color = 'rgba(59, 130, 246, 0.8)') => {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      };
+
+      // 根據模式產生骨架座標 (模擬)
+      let joints = {};
+
+      if (mode === 'bench') {
+        // 臥推姿勢 (側面/斜側面)
+        // 模擬推舉動作：手臂位置隨時間上下移動
+        const liftPhase = Math.sin(time * 2); // -1 to 1
+        const armY = 150 + liftPhase * 30; 
+
+        joints = {
+            head: { x: width * 0.3, y: height * 0.4 },
+            neck: { x: width * 0.35, y: height * 0.45 },
+            shoulder: { x: width * 0.4, y: height * 0.5 },
+            elbow: { x: width * 0.5, y: armY }, // 手肘動態
+            wrist: { x: width * 0.55, y: armY - 40 }, // 手腕跟隨
+            hip: { x: width * 0.5, y: height * 0.6 },
+            knee: { x: width * 0.7, y: height * 0.55 },
+            ankle: { x: width * 0.8, y: height * 0.7 }
+        };
+      } else {
+        // 跑步姿勢 (側面)
+        // 模擬跑步擺動
+        const legPhase = Math.sin(time * 5);
+        
+        joints = {
+            head: { x: width * 0.5, y: height * 0.2 },
+            neck: { x: width * 0.5, y: height * 0.25 },
+            shoulder: { x: width * 0.5, y: height * 0.3 },
+            elbow: { x: width * 0.55 + legPhase * 10, y: height * 0.45 }, // 手臂擺動
+            wrist: { x: width * 0.6 + legPhase * 20, y: height * 0.4 },
+            hip: { x: width * 0.5, y: height * 0.5 },
+            // 左腳 (支撐/擺盪)
+            kneeL: { x: width * 0.5 + legPhase * 20, y: height * 0.7 },
+            ankleL: { x: width * 0.5 + legPhase * 40, y: height * 0.9 },
+            // 右腳 (反向)
+            kneeR: { x: width * 0.5 - legPhase * 20, y: height * 0.65 },
+            ankleR: { x: width * 0.45 - legPhase * 30, y: height * 0.85 }
+        };
+      }
+
+      // 繪製骨骼連線
+      if (mode === 'bench') {
+          drawBone(joints.head.x, joints.head.y, joints.neck.x, joints.neck.y);
+          drawBone(joints.neck.x, joints.neck.y, joints.shoulder.x, joints.shoulder.y);
+          drawBone(joints.shoulder.x, joints.shoulder.y, joints.elbow.x, joints.elbow.y);
+          drawBone(joints.elbow.x, joints.elbow.y, joints.wrist.x, joints.wrist.y);
+          drawBone(joints.neck.x, joints.neck.y, joints.hip.x, joints.hip.y);
+          drawBone(joints.hip.x, joints.hip.y, joints.knee.x, joints.knee.y);
+          drawBone(joints.knee.x, joints.knee.y, joints.ankle.x, joints.ankle.y);
+      } else {
+          drawBone(joints.head.x, joints.head.y, joints.neck.x, joints.neck.y);
+          drawBone(joints.neck.x, joints.neck.y, joints.shoulder.x, joints.shoulder.y);
+          drawBone(joints.shoulder.x, joints.shoulder.y, joints.elbow.x, joints.elbow.y);
+          drawBone(joints.elbow.x, joints.elbow.y, joints.wrist.x, joints.wrist.y);
+          drawBone(joints.neck.x, joints.neck.y, joints.hip.x, joints.hip.y);
+          // Left Leg
+          drawBone(joints.hip.x, joints.hip.y, joints.kneeL.x, joints.kneeL.y, '#3b82f6');
+          drawBone(joints.kneeL.x, joints.kneeL.y, joints.ankleL.x, joints.ankleL.y, '#3b82f6');
+          // Right Leg
+          drawBone(joints.hip.x, joints.hip.y, joints.kneeR.x, joints.kneeR.y, '#10b981'); // 綠色區分右腳
+          drawBone(joints.kneeR.x, joints.kneeR.y, joints.ankleR.x, joints.ankleR.y, '#10b981');
+      }
+
+      // 繪製節點 (最後畫，蓋在線上)
+      Object.values(joints).forEach(j => drawPoint(j.x, j.y, analysisStep === 'analyzing_internal' ? '#fbbf24' : '#ef4444'));
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    if (showSkeleton && videoFile) {
+        draw();
+    } else {
+        // 清空 Canvas
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [showSkeleton, videoFile, mode, analysisStep]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -35,17 +156,15 @@ export default function AnalysisView() {
         const newMetrics = { ...prev };
         newMetrics[key] = { ...newMetrics[key], value: newValue };
         
-        // 動態狀態判斷邏輯 (根據業界標準)
         if (key === 'cadence') {
             const val = parseInt(newValue);
             newMetrics[key].status = val >= 170 ? 'good' : 'warning';
         }
         if (key === 'verticalRatio') {
             const val = parseFloat(newValue);
-            newMetrics[key].status = val <= 8.0 ? 'good' : 'warning'; // 優秀跑者通常 < 8%
+            newMetrics[key].status = val <= 8.0 ? 'good' : 'warning';
         }
         if (key === 'balance') {
-            // 檢查是否接近 50/50
             const left = parseFloat(newValue.split('/')[0]) || 50;
             const diff = Math.abs(left - 50);
             newMetrics[key].status = diff <= 1.5 ? 'good' : 'warning';
@@ -62,7 +181,7 @@ export default function AnalysisView() {
     }
     setAnalysisStep('analyzing_internal');
     
-    // 模擬電腦視覺運算 (提供初步估算值，鼓勵使用者根據穿戴裝置修正)
+    // 模擬電腦視覺運算
     setTimeout(() => {
       const result = mode === 'bench' ? {
           trajectory: { label: '槓鈴軌跡', value: '垂直', unit: '', status: 'good', icon: Activity },
@@ -70,7 +189,6 @@ export default function AnalysisView() {
           elbowAngle: { label: '手肘角度', value: '78', unit: '°', status: 'warning', hint: '建議收至 45-75°', icon: Ruler },
           stability: { label: '推舉穩定度', value: '92', unit: '%', status: 'good', icon: Scale }
       } : {
-          // 跑步進階指標 (Garmin/Coros 標準)
           cadence: { label: '步頻 (Cadence)', value: '165', unit: 'spm', status: 'warning', hint: '目標: 170+ spm', icon: Activity },
           strideLength: { label: '步幅 (Stride)', value: '1.10', unit: 'm', status: 'good', hint: '依身高而定', icon: Ruler },
           verticalOscillation: { label: '垂直振幅', value: '9.8', unit: 'cm', status: 'warning', hint: '越低越省力', icon: MoveVertical },
@@ -81,7 +199,7 @@ export default function AnalysisView() {
       
       setMetrics(result);
       setAnalysisStep('internal_complete');
-    }, 2000);
+    }, 2500); // 稍微延長時間讓使用者看到骨架掃描效果
   };
 
   const performAIAnalysis = async () => {
@@ -93,9 +211,8 @@ export default function AnalysisView() {
     
     setAnalysisStep('analyzing_ai');
 
-    // 傳送給 AI 的是「修正後」的 metrics
     const prompt = `
-      角色：專業生物力學分析師與跑步教練 (Garmin Running Dynamics 專家)。
+      角色：專業生物力學分析師與跑步教練。
       任務：分析以下「${mode === 'bench' ? '臥推' : '跑步'}」數據。
       注意：這些數據已經過使用者校正 (Data Validated)。
       
@@ -104,11 +221,11 @@ export default function AnalysisView() {
       
       請提供專業診斷：
       1. **總體評分** (1-10分，請嚴格給分)。
-      2. **關鍵問題**：針對 "warning" 的項目 (如移動參數、垂直振幅)，解釋其物理意義與影響 (例如：垂直振幅過高代表推蹬過度，浪費能量)。
-      3. **修正訓練**：給出一個具體的 Drill (例如：A字跳、高步頻小碎步) 來改善上述問題。
-      4. **受傷風險評估**：根據觸地平衡與觸地時間，評估潛在風險。
+      2. **關鍵問題**：針對 "warning" 的項目，解釋其物理意義與影響。
+      3. **修正訓練**：給出一個具體的 Drill 來改善上述問題。
+      4. **受傷風險評估**：根據數據評估潛在風險。
       
-      回答限制：繁體中文，專業術語請保留英文 (如 Vertical Ratio)，250字內。
+      回答限制：繁體中文，專業術語請保留英文，250字內。
     `;
 
     try {
@@ -137,7 +254,7 @@ export default function AnalysisView() {
         const analysisEntry = {
             id: Date.now().toString(),
             type: 'analysis',
-            title: mode === 'bench' ? '臥推 AI 分析報告' : '跑步跑姿分析 (Running Dynamics)',
+            title: mode === 'bench' ? '臥推 AI 分析報告' : '跑步跑姿分析',
             feedback: aiFeedback,
             metrics: metrics,     
             score: '已分析', 
@@ -209,23 +326,36 @@ export default function AnalysisView() {
           </span>
         </h1>
         
-        <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
-          <button 
-            onClick={() => { setMode('bench'); clearAll(); }}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              mode === 'bench' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            臥推分析
-          </button>
-          <button 
-            onClick={() => { setMode('run'); clearAll(); }}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              mode === 'run' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            跑步姿勢
-          </button>
+        <div className="flex items-center gap-4">
+            {/* 骨架顯示開關 */}
+            {videoFile && (
+                <button
+                    onClick={() => setShowSkeleton(!showSkeleton)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border transition-all ${showSkeleton ? 'bg-purple-600/20 text-purple-300 border-purple-500/50' : 'bg-gray-800 text-gray-400 border-gray-700'}`}
+                >
+                    {showSkeleton ? <Eye size={16}/> : <EyeOff size={16}/>}
+                    {showSkeleton ? '顯示骨架' : '隱藏骨架'}
+                </button>
+            )}
+
+            <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
+            <button 
+                onClick={() => { setMode('bench'); clearAll(); }}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                mode === 'bench' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                }`}
+            >
+                臥推分析
+            </button>
+            <button 
+                onClick={() => { setMode('run'); clearAll(); }}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                mode === 'run' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                }`}
+            >
+                跑步姿勢
+            </button>
+            </div>
         </div>
       </div>
 
@@ -236,18 +366,26 @@ export default function AnalysisView() {
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
             onClick={!videoFile ? handleUploadClick : undefined}
           >
+            {/* 骨架 Canvas 層 (絕對定位覆蓋在影片上) */}
+            <canvas 
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full pointer-events-none z-10"
+                width={800} // 設定渲染解析度
+                height={450}
+            />
+
+            {/* 分析中的遮罩 (改為半透明，讓使用者看到骨架) */}
             {analysisStep === 'analyzing_internal' && (
-              <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
-                <Cpu size={48} className="text-blue-500 animate-pulse mb-4" />
-                <p className="text-blue-400 font-mono">正在計算動態參數 (Vertical Ratio)...</p>
-                <div className="w-48 h-1 bg-gray-700 rounded-full mt-4 overflow-hidden">
-                  <div className="h-full bg-blue-500 animate-progress"></div>
-                </div>
+              <div className="absolute top-4 left-0 right-0 flex justify-center z-20 pointer-events-none">
+                  <div className="bg-gray-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-blue-500/50 flex items-center gap-2 shadow-xl animate-bounce">
+                    <Cpu size={16} className="text-blue-400 animate-spin" />
+                    <span className="text-blue-200 text-xs font-mono">正在提取關鍵點...</span>
+                  </div>
               </div>
             )}
 
             {analysisStep === 'analyzing_ai' && (
-              <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
+               <div className="absolute inset-0 bg-gray-900/80 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
                 <BrainCircuit size={48} className="text-purple-500 animate-pulse mb-4" />
                 <p className="text-purple-400 font-mono">AI 正在進行力學診斷...</p>
               </div>
@@ -361,7 +499,6 @@ export default function AnalysisView() {
                                     <span className="text-xs text-gray-500 w-6">{metric.unit}</span>
                                 </div>
                             </div>
-                            {/* 狀態條 */}
                             <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden mb-1">
                                 <div 
                                     className={`h-full rounded-full transition-all duration-500 ${metric.status === 'good' ? 'bg-green-500' : 'bg-yellow-500'}`} 

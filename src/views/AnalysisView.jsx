@@ -23,14 +23,14 @@ export default function AnalysisView() {
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
   const [showSkeleton, setShowSkeleton] = useState(true);
-  const [showIdealForm, setShowIdealForm] = useState(false); // 新增：顯示理想送髖模擬
+  const [showIdealForm, setShowIdealForm] = useState(false); // 控制理想跑姿顯示
   
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [poseModel, setPoseModel] = useState(null); 
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
-  const [hipExtensionAngle, setHipExtensionAngle] = useState(0); // 新增：即時送髖角度
+  const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
 
   // --- 初始化 MediaPipe Pose ---
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function AnalysisView() {
     };
   }, []);
 
-  // --- 計算角度輔助函式 (3點) ---
+  // --- 計算角度輔助函式 ---
   const calculateAngle = (a, b, c) => {
     if (!a || !b || !c) return 0;
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
@@ -65,51 +65,60 @@ export default function AnalysisView() {
     return Math.round(angle);
   };
 
-  // --- 計算送髖角度 (Hip Extension) ---
-  // 定義：軀幹線 (肩-髖) 與 大腿線 (髖-膝) 的夾角減去 180
-  // 正值代表後伸 (Extension)，負值代表屈曲 (Flexion)
-  const calculateHipExtension = (shoulder, hip, knee) => {
-    if (!shoulder || !hip || !knee) return 0;
-    // 這裡我們計算 軀幹向量 與 大腿向量 的夾角
-    // 為了簡化，直接算三點角度，然後看是否大於 170 (容許一點誤差視為直立)
-    const angle = calculateAngle(shoulder, hip, knee);
-    // 如果角度是 170，代表微彎。如果是 190 (MediaPipe return absolute, so it's tricky)
-    // 簡化邏輯：MediaPipe 2D 側面看，完全直立約 180。送髖時腿在身後，視覺角度會變小或變大取決於方向
-    // 這裡我們改用垂直線參考：
-    // 1. 髖-膝 向量 與 垂直線 的夾角
-    const hipKneeAngle = Math.atan2(knee.x - hip.x, knee.y - hip.y) * 180 / Math.PI;
-    // 2. 假設向後為正 (送髖)
-    // 當跑者面向右時 (x 增加)，後腳在左 (x 減少)
-    // 簡單判定：只要膝蓋 X 在 髖關節 X 的「後方」，就是 Extension
-    // 但因為不知道跑者朝向，我們取絕對值偏移量來估算程度
-    return angle; // 暫時回傳原始角度供除錯，後續在 processScanData 做精確運算
-  };
-
-  // --- 繪製理想跑姿 (Ghost Overlay) ---
-  const drawIdealHipDrive = (ctx, hip, knee, ankle, height) => {
+  // --- 繪製理想跑姿 (新版：更明顯的扇形區域) ---
+  const drawIdealHipDrive = (ctx, hip) => {
       if (!hip) return;
       
-      // 模擬一個理想的後腿位置 (假設送髖 15-20度)
-      // 這裡簡單模擬：以髖為圓心，向後延伸
-      // 假設跑者高度 height，腿長約 0.5 * height
-      const legLen = height * 0.5; // 估算
+      const w = ctx.canvas.width;
+      const h = ctx.canvas.height;
+      const hipX = hip.x * w;
+      const hipY = hip.y * h;
       
-      ctx.save();
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)'; // 綠色半透明
-      ctx.lineWidth = 4;
-      ctx.setLineDash([5, 5]); // 虛線
+      // 腿長估算 (畫面高度的 35%)
+      const len = h * 0.35; 
 
-      // 畫出「理想後腳」示意線 (誇張一點的角度)
-      // 這裡需要判斷跑者朝向，簡單起見我們畫兩邊或畫一個圓弧範圍
+      ctx.save();
+      ctx.translate(hipX, hipY);
+      
+      // 1. 垂直參考線 (白色虛線)
       ctx.beginPath();
-      ctx.arc(hip.x * ctx.canvas.width, hip.y * ctx.canvas.height, legLen * 0.3 * ctx.canvas.height, 0, Math.PI, false); 
-      // 這只是個示意範圍，更精確的做法需要 3D 姿態估計
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, len);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 畫文字
-      ctx.fillStyle = '#22c55e';
-      ctx.font = '16px Arial';
-      ctx.fillText('理想送髖區間 (10°~20°)', (hip.x + 0.1) * ctx.canvas.width, hip.y * ctx.canvas.height);
+      // 2. 理想送髖區間 (綠色扇形)
+      // 畫左右兩邊的 10~25度 扇形，適應不同跑向
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      // 右側扇形 (Math.PI/2 是正下方)
+      ctx.arc(0, 0, len, Math.PI/2 + 10 * Math.PI/180, Math.PI/2 + 25 * Math.PI/180);
+      ctx.lineTo(0, 0);
+      // 左側扇形
+      ctx.arc(0, 0, len, Math.PI/2 - 25 * Math.PI/180, Math.PI/2 - 10 * Math.PI/180);
+      ctx.lineTo(0, 0);
+      
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.3)'; // 半透明綠色填充
+      ctx.fill();
+      
+      ctx.strokeStyle = '#22c55e'; // 綠色邊框
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 3. 文字標示
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText('理想送髖區間', 0, len + 15);
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('(10°~25°)', 0, len + 30);
+
       ctx.restore();
   };
 
@@ -136,6 +145,7 @@ export default function AnalysisView() {
     ctx.clearRect(0, 0, width, height);
     
     if (results.poseLandmarks) {
+        // 1. 繪製骨架
         if (showSkeleton) {
             drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
             drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
@@ -150,25 +160,23 @@ export default function AnalysisView() {
             }
         } else {
             // 跑步模式
-            // 1. 計算膝蓋角度
+            // 計算膝蓋角度
             if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
                 angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
             }
             
-            // 2. 計算送髖 (軀幹 12-24 與 大腿 24-26 的角度)
+            // 計算送髖 (顯示用)
             if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
                 const rawHipAngle = calculateAngle(results.poseLandmarks[12], results.poseLandmarks[24], results.poseLandmarks[26]);
-                // 如果大腿向後伸，角度會大於 180 (視計算方式)，這裡我們取與直立線的偏差
-                // 簡單判斷：直立是 180，後伸是 > 180。我們取 abs(180 - angle)
-                // 這裡僅做即時顯示參考
                 hipExt = Math.max(0, rawHipAngle - 180); 
-                // 若計算方式導致後伸小於180，則用 180 - angle
-                if (rawHipAngle < 160) hipExt = 180 - rawHipAngle; // 這通常是屈髖(抬腿)
+                if (rawHipAngle < 160) hipExt = 180 - rawHipAngle; 
             }
 
-            // 3. 繪製理想送髖模擬 (如果開啟)
+            // 2. 繪製理想送髖模擬 (如果開啟)
             if (showIdealForm) {
-                drawIdealHipDrive(ctx, results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28], 1.0); // 1.0 為比例參考
+                // 傳入右髖 (24) 或 左髖 (23)，通常取靠近鏡頭的一側
+                // 這裡簡單取右髖示範，若要精確需判斷 Z 軸深度
+                drawIdealHipDrive(ctx, results.poseLandmarks[24]); 
             }
         }
         setRealtimeAngle(angle);
@@ -242,7 +250,7 @@ export default function AnalysisView() {
       if (poseModel) poseModel.setOptions({ smoothLandmarks: true });
   };
 
-  // --- 統計分析核心 (加入送髖分析) ---
+  // --- 統計分析核心 ---
   const processScanData = (data) => {
     if (!data || data.length === 0) return null;
 
@@ -275,12 +283,8 @@ export default function AnalysisView() {
             eccentricTime: { label: '離心時間', value: '1.8', unit: 's', status: 'good', icon: Timer },
         };
     } else {
-        // 跑步分析 - 加入送髖計算
-        // 1. 找出最大送髖角度 (Hip Extension)
-        // 遍歷每一幀，計算 (肩12-髖24-膝26) 的角度
         const hipAngles = data.map(d => {
             const lms = d.landmarks;
-            // 右側
             if (lms[12] && lms[24] && lms[26]) {
                 const ang = calculateAngle(lms[12], lms[24], lms[26]);
                 return ang;
@@ -288,23 +292,10 @@ export default function AnalysisView() {
             return 180;
         });
 
-        // 找出最大的伸展角度 (通常 > 180 或接近 180)
-        // 注意：MediaPipe 角度計算取決於三角函數，可能是 170 (微彎) 或 190 (後伸)
-        // 我們假設直立是 180，越大的值(或越偏離180的值)代表後伸越多
-        // 在 calculateAngle 實作中，一直線是 180。
-        // 當腳向後踢，角度應該會變大 (例如 200) 或變小 (例如 160)，視座標系而定
-        // 為了穩健，我們找「偏離 180 最大的值」作為最大後伸量
-        // 但這裡簡化：找最大值
         const maxHipAngle = Math.max(...hipAngles); 
-        // 轉換為「後伸角度」：假設 180 是中立， > 180 是後伸
-        // 若您的計算公式 180 是最大值，則要找最小值
-        // 根據我的 calculateAngle (0-360)，我們取 maxHipAngle - 180
         let hipExtension = Math.max(0, maxHipAngle - 180);
-        // 如果數據都在 180 以下 (例如 160)，可能代表沒送髖或計算方向相反
-        // 這裡做個模擬校正：如果算出來是 0，給個預設值讓使用者改
-        if (hipExtension < 5) hipExtension = 12; // 預設模擬值
+        if (hipExtension < 5) hipExtension = 12; 
 
-        // 2. 步頻
         const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
         let steps = 0;
         const avgY = hipYs.reduce((a,b)=>a+b,0) / hipYs.length;

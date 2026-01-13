@@ -86,7 +86,7 @@ export default function RunAnalysisView() {
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
       
-      // 安全檢查：防止 NaN 導致崩潰
+      // 安全檢查：防止 NaN 導致 Canvas 崩潰
       if (!Number.isFinite(hip.x) || !Number.isFinite(hip.y) || !Number.isFinite(knee.x) || !Number.isFinite(knee.y)) return;
 
       const hipX = hip.x * w;
@@ -100,7 +100,7 @@ export default function RunAnalysisView() {
       // 安全檢查：半徑必須有效
       if (!Number.isFinite(radius) || radius <= 0) return;
 
-      ctx.save(); // 保存當前狀態
+      ctx.save(); 
       try {
           ctx.translate(hipX, hipY);
           
@@ -181,7 +181,7 @@ export default function RunAnalysisView() {
       } catch(err) {
           console.error("Overlay draw error:", err);
       } finally {
-          ctx.restore(); // 確保一定會復原，這是防止黑屏的關鍵
+          ctx.restore(); // 確保一定會復原，防止黑屏
       }
   };
 
@@ -228,7 +228,7 @@ export default function RunAnalysisView() {
                     const shoulder = results.poseLandmarks[12];
                     const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
                     
-                    drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(driveAngle));
+                    drawHipDriveOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(driveAngle));
                 }
             }
             
@@ -266,13 +266,19 @@ export default function RunAnalysisView() {
     for (let t = 0; t <= duration; t += 0.1) {
         if (!isScanningRef.current) break; 
         video.currentTime = t;
-        await new Promise(resolve => {
+        
+        // --- 跳轉超時防護 ---
+        await new Promise((resolve) => {
             const onSeek = () => { 
                 video.removeEventListener('seeked', onSeek); 
+                // 稍微等待渲染
                 setTimeout(resolve, 50); 
             };
             video.addEventListener('seeked', onSeek);
+            // 兜底：如果0.5秒都沒反應，強制繼續，防止卡死
+            setTimeout(onSeek, 500); 
         });
+
         await poseModel.send({ image: video });
         setScanProgress(Math.round((t / duration) * 100));
     }
@@ -494,7 +500,7 @@ export default function RunAnalysisView() {
               </div>
             )}
 
-            {/* 影片播放器 (背景淡化效果) */}
+            {/* 影片播放器 (背景淡化效果 + playsInline) */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -503,6 +509,7 @@ export default function RunAnalysisView() {
                     controls
                     loop
                     muted
+                    playsInline
                     crossOrigin="anonymous"
                     onPlay={onVideoPlay} 
                 />

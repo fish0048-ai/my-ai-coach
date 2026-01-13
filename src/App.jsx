@@ -75,7 +75,7 @@ export default function App() {
     return <LoginView />; 
   }
 
-  // 3. 路由內容渲染邏輯
+  // 3. 路由內容渲染邏輯 (Switch Case)
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':

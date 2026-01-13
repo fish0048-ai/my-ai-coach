@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-// 引入新頁面
+// 引入現有頁面
 import DashboardView from './views/DashboardView.jsx'; 
 import FeatureViews from './views/FeatureViews.jsx'; 
 import CalendarView from './views/CalendarView.jsx';
-import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; // 新增
-import RunAnalysisView from './views/RunAnalysisView.jsx'; // 新增
+import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; 
+import RunAnalysisView from './views/RunAnalysisView.jsx'; 
 import CoachChat from './components/AICoach/CoachChat.jsx';
+// 新增：引入趨勢分析頁面
+import TrendAnalysisView from './views/TrendAnalysisView.jsx';
+
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from './firebase';
 
+// 內建登入畫面元件
 const LoginView = () => {
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
@@ -58,6 +62,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  // 1. 載入中狀態
   if (loading) {
     return (
       <div className="h-screen w-full bg-gray-900 flex items-center justify-center">
@@ -66,23 +71,27 @@ export default function App() {
     );
   }
 
+  // 2. 未登入狀態
   if (!user) {
     return <LoginView />; 
   }
 
+  // 3. 路由內容渲染邏輯 (Switch Case)
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView userData={userData} />;
-      case 'training': // 相容舊連結，導向儀表板
+      case 'training': // 相容舊邏輯，導向儀表板或訓練頁面
         return <DashboardView userData={userData} />; 
       case 'profile':
         return <FeatureViews view="profile" userData={userData} />;
-      // 新增路由
       case 'strength-analysis':
         return <StrengthAnalysisView />;
       case 'run-analysis':
         return <RunAnalysisView />;
+      // 新增：身體數據趨勢路由
+      case 'trend': 
+        return <TrendAnalysisView />;
       case 'calendar': 
         return <CalendarView />;
       default:

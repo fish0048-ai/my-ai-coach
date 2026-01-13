@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-// 新增 BookOpen 圖示
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
@@ -20,15 +19,25 @@ export default function RunAnalysisView() {
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
+  // 狀態
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [showIdealForm, setShowIdealForm] = useState(false);
+  
+  // 使用 Ref 解決 MediaPipe 閉包問題
+  const showSkeletonRef = useRef(true);
+  const showIdealFormRef = useRef(false);
+
+  useEffect(() => {
+    showSkeletonRef.current = showSkeleton;
+    showIdealFormRef.current = showIdealForm;
+  }, [showSkeleton, showIdealForm]);
   
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [poseModel, setPoseModel] = useState(null); 
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
-  const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
+  const [hipDriveAngle, setHipDriveAngle] = useState(0); 
 
   useEffect(() => {
     const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
@@ -53,29 +62,45 @@ export default function RunAnalysisView() {
     return Math.round(angle);
   };
 
-  const calculateRealHipExtension = (landmarks) => {
+  // --- 計算送髖 (Forward Drive / Hip Flexion) ---
+  // 定義：骨盆前傾帶動大腿向前抬起
+  // 計算方式：當大腿在軀幹前方時，計算屈髖角度 (180 - 夾角)
+  const calculateHipDrive = (landmarks) => {
       if (!landmarks) return 0;
       const nose = landmarks[0];
-      const shoulder = landmarks[12];
-      const hip = landmarks[24];
-      const knee = landmarks[26];
+      const shoulder = landmarks[12]; // 右肩
+      const hip = landmarks[24];      // 右髖
+      const knee = landmarks[26];     // 右膝
+
       if (!nose || !shoulder || !hip || !knee) return 0;
+
+      // 1. 判斷跑向
       const isFacingRight = nose.x > shoulder.x;
-      const isLegBehind = isFacingRight ? (knee.x < hip.x) : (knee.x > hip.x);
-      if (isLegBehind) {
+
+      // 2. 判斷腿是否在 "前方" (Forward Phase)
+      // 向右跑: 膝蓋 X > 臀部 X (右邊)
+      // 向左跑: 膝蓋 X < 臀部 X (左邊)
+      const isLegInFront = isFacingRight ? (knee.x > hip.x) : (knee.x < hip.x);
+
+      if (isLegInFront) {
           const angle = calculateAngle(shoulder, hip, knee);
+          // 直立是 180，前抬會讓角度變小
+          // Drive 角度 = 180 - 夾角
           return Math.max(0, 180 - angle);
       }
-      return 0; 
+      
+      return 0; // 腿在後擺階段，前抬角度為 0
   };
 
-  const drawHipAnalysisOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
+  // --- 繪製理想送髖區間 (修正為前方扇形) ---
+  const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
       
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
       const hipX = hip.x * w;
       const hipY = hip.y * h;
+      
       const kneeX = knee.x * w;
       const kneeY = knee.y * h;
       const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
@@ -89,6 +114,7 @@ export default function RunAnalysisView() {
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
+      // 1. 垂直參考線
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(0, radius);
@@ -97,22 +123,33 @@ export default function RunAnalysisView() {
       ctx.lineWidth = 2;
       ctx.stroke();
 
+      // 2. 理想前擺/送髖區間 (扇形)
       ctx.beginPath();
       ctx.moveTo(0, 0);
       
-      const startAngle = Math.PI/2; 
-      const minExt = 10 * Math.PI/180; 
-      const maxExt = 25 * Math.PI/180; 
-      const isGood = currentAngle >= 10;
+      const startAngle = Math.PI/2; // 垂直向下
+      // 設定目標區間：前抬 20度 ~ 60度 (視配速而定，一般慢跑約20-30，快跑>45)
+      const minDrive = 20 * Math.PI/180; 
+      const maxDrive = 60 * Math.PI/180; 
+      
+      // 判斷是否在有效推進區間 (>15度)
+      const isGood = currentAngle >= 20;
 
       if (isFacingRight) {
-          ctx.arc(0, 0, radius, startAngle + minExt, startAngle + maxExt);
+          // 向右跑，前腳在右 (順時針 from down) -> 角度減少? No.
+          // Right is 0, Down is PI/2.
+          // Forward (Right) is towards 0.
+          // So we subtract angle from PI/2
+          ctx.arc(0, 0, radius, startAngle - maxDrive, startAngle - minDrive);
       } else {
-          ctx.arc(0, 0, radius, startAngle - maxExt, startAngle - minExt);
+          // 向左跑，前腳在左 (逆時針 from down) -> 角度增加
+          // Left is PI. Down is PI/2.
+          // Forward (Left) is towards PI.
+          ctx.arc(0, 0, radius, startAngle + minDrive, startAngle + maxDrive);
       }
 
       ctx.lineTo(0, 0);
-      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.4)'; 
+      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.3)'; 
       ctx.fill();
       
       ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
@@ -120,6 +157,7 @@ export default function RunAnalysisView() {
       ctx.lineWidth = 3; 
       ctx.stroke();
 
+      // 3. 繪製當前大腿向量
       const vecX = (knee.x * w) - hipX;
       const vecY = (knee.y * h) - hipY;
       
@@ -131,8 +169,10 @@ export default function RunAnalysisView() {
       ctx.lineCap = 'round';
       ctx.stroke();
 
+      // 4. 浮動標籤
       const labelDist = radius + 30;
-      const labelAngle = isFacingRight ? (Math.PI/2 + 18*Math.PI/180) : (Math.PI/2 - 18*Math.PI/180);
+      // 標籤位置計算
+      const labelAngle = isFacingRight ? (Math.PI/2 - 40*Math.PI/180) : (Math.PI/2 + 40*Math.PI/180);
       const labelX = Math.cos(labelAngle) * labelDist;
       const labelY = Math.sin(labelAngle) * labelDist;
 
@@ -141,19 +181,20 @@ export default function RunAnalysisView() {
       
       if (isGood) {
           ctx.fillStyle = '#fbbf24'; 
-          ctx.fillText(`Good! ${currentAngle}°`, labelX, labelY);
+          ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
       } else {
           ctx.fillStyle = '#ef4444'; 
           ctx.fillText(`${currentAngle}°`, labelX, labelY);
           ctx.font = '12px sans-serif';
           ctx.fillStyle = '#4ade80';
-          ctx.fillText(`目標 >10°`, labelX, labelY + 16);
+          ctx.fillText(`目標 20°-60°`, labelX, labelY + 16);
       }
 
       ctx.restore();
   };
 
   const onPoseResults = (results) => {
+    // 掃描模式下依然繪圖
     if (isScanningRef.current) {
         if (results.poseLandmarks) {
             fullScanDataRef.current.push({
@@ -176,37 +217,31 @@ export default function RunAnalysisView() {
         }
 
         let angle = 0;
-        let hipExt = 0;
+        let driveAngle = 0;
         
+        // 膝蓋角度
         if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
             angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
         }
         
+        // 計算送髖 (前擺)
         if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
-            hipExt = calculateRealHipExtension(results.poseLandmarks);
+            driveAngle = calculateHipDrive(results.poseLandmarks);
             
             if (showIdealFormRef.current) {
                 const nose = results.poseLandmarks[0];
                 const shoulder = results.poseLandmarks[12];
                 const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-                drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
+                // 傳入右腿數據進行視覺化 (假設右側面對)
+                drawHipDriveOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(driveAngle));
             }
         }
         
-        setHipExtensionAngle(Math.round(hipExt));
+        setHipExtensionAngle(Math.round(driveAngle));
         setRealtimeAngle(angle);
     }
     ctx.restore();
   };
-
-  // --- 解決閉包問題的 Refs ---
-  const showSkeletonRef = useRef(true);
-  const showIdealFormRef = useRef(false);
-
-  useEffect(() => {
-    showSkeletonRef.current = showSkeleton;
-    showIdealFormRef.current = showIdealForm;
-  }, [showSkeleton, showIdealForm]);
 
   const startFullVideoScan = async () => {
     const video = videoRef.current;
@@ -255,8 +290,9 @@ export default function RunAnalysisView() {
   const processScanData = (data) => {
     if (!data || data.length === 0) return null;
     
-    const hipExtensions = data.map(d => calculateRealHipExtension(d.landmarks));
-    const maxHipExt = Math.max(...hipExtensions);
+    // 計算最大送髖 (前擺) 角度
+    const hipDrives = data.map(d => calculateHipDrive(d.landmarks));
+    const maxHipDrive = Math.max(...hipDrives);
 
     const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
     let steps = 0;
@@ -269,7 +305,7 @@ export default function RunAnalysisView() {
     const safeCadence = cadence > 100 && cadence < 250 ? cadence : 170;
 
     return {
-        hipExtension: { label: '最大送髖角度', value: maxHipExt.toFixed(1), unit: '°', status: maxHipExt >= 10 ? 'good' : 'warning', hint: '目標: 10-20°', icon: Zap },
+        hipDrive: { label: '最大送髖(前擺)', value: maxHipDrive.toFixed(1), unit: '°', status: maxHipDrive >= 20 ? 'good' : 'warning', hint: '目標: >20° (帶動大腿)', icon: Zap },
         cadence: { label: '平均步頻', value: safeCadence.toString(), unit: 'spm', status: safeCadence >= 170 ? 'good' : 'warning', icon: Activity },
         vertOscillation: { label: '垂直振幅', value: '9.2', unit: 'cm', status: 'good', icon: MoveVertical },
         vertRatio: { label: '移動參數', value: '7.8', unit: '%', status: 'good', icon: Activity },
@@ -320,16 +356,17 @@ export default function RunAnalysisView() {
     if (!apiKey) { alert("請先設定 API Key"); return; }
     setAnalysisStep('analyzing_ai');
     
+    // 更新 Prompt 以符合使用者定義
     const prompt = `
       角色：專業生物力學分析師與跑步教練 (專精送髖 Hip Drive)。
       任務：分析以下「跑步」數據。
       數據來源：AI 視覺全影片掃描 (Full Video Analysis)。
       ${JSON.stringify(metrics)}
       
-      特別針對「送髖技術」進行分析：
-      1. **送髖角度評估**：目前的角度是否足夠？(標準約 10-20度)。
-      2. **動力鍊效率**：送髖不足是否導致步頻過快或步幅過小？
-      3. **修正訓練**：請提供 1-2 個針對臀大肌啟動與髖關節伸展的訓練動作。
+      特別針對「送髖技術」進行分析 (定義：骨盆前傾、帶動大腿向前抬起)：
+      1. **前擺角度評估**：目前的抬腿角度是否足夠？(有效前進通常需 >20度)。
+      2. **骨盆連動**：是否有利用骨盆前傾來輔助大腿前擺？還是單純靠股四頭肌？
+      3. **修正訓練**：請提供 1-2 個針對「骨盆活動度」與「髂腰肌/臀肌」的訓練 (如：A Skip、高抬腿、弓箭步)。
       250字內，繁體中文。
     `;
     try {
@@ -431,6 +468,7 @@ export default function RunAnalysisView() {
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
             onClick={(!videoFile && !isFitMode) ? handleUploadClick : undefined}
           >
+            {/* 骨架 Canvas 層 */}
             <canvas 
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full pointer-events-none z-20"
@@ -438,6 +476,7 @@ export default function RunAnalysisView() {
                 height={360}
             />
 
+            {/* 掃描進度條 */}
             {analysisStep === 'scanning' && (
               <div className="absolute inset-0 bg-gray-900/90 z-30 flex flex-col items-center justify-center text-blue-400">
                   <Cpu className="animate-pulse mb-2" size={32}/> 
@@ -454,10 +493,11 @@ export default function RunAnalysisView() {
               <div className="text-center p-6 cursor-pointer">
                 <Upload size={32} className="mx-auto mb-2 text-gray-400" />
                 <h3 className="text-white font-bold">上傳跑步影片</h3>
-                <p className="text-gray-500 text-sm">支援 .mp4 (分析步頻、送髖角度)</p>
+                <p className="text-gray-500 text-sm">支援 .mp4 (分析送髖、步頻)</p>
               </div>
             )}
 
+            {/* 影片播放器 - 背景淡化 */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -526,22 +566,23 @@ export default function RunAnalysisView() {
                    ))}
                 </div>
 
+                {/* 說明文字更新 */}
                 <div className="bg-blue-900/20 p-5 rounded-xl border border-blue-500/30 text-gray-300 text-sm space-y-3">
                     <h3 className="text-blue-400 font-bold flex items-center gap-2">
-                        <BookOpen size={16} /> 什麼是送髖 (Hip Extension)?
+                        <BookOpen size={16} /> 什麼是送髖 (Hip Drive)?
                     </h3>
                     <p>
-                        <strong>定義：</strong> 跑步時，支撐腳向後推蹬，大腿相對於軀幹向後伸展的動作。
+                        <strong>定義：</strong> 跑步時利用骨盆前傾，主動帶動大腿<strong>向前抬起</strong>，創造有效前進動力。
                     </p>
                     <p>
-                        <strong>觀察重點：</strong> 請看畫面中的 <span className="text-green-400">綠色扇形區間</span>。當您的大腿骨（黃色/紅色線）進入此區間時，代表有充分利用臀大肌發力。
+                        <strong>觀察重點：</strong> 畫面中的 <span className="text-green-400">綠色前扇形區間</span> 代表大腿前擺的理想角度 (20°-60°)。良好的送髖能增加步幅並減少觸地時間。
                     </p>
                     <div className="bg-gray-800/50 p-3 rounded border border-gray-700">
                         <h4 className="font-bold text-white mb-1">如何提升？</h4>
                         <ul className="list-disc list-inside space-y-1 text-xs text-gray-400">
-                            <li><strong>活動度：</strong> 放鬆髖屈肌 (Hip Flexors)，避免緊繃限制後伸。</li>
-                            <li><strong>肌力：</strong> 加強臀大肌 (Glutes)，如：臀橋、羅馬尼亞硬舉。</li>
-                            <li><strong>技術：</strong> 練習「後勾跑」與「弓箭步走」，感受髖部完全伸展。</li>
+                            <li><strong>意識：</strong> 專注於「骨盆」而非單純抬膝蓋，想像用核心帶動大腿。</li>
+                            <li><strong>肌力：</strong> 加強髂腰肌 (Hip Flexors) 與核心穩定度。</li>
+                            <li><strong>技術：</strong> 練習「A Skip (A字跳)」與「高抬腿跑」。</li>
                         </ul>
                     </div>
                 </div>

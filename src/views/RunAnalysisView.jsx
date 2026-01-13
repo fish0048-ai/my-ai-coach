@@ -33,7 +33,7 @@ export default function RunAnalysisView() {
     const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
     pose.setOptions({
       modelComplexity: 1, 
-      smoothLandmarks: true, 
+      smoothLandmarks: true, // 預設開啟平滑，適合即時預覽
       enableSegmentation: false,
       smoothSegmentation: false,
       minDetectionConfidence: 0.5,
@@ -91,7 +91,7 @@ export default function RunAnalysisView() {
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // 1. 垂直參考線
+      // 1. 垂直參考線 (白色虛線)
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(0, radius);
@@ -203,6 +203,8 @@ export default function RunAnalysisView() {
                 const nose = results.poseLandmarks[0];
                 const shoulder = results.poseLandmarks[12];
                 const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
+                // 使用右髖 (24) 和 右膝 (26) 進行繪製 (假設右側面對鏡頭)
+                // 若要精確可判斷 Z 軸，這裡簡單取右側
                 drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
             }
         }
@@ -217,21 +219,20 @@ export default function RunAnalysisView() {
     const video = videoRef.current;
     if (!video || !poseModel) return;
 
-    // 重置模型狀態，避免殘留
-    await poseModel.reset();
-
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
     isScanningRef.current = true;
 
-    // 修正2：掃描時關閉平滑，確保快速跳轉時不產生殘影與誤判
+    // 修正2：掃描時關閉平滑，確保快速跳轉時不產生殘影與誤判，且能獨立分析每一幀
     poseModel.setOptions({ 
         modelComplexity: 1, 
-        smoothLandmarks: false, // 關閉平滑，這對跳幀掃描至關重要
+        smoothLandmarks: false, // 關閉平滑
         enableSegmentation: false,
-        smoothSegmentation: false
-    }); 
+        smoothSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
 
     video.pause();
     const duration = video.duration;

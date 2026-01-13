@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
-// 移除不再需要的 BookOpen, TrendingUp 圖示
-import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer, Heart } from 'lucide-react';
+// 引入完整圖示集
+import { 
+  User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, 
+  Calendar as CalendarIcon, Clock, Timer, Heart,
+  // 新增功能選單需要的圖示
+  Dumbbell, LineChart, ChevronRight 
+} from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase'; 
 import { updateAIContext } from '../utils/contextManager';
 
-export default function FeatureViews({ view, userData }) {
+// 記得加入 setCurrentView 參數，這樣才能切換頁面
+export default function FeatureViews({ view, userData, setCurrentView }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // 初始化表單狀態
+  // 初始化表單狀態 (保留原始詳細邏輯)
   const [profile, setProfile] = useState({
     height: '',
     weight: '',
@@ -165,9 +171,10 @@ export default function FeatureViews({ view, userData }) {
     return <div className="text-white p-8">訓練功能已移至儀表板，請點擊左側「總覽 Dashboard」或「訓練儀表板」。</div>;
   }
 
+  // --- 個人檔案視圖 (Profile View) ---
   if (view === 'profile') {
     return (
-      <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
+      <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <User className="text-purple-500" />
           個人檔案與數據
@@ -556,5 +563,69 @@ export default function FeatureViews({ view, userData }) {
     );
   }
 
-  return null;
+  // --- 2. AI 實驗室功能列表 (Default View) ---
+  const features = [
+    {
+      id: 'run-analysis',
+      title: '跑姿分析',
+      desc: '上傳影片，AI 幫您分析步頻與送髖角度。',
+      icon: Activity,
+      color: 'bg-blue-500',
+      action: () => setCurrentView('run-analysis')
+    },
+    {
+      id: 'strength-analysis',
+      title: '重訓動作分析',
+      desc: '透過鏡頭即時偵測深蹲與硬舉姿勢，預防受傷。',
+      icon: Dumbbell,
+      color: 'bg-purple-500',
+      action: () => setCurrentView('strength-analysis')
+    },
+    // 新增：身體數據趨勢功能卡片
+    {
+      id: 'trend',
+      title: '身體數據趨勢',
+      desc: '記錄並追蹤體重與體脂的長期變化曲線。',
+      icon: LineChart,
+      color: 'bg-green-500',
+      action: () => setCurrentView('trend')
+    }
+  ];
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn p-4 md:p-0">
+       <div className="text-center space-y-2 mb-8">
+          <h2 className="text-3xl font-bold text-white">AI 智能實驗室</h2>
+          <p className="text-gray-400">探索最新的 AI 健身黑科技</p>
+       </div>
+
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((feature) => (
+             <button
+               key={feature.id}
+               onClick={feature.action}
+               className="bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-blue-500/50 rounded-2xl p-6 text-left transition-all hover:scale-[1.02] group relative overflow-hidden shadow-lg"
+             >
+                {/* 裝飾背景 */}
+                <div className={`absolute top-0 right-0 w-24 h-24 ${feature.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
+                
+                <div className={`w-12 h-12 ${feature.color} rounded-xl flex items-center justify-center text-white mb-4 shadow-lg`}>
+                   <feature.icon size={24} />
+                </div>
+                
+                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed h-12">
+                  {feature.desc}
+                </p>
+                
+                <div className="mt-4 flex items-center text-sm font-medium text-gray-500 group-hover:text-white transition-colors">
+                   立即體驗 <ChevronRight size={16} className="ml-1" />
+                </div>
+             </button>
+          ))}
+       </div>
+    </div>
+  );
 }

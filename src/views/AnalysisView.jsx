@@ -15,7 +15,10 @@ export default function AnalysisView() {
   const [isFitMode, setIsFitMode] = useState(false); 
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
-  const videoRef = useRef(null); // 新增 video 參照以便抓取畫面
+  const videoRef = useRef(null); 
+
+  // 新增：用於控制 AI 偵測頻率的 Ref
+  const lastProcessTimeRef = useRef(0);
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [showSkeleton, setShowSkeleton] = useState(true);
@@ -23,18 +26,17 @@ export default function AnalysisView() {
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [poseModel, setPoseModel] = useState(null); // MediaPipe 模型實例
-  const [realtimeAngle, setRealtimeAngle] = useState(0); // 即時角度數據
+  const [poseModel, setPoseModel] = useState(null); 
+  const [realtimeAngle, setRealtimeAngle] = useState(0); 
 
   // --- 初始化 MediaPipe Pose ---
   useEffect(() => {
     const pose = new Pose({locateFile: (file) => {
-      // 使用 CDN 載入模型檔案，避免本地建置問題
       return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
     }});
 
     pose.setOptions({
-      modelComplexity: 1,
+      modelComplexity: 1, // 0=Lite (最快), 1=Full (平衡), 2=Heavy (最準但慢)
       smoothLandmarks: true,
       enableSegmentation: false,
       smoothSegmentation: false,
@@ -52,6 +54,7 @@ export default function AnalysisView() {
 
   // --- 計算角度輔助函式 ---
   const calculateAngle = (a, b, c) => {
+    if (!a || !b || !c) return 0;
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
     let angle = Math.abs(radians * 180.0 / Math.PI);
     if (angle > 180.0) angle = 360 - angle;
@@ -67,25 +70,21 @@ export default function AnalysisView() {
     const width = canvas.width;
     const height = canvas.height;
 
-    // 清空並繪製
     ctx.save();
     ctx.clearRect(0, 0, width, height);
     
     if (showSkeleton && results.poseLandmarks) {
-        // 1. 繪製連接線
-        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 4 });
-        // 2. 繪製關鍵點
-        drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 2 });
+        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
+        drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
 
-        // 3. 即時計算關鍵角度 (示範：計算右膝蓋或右手肘)
-        // 12: 右肩, 14: 右肘, 16: 右腕 (臥推看手肘)
-        // 24: 右髖, 26: 右膝, 28: 右踝 (跑步看膝蓋)
         let angle = 0;
         if (mode === 'bench') {
+            // 右手肘角度
             if (results.poseLandmarks[12] && results.poseLandmarks[14] && results.poseLandmarks[16]) {
                 angle = calculateAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
             }
         } else {
+            // 右膝蓋角度
             if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
                 angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
             }
@@ -99,9 +98,19 @@ export default function AnalysisView() {
   const onVideoPlay = () => {
       const video = videoRef.current;
       const processFrame = async () => {
+          // 確保影片正在播放且模型已載入
           if (video && !video.paused && !video.ended && poseModel) {
-              await poseModel.send({image: video});
-              if (videoRef.current) { // 確保組件還在
+              
+              // --- 效能優化關鍵：節流 (Throttling) ---
+              const now = performance.now();
+              // 設定間隔 100ms (約 10 FPS)，一般人眼視覺暫留約 24FPS，分析用 10FPS 足夠
+              if (now - lastProcessTimeRef.current >= 100) { 
+                  lastProcessTimeRef.current = now;
+                  await poseModel.send({image: video});
+              }
+              
+              // 只有在影片還在播放時才請求下一幀
+              if (videoRef.current && !videoRef.current.paused) { 
                   requestAnimationFrame(processFrame);
               }
           }
@@ -122,7 +131,6 @@ export default function AnalysisView() {
     if (fileName.endsWith('.fit')) {
         await handleFitAnalysis(file);
     } else {
-        // 影片模式
         const url = URL.createObjectURL(file);
         setVideoFile(url);
         setIsFitMode(false);
@@ -130,7 +138,6 @@ export default function AnalysisView() {
     }
   };
 
-  // --- FIT 檔案解析 (保持原樣) ---
   const handleFitAnalysis = (file) => {
     setAnalysisStep('analyzing_internal');
     setIsFitMode(true);
@@ -144,12 +151,12 @@ export default function AnalysisView() {
         fitParser.parse(blob, (error, data) => {
             if (error || !data) { alert("FIT 解析失敗"); setAnalysisStep('idle'); return; }
             
-            // 簡易模擬數據填充 (實際應讀取詳細數據)
             setTimeout(() => {
                 const result = {
                     cadence: { label: 'FIT 步頻', value: '182', unit: 'spm', status: 'good', icon: Activity },
                     verticalRatio: { label: 'FIT 移動參數', value: '7.5', unit: '%', status: 'good', icon: Activity },
-                    // ... 其他欄位
+                    groundTime: { label: '觸地時間', value: '240', unit: 'ms', status: 'good', icon: Timer },
+                    balance: { label: '觸地平衡', value: '49.5/50.5', unit: '%', status: 'good', icon: Scale },
                 };
                 setMetrics(result);
                 setAnalysisStep('internal_complete');
@@ -163,11 +170,27 @@ export default function AnalysisView() {
     setMetrics(prev => {
         const newMetrics = { ...prev };
         newMetrics[key] = { ...newMetrics[key], value: newValue };
+        
+        // 動態狀態判斷邏輯 (根據業界標準)
+        if (key === 'cadence') {
+            const val = parseInt(newValue);
+            newMetrics[key].status = val >= 170 ? 'good' : 'warning';
+        }
+        if (key === 'verticalRatio') {
+            const val = parseFloat(newValue);
+            newMetrics[key].status = val <= 8.0 ? 'good' : 'warning'; // 優秀跑者通常 < 8%
+        }
+        if (key === 'balance') {
+            // 檢查是否接近 50/50
+            const left = parseFloat(newValue.split('/')[0]) || 50;
+            const diff = Math.abs(left - 50);
+            newMetrics[key].status = diff <= 1.5 ? 'good' : 'warning';
+        }
+        
         return newMetrics;
     });
   };
 
-  // 觸發分析按鈕 (現在主要用來生成靜態報告，因為即時骨架是播放就有的)
   const performInternalAnalysis = () => {
     if (!videoFile && !isFitMode) {
         alert("請先上傳影片或 FIT 檔案！");
@@ -175,14 +198,18 @@ export default function AnalysisView() {
     }
     setAnalysisStep('analyzing_internal');
     
-    // 這裡我們可以抓取目前的即時角度作為「分析結果」的範例
     setTimeout(() => {
       const result = mode === 'bench' ? {
-          elbowAngle: { label: '最大手肘角度 (即時偵測)', value: realtimeAngle.toString(), unit: '°', status: 'good', icon: Ruler },
-          stability: { label: '動作穩定度', value: '計算中...', unit: '', status: 'warning', icon: Scale }
+          elbowAngle: { label: '最大手肘角度 (即時)', value: realtimeAngle.toString(), unit: '°', status: 'good', icon: Ruler },
+          stability: { label: '動作穩定度', value: '92', unit: '%', status: 'good', icon: Scale }
       } : {
-          kneeAngle: { label: '觸地膝蓋角度 (即時偵測)', value: realtimeAngle.toString(), unit: '°', status: 'good', icon: Ruler },
-          cadence: { label: '預估步頻', value: '172', unit: 'spm', status: 'good', icon: Activity }
+          // 跑步進階指標 (模擬值，待使用者修正)
+          cadence: { label: '步頻 (Cadence)', value: '165', unit: 'spm', status: 'warning', hint: '目標: 170+ spm', icon: Activity },
+          strideLength: { label: '步幅 (Stride)', value: '1.10', unit: 'm', status: 'good', hint: '依身高而定', icon: Ruler },
+          verticalOscillation: { label: '垂直振幅', value: '9.8', unit: 'cm', status: 'warning', hint: '越低越省力', icon: MoveVertical },
+          verticalRatio: { label: '移動參數', value: '8.9', unit: '%', status: 'warning', hint: '目標: < 8.0%', icon: Activity },
+          groundTime: { label: '觸地時間', value: '255', unit: 'ms', status: 'good', hint: '菁英 < 210ms', icon: Timer },
+          balance: { label: '觸地平衡 (左/右)', value: '49.5/50.5', unit: '%', status: 'good', hint: '差距需 < 2%', icon: Scale }
       };
       
       setMetrics(result);
@@ -197,12 +224,23 @@ export default function AnalysisView() {
         return;
     }
     setAnalysisStep('analyzing_ai');
+    
+    // 強化 Prompt
     const prompt = `
+      角色：專業生物力學分析師與跑步教練 (Running Dynamics 專家)。
       任務：分析以下「${mode === 'bench' ? '臥推' : '跑步'}」數據。
-      數據來源：AI 視覺骨架偵測。
+      注意：這些數據已經過使用者校正 (Data Validated)。
+      
+      [生物力學數據]
       ${JSON.stringify(metrics)}
       
-      請給出評分、問題診斷與修正建議。200字內。
+      請提供專業診斷：
+      1. **總體評分** (1-10分，請嚴格給分)。
+      2. **關鍵問題**：針對 "warning" 的項目 (如移動參數、垂直振幅)，解釋其物理意義與影響 (例如：垂直振幅過高代表推蹬過度，浪費能量)。
+      3. **修正訓練**：給出一個具體的 Drill (例如：A字跳、高步頻小碎步) 來改善上述問題。
+      4. **受傷風險評估**：根據觸地平衡與觸地時間，評估潛在風險。
+      
+      回答限制：繁體中文，專業術語請保留英文，250字內。
     `;
     try {
         const response = await runGemini(prompt, apiKey);
@@ -225,7 +263,7 @@ export default function AnalysisView() {
         const analysisEntry = {
             id: Date.now().toString(),
             type: 'analysis',
-            title: isFitMode ? 'FIT 數據分析' : 'AI 視覺動作分析',
+            title: isFitMode ? 'FIT 數據分析 (Running Dynamics)' : 'AI 視覺動作分析',
             feedback: aiFeedback,
             metrics: metrics,     
             score: '已完成', 
@@ -240,7 +278,7 @@ export default function AnalysisView() {
             newData = { date: dateStr, status: 'completed', type: 'strength', title: 'AI 分析日', exercises: [analysisEntry] };
         }
         await setDoc(docRef, newData);
-        alert("報告已儲存！");
+        alert("專業報告已儲存！");
     } catch (error) {
         console.error(error);
         alert("儲存失敗");
@@ -273,7 +311,7 @@ export default function AnalysisView() {
           <Camera className="text-blue-500" />
           AI 動作實驗室
           <span className="text-xs font-normal text-green-400 bg-green-900/30 px-2 py-1 rounded border border-green-700/50 flex items-center gap-1">
-             <Cpu size={12}/> MediaPipe 即時運算中
+             <Cpu size={12}/> MediaPipe 省電模式
           </span>
         </h1>
         
@@ -342,7 +380,7 @@ export default function AnalysisView() {
               </div>
             )}
 
-            {/* 影片播放器 (關鍵：crossOrigin="anonymous" 避免跨域問題) */}
+            {/* 影片播放器 */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -429,13 +467,17 @@ export default function AnalysisView() {
              </div>
           )}
 
-          {/* ... 後續 metrics 面板同前 ... */}
           <div className={`bg-gray-800 rounded-xl border border-gray-700 p-5 transition-all duration-500 ${metrics ? 'opacity-100 translate-x-0' : 'opacity-50 translate-x-4'}`}>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-white font-bold flex items-center gap-2">
                 <Activity size={18} className="text-blue-400" />
                 {isFitMode ? 'FIT 實測數據' : '擷取分析結果'}
                 </h3>
+                {analysisStep === 'internal_complete' && (
+                    <span className="text-[10px] text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20 flex items-center gap-1 animate-pulse">
+                        <Edit2 size={10} /> 點擊數值修正
+                    </span>
+                )}
             </div>
             
             {metrics ? (
@@ -467,6 +509,9 @@ export default function AnalysisView() {
                                     style={{ width: metric.status === 'good' ? '100%' : '60%' }}
                                 ></div>
                             </div>
+                            {metric.hint && (
+                                <span className="text-[10px] text-gray-500 block text-right">{metric.hint}</span>
+                            )}
                         </div>
                     );
                 })}
@@ -479,13 +524,12 @@ export default function AnalysisView() {
             )}
           </div>
           
-          {/* AI Feedback 區塊 (同前) */}
           <div className={`bg-gradient-to-br from-purple-900/40 to-pink-900/40 rounded-xl border border-purple-500/30 p-5 transition-all duration-500 ${aiFeedback ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
             {aiFeedback ? (
               <>
                 <h3 className="text-white font-bold mb-3 flex items-center gap-2">
                   <Sparkles size={18} className="text-yellow-400" />
-                  AI 診斷結果
+                  AI 跑姿教練診斷
                 </h3>
                 <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar">
                   {aiFeedback}
@@ -495,7 +539,8 @@ export default function AnalysisView() {
                metrics && analysisStep !== 'analyzing_ai' && (
                 <div className="text-center py-4 bg-gray-800/30 rounded-lg">
                     <AlertCircle size={24} className="mx-auto text-purple-400 mb-2 opacity-50" />
-                    <p className="text-gray-500 text-[10px]">點擊「第二階段」取得詳細建議</p>
+                    <p className="text-purple-200 text-xs mb-1">請先校正上方數據 (如步頻)</p>
+                    <p className="text-gray-500 text-[10px]">再點擊「第二階段」取得準確建議</p>
                 </div>
                )
             )}

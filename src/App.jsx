@@ -8,8 +8,7 @@ import CalendarView from './views/CalendarView.jsx';
 import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; 
 import RunAnalysisView from './views/RunAnalysisView.jsx'; 
 import CoachChat from './components/AICoach/CoachChat.jsx';
-// 新增：引入趨勢分析頁面
-import TrendAnalysisView from './views/TrendAnalysisView.jsx';
+import TrendAnalysisView from './views/TrendAnalysisView.jsx'; // 引入趨勢分析
 
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -76,24 +75,32 @@ export default function App() {
     return <LoginView />; 
   }
 
-  // 3. 路由內容渲染邏輯 (Switch Case)
+  // 3. 路由內容渲染邏輯
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView userData={userData} />;
-      case 'training': // 相容舊邏輯，導向儀表板或訓練頁面
+      case 'training': 
         return <DashboardView userData={userData} />; 
+      
+      // 修正：當點擊側邊欄「AI 實驗室」時，顯示功能列表
+      case 'features': 
+        // 重要：必須傳遞 setCurrentView，卡片點擊才能跳轉
+        return <FeatureViews setCurrentView={setCurrentView} />;
+        
       case 'profile':
-        return <FeatureViews view="profile" userData={userData} />;
+        return <FeatureViews view="profile" userData={userData} setCurrentView={setCurrentView} />;
+        
       case 'strength-analysis':
         return <StrengthAnalysisView />;
       case 'run-analysis':
         return <RunAnalysisView />;
-      // 新增：身體數據趨勢路由
       case 'trend': 
         return <TrendAnalysisView />;
+        
       case 'calendar': 
         return <CalendarView />;
+        
       default:
         return <DashboardView userData={userData} />;
     }

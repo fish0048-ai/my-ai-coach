@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers } from 'lucide-react';
+// 新增 BookOpen 圖示
+import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
@@ -8,7 +9,6 @@ import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 
 export default function RunAnalysisView() {
-  const [mode, setMode] = useState('run'); 
   const [videoFile, setVideoFile] = useState(null); 
   const [isFitMode, setIsFitMode] = useState(false); 
   const fileInputRef = useRef(null);
@@ -20,24 +20,9 @@ export default function RunAnalysisView() {
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
-  
-  // 狀態
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [showIdealForm, setShowIdealForm] = useState(false);
   
-  // --- 關鍵修復：使用 Ref 解決 MediaPipe 閉包問題 ---
-  const showSkeletonRef = useRef(true);
-  const showIdealFormRef = useRef(false);
-  const modeRef = useRef('run');
-
-  // 當狀態改變時，同步更新 Ref
-  useEffect(() => {
-    showSkeletonRef.current = showSkeleton;
-    showIdealFormRef.current = showIdealForm;
-    modeRef.current = mode;
-  }, [showSkeleton, showIdealForm, mode]);
-  // ------------------------------------------------
-
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -176,7 +161,6 @@ export default function RunAnalysisView() {
                 landmarks: results.poseLandmarks
             });
         }
-        // Scanning 模式下依然繪圖
     }
 
     const canvas = canvasRef.current;
@@ -186,7 +170,6 @@ export default function RunAnalysisView() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (results.poseLandmarks) {
-        // 1. 使用 Ref 讀取最新狀態
         if (showSkeletonRef.current) {
             drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
             drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
@@ -195,26 +178,18 @@ export default function RunAnalysisView() {
         let angle = 0;
         let hipExt = 0;
         
-        if (modeRef.current === 'bench') {
-            if (results.poseLandmarks[12] && results.poseLandmarks[14] && results.poseLandmarks[16]) {
-                angle = calculateAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
-            }
-        } else {
-            // Run mode
-            if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
-                angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
-            }
+        if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
+            angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
+        }
+        
+        if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
+            hipExt = calculateRealHipExtension(results.poseLandmarks);
             
-            if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
-                hipExt = calculateRealHipExtension(results.poseLandmarks);
-                
-                // 使用 Ref 讀取最新狀態
-                if (showIdealFormRef.current) {
-                    const nose = results.poseLandmarks[0];
-                    const shoulder = results.poseLandmarks[12];
-                    const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-                    drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
-                }
+            if (showIdealFormRef.current) {
+                const nose = results.poseLandmarks[0];
+                const shoulder = results.poseLandmarks[12];
+                const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
+                drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
             }
         }
         
@@ -223,6 +198,15 @@ export default function RunAnalysisView() {
     }
     ctx.restore();
   };
+
+  // --- 解決閉包問題的 Refs ---
+  const showSkeletonRef = useRef(true);
+  const showIdealFormRef = useRef(false);
+
+  useEffect(() => {
+    showSkeletonRef.current = showSkeleton;
+    showIdealFormRef.current = showIdealForm;
+  }, [showSkeleton, showIdealForm]);
 
   const startFullVideoScan = async () => {
     const video = videoRef.current;
@@ -248,7 +232,6 @@ export default function RunAnalysisView() {
     for (let t = 0; t <= duration; t += 0.1) {
         if (!isScanningRef.current) break; 
         video.currentTime = t;
-        
         await new Promise(resolve => {
             const onSeek = () => { 
                 video.removeEventListener('seeked', onSeek); 
@@ -256,7 +239,6 @@ export default function RunAnalysisView() {
             };
             video.addEventListener('seeked', onSeek);
         });
-
         await poseModel.send({ image: video });
         setScanProgress(Math.round((t / duration) * 100));
     }
@@ -449,7 +431,6 @@ export default function RunAnalysisView() {
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
             onClick={(!videoFile && !isFitMode) ? handleUploadClick : undefined}
           >
-            {/* 骨架 Canvas 層 */}
             <canvas 
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full pointer-events-none z-20"
@@ -457,13 +438,17 @@ export default function RunAnalysisView() {
                 height={360}
             />
 
-            {/* AI 思考中 */}
-            {analysisStep === 'analyzing_ai' && (
-               <div className="absolute inset-0 bg-gray-900/80 flex flex-col items-center justify-center z-30 backdrop-blur-sm">
-                <BrainCircuit size={48} className="text-purple-500 animate-pulse mb-4" />
-                <p className="text-purple-400 font-mono">AI 正在進行綜合診斷...</p>
+            {analysisStep === 'scanning' && (
+              <div className="absolute inset-0 bg-gray-900/90 z-30 flex flex-col items-center justify-center text-blue-400">
+                  <Cpu className="animate-pulse mb-2" size={32}/> 
+                  <p className="mb-2">全影片掃描中 ({scanProgress}%)</p>
+                  <div className="w-64 h-1 bg-gray-700 rounded overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all duration-100" style={{width: `${scanProgress}%`}}></div>
+                  </div>
               </div>
             )}
+
+            {analysisStep === 'analyzing_ai' && <div className="absolute inset-0 bg-gray-900/80 z-30 flex items-center justify-center text-purple-400 font-mono"><BrainCircuit className="animate-pulse mr-2"/> AI 診斷中...</div>}
 
             {!videoFile && !isFitMode && (
               <div className="text-center p-6 cursor-pointer">
@@ -473,7 +458,6 @@ export default function RunAnalysisView() {
               </div>
             )}
 
-            {/* 影片播放器 (背景淡化效果 - 使用 Ref 讀取 showIdealForm) */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -487,17 +471,6 @@ export default function RunAnalysisView() {
                 />
             )}
             
-            {/* 掃描進度條 */}
-            {analysisStep === 'scanning' && (
-              <div className="absolute inset-0 bg-gray-900/90 z-30 flex flex-col items-center justify-center text-blue-400">
-                  <Cpu className="animate-pulse mb-2" size={32}/> 
-                  <p className="mb-2">全影片掃描中 ({scanProgress}%)</p>
-                  <div className="w-64 h-1 bg-gray-700 rounded overflow-hidden">
-                      <div className="h-full bg-blue-500 transition-all duration-100" style={{width: `${scanProgress}%`}}></div>
-                  </div>
-              </div>
-            )}
-
             {isFitMode && <div className="absolute inset-0 flex items-center justify-center text-gray-500"><FileCode size={48}/> FIT 模式</div>}
           </div>
 
@@ -506,48 +479,26 @@ export default function RunAnalysisView() {
                  <>
                     <button onClick={handleUploadClick} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
                       更換檔案
-                </button>
-                {/* 影片模式才顯示全片分析按鈕 */}
-                {!isFitMode && (
-                    <button 
-                    onClick={startFullVideoScan}
-                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
-                    >
-                    <Cpu size={20} />
-                    開始全影片分析
                     </button>
-                )}
-              </>
-            )}
+                    {!isFitMode && (
+                        <button 
+                        onClick={startFullVideoScan}
+                        className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
+                        >
+                        <Cpu size={20} />
+                        開始全影片分析
+                        </button>
+                    )}
+                 </>
+             )}
 
-            {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
-               <div className="flex gap-4 items-center">
-                 <button onClick={clearAll} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
-                    重置
-                 </button>
-                 
-                 {analysisStep !== 'ai_complete' && (
-                    <button 
-                      onClick={performAIAnalysis}
-                      className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all hover:scale-105 animate-pulse-slow"
-                    >
-                      <Sparkles size={20} />
-                      第二階段：AI 診斷
-                    </button>
-                 )}
-
-                 {analysisStep === 'ai_complete' && (
-                    <button 
-                        onClick={saveToCalendar}
-                        disabled={isSaving}
-                        className="flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all hover:scale-105"
-                    >
-                        {isSaving ? <CheckCircle className="animate-spin" size={20} /> : <Save size={20} />}
-                        儲存報告
-                    </button>
-                 )}
-               </div>
-            )}
+             {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
+                 <>
+                    <button onClick={() => { setAnalysisStep('idle'); setMetrics(null); setAiFeedback(''); }} className="px-6 py-2 bg-gray-700 text-white rounded-lg">重置</button>
+                    {analysisStep !== 'ai_complete' && <button onClick={performAIAnalysis} className="px-6 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2"><Sparkles size={18}/> AI 診斷</button>}
+                    {analysisStep === 'ai_complete' && <button onClick={saveToCalendar} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"><Save size={18}/> 儲存</button>}
+                 </>
+             )}
           </div>
         </div>
 
@@ -561,19 +512,42 @@ export default function RunAnalysisView() {
            )}
 
            {metrics && (
-             <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
-               <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
-               {Object.entries(metrics).map(([k, m]) => (
-                   <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
-                       <span className="text-gray-400 text-sm flex items-center gap-2"><m.icon size={14}/> {m.label}</span>
-                       <div className="flex items-center gap-1">
-                           <input type="text" value={m.value} onChange={(e) => updateMetric(k, e.target.value)} className={`bg-transparent text-right font-bold w-16 outline-none ${m.status==='good'?'text-green-400':'text-yellow-400'}`}/>
-                           <span className="text-xs text-gray-500">{m.unit}</span>
+             <>
+                <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
+                   <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
+                   {Object.entries(metrics).map(([k, m]) => (
+                       <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
+                           <span className="text-gray-400 text-sm flex items-center gap-2"><m.icon size={14}/> {m.label}</span>
+                           <div className="flex items-center gap-1">
+                               <input type="text" value={m.value} onChange={(e) => updateMetric(k, e.target.value)} className={`bg-transparent text-right font-bold w-16 outline-none ${m.status==='good'?'text-green-400':'text-yellow-400'}`}/>
+                               <span className="text-xs text-gray-500">{m.unit}</span>
+                           </div>
                        </div>
-                   </div>
-               ))}
-             </div>
+                   ))}
+                </div>
+
+                <div className="bg-blue-900/20 p-5 rounded-xl border border-blue-500/30 text-gray-300 text-sm space-y-3">
+                    <h3 className="text-blue-400 font-bold flex items-center gap-2">
+                        <BookOpen size={16} /> 什麼是送髖 (Hip Extension)?
+                    </h3>
+                    <p>
+                        <strong>定義：</strong> 跑步時，支撐腳向後推蹬，大腿相對於軀幹向後伸展的動作。
+                    </p>
+                    <p>
+                        <strong>觀察重點：</strong> 請看畫面中的 <span className="text-green-400">綠色扇形區間</span>。當您的大腿骨（黃色/紅色線）進入此區間時，代表有充分利用臀大肌發力。
+                    </p>
+                    <div className="bg-gray-800/50 p-3 rounded border border-gray-700">
+                        <h4 className="font-bold text-white mb-1">如何提升？</h4>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-gray-400">
+                            <li><strong>活動度：</strong> 放鬆髖屈肌 (Hip Flexors)，避免緊繃限制後伸。</li>
+                            <li><strong>肌力：</strong> 加強臀大肌 (Glutes)，如：臀橋、羅馬尼亞硬舉。</li>
+                            <li><strong>技術：</strong> 練習「後勾跑」與「弓箭步走」，感受髖部完全伸展。</li>
+                        </ul>
+                    </div>
+                </div>
+             </>
            )}
+           
            {aiFeedback && (
                <div className="bg-purple-900/20 p-5 rounded-xl border border-purple-500/30 text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
                    <h3 className="text-purple-400 font-bold mb-2 flex items-center gap-2"><Sparkles size={16}/> 跑姿診斷</h3>

@@ -19,9 +19,12 @@ export default function RunAnalysisView() {
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
+  
+  // 狀態
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [showIdealForm, setShowIdealForm] = useState(false);
   
+  // 使用 Ref 解決 MediaPipe 閉包問題
   const showSkeletonRef = useRef(true);
   const showIdealFormRef = useRef(false);
 
@@ -35,7 +38,7 @@ export default function RunAnalysisView() {
   const [isSaving, setIsSaving] = useState(false);
   const [poseModel, setPoseModel] = useState(null); 
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
-  const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
+  const [hipDriveAngle, setHipDriveAngle] = useState(0); // 改名為 HipDrive
 
   useEffect(() => {
     const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
@@ -60,23 +63,37 @@ export default function RunAnalysisView() {
     return Math.round(angle);
   };
 
-  const calculateRealHipExtension = (landmarks) => {
+  // --- 計算送髖 (Forward Drive / Hip Flexion) ---
+  // 定義：骨盆前傾帶動大腿向前抬起
+  const calculateHipDrive = (landmarks) => {
       if (!landmarks) return 0;
       const nose = landmarks[0];
-      const shoulder = landmarks[12];
-      const hip = landmarks[24];
-      const knee = landmarks[26];
+      const shoulder = landmarks[12]; // 右肩
+      const hip = landmarks[24];      // 右髖
+      const knee = landmarks[26];     // 右膝
+
       if (!nose || !shoulder || !hip || !knee) return 0;
+
+      // 1. 判斷跑向
       const isFacingRight = nose.x > shoulder.x;
-      const isLegBehind = isFacingRight ? (knee.x < hip.x) : (knee.x > hip.x);
-      if (isLegBehind) {
+
+      // 2. 判斷腿是否在 "前方" (Forward Phase)
+      // 向右跑: 膝蓋 X > 臀部 X
+      // 向左跑: 膝蓋 X < 臀部 X
+      const isLegInFront = isFacingRight ? (knee.x > hip.x) : (knee.x < hip.x);
+
+      if (isLegInFront) {
           const angle = calculateAngle(shoulder, hip, knee);
+          // 直立是 180，前抬會讓角度變小
+          // Drive 角度 = 180 - 夾角
           return Math.max(0, 180 - angle);
       }
+      
       return 0; 
   };
 
-  const drawHipAnalysisOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
+  // --- 繪製理想送髖區間 (疊加在骨架上) ---
+  const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
       
       const w = ctx.canvas.width;
@@ -84,86 +101,90 @@ export default function RunAnalysisView() {
       const hipX = hip.x * w;
       const hipY = hip.y * h;
       
+      // 計算大腿長度作為半徑
       const kneeX = knee.x * w;
       const kneeY = knee.y * h;
-      
-      // 安全檢查：防止 NaN 導致崩潰
-      if (!Number.isFinite(hipX) || !Number.isFinite(hipY) || !Number.isFinite(kneeX) || !Number.isFinite(kneeY)) return;
-
       const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
-      const radius = thighLen * 1.2; 
-
-      if (!Number.isFinite(radius) || radius <= 0) return;
+      const radius = thighLen * 1.1; // 畫稍微長一點點
 
       ctx.save();
       ctx.translate(hipX, hipY);
       
-      ctx.shadowColor = "rgba(0, 0, 0, 1)";
-      ctx.shadowBlur = 10;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
+      // 設定陰影
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 6;
 
+      // 1. 垂直參考線
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(0, radius);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
       ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1;
       ctx.stroke();
 
+      // 2. 理想送髖區間 (扇形) - 設定在前方
       ctx.beginPath();
       ctx.moveTo(0, 0);
       
-      const startAngle = Math.PI/2; 
-      const minExt = 10 * Math.PI/180; 
-      const maxExt = 25 * Math.PI/180; 
-      const isGood = currentAngle >= 20; // 符合送髖定義 > 20度
+      const startAngle = Math.PI/2; // 垂直向下
+      // 目標區間：前抬 20度 ~ 60度
+      const minDrive = 20 * Math.PI/180; 
+      const maxDrive = 60 * Math.PI/180; 
+      
+      // 判斷是否達標
+      const isGood = currentAngle >= 20;
 
       if (isFacingRight) {
-          ctx.arc(0, 0, radius, startAngle - maxExt, startAngle - minExt);
+          // 向右跑，前腳在右 (逆時針 from down? No, canvas Y is down, X is right. 0 is right, PI/2 is down)
+          // 垂直向下是 PI/2. 向前(右)抬起是往 0度方向走 -> 角度減少
+          ctx.arc(0, 0, radius, startAngle - maxDrive, startAngle - minDrive);
       } else {
-          ctx.arc(0, 0, radius, startAngle + minExt, startAngle + maxExt);
+          // 向左跑，前腳在左 (順時針 from down) -> 角度增加
+          // 垂直向下是 PI/2. 向前(左/PI)抬起 -> 角度增加
+          ctx.arc(0, 0, radius, startAngle + minDrive, startAngle + maxDrive);
       }
 
       ctx.lineTo(0, 0);
-      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.3)'; 
+      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.4)' : 'rgba(34, 197, 94, 0.2)'; 
       ctx.fill();
       
       ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
       ctx.setLineDash([]);
-      ctx.lineWidth = 3; 
+      ctx.lineWidth = 2; 
       ctx.stroke();
 
-      const vecX = (knee.x * w) - hipX;
-      const vecY = (knee.y * h) - hipY;
+      // 3. 高亮目前的大腿骨 (覆蓋 MediaPipe 的綠線)
+      const vecX = kneeX - hipX;
+      const vecY = kneeY - hipY;
       
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(vecX, vecY);
+      // 達標顯示金黃色，否則顯示紅色提醒
       ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; 
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 5; // 比骨架粗一點
       ctx.lineCap = 'round';
       ctx.stroke();
 
-      const labelDist = radius + 30;
-      const labelAngle = isFacingRight ? (Math.PI/2 - 18*Math.PI/180) : (Math.PI/2 + 18*Math.PI/180);
+      // 4. 浮動標籤
+      const labelDist = radius + 25;
+      const labelAngle = isFacingRight ? (Math.PI/2 - 40*Math.PI/180) : (Math.PI/2 + 40*Math.PI/180);
       const labelX = Math.cos(labelAngle) * labelDist;
       const labelY = Math.sin(labelAngle) * labelDist;
 
-      if (Number.isFinite(labelX) && Number.isFinite(labelY)) {
-          ctx.font = 'bold 16px sans-serif';
-          ctx.textAlign = 'center';
-          
-          if (isGood) {
-              ctx.fillStyle = '#fbbf24'; 
-              ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
-          } else {
-              ctx.fillStyle = '#ef4444'; 
-              ctx.fillText(`${currentAngle}°`, labelX, labelY);
-              ctx.font = '12px sans-serif';
-              ctx.fillStyle = '#4ade80';
-              ctx.fillText(`目標 >20°`, labelX, labelY + 16);
-          }
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      
+      if (isGood) {
+          ctx.fillStyle = '#fbbf24'; 
+          ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
+      } else {
+          ctx.fillStyle = '#ef4444'; 
+          ctx.fillText(`${currentAngle}°`, labelX, labelY);
+          ctx.font = '10px sans-serif';
+          ctx.fillStyle = '#4ade80';
+          ctx.fillText(`目標 20-60°`, labelX, labelY + 14);
       }
 
       ctx.restore();
@@ -188,6 +209,7 @@ export default function RunAnalysisView() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         if (results.poseLandmarks) {
+            // 1. 繪製標準骨架 (MediaPipe)
             if (showSkeletonRef.current) {
                 drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
                 drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
@@ -196,36 +218,20 @@ export default function RunAnalysisView() {
             let angle = 0;
             let hipDrive = 0;
             
+            // 膝蓋角度
             if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
                 angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
             }
             
-            // 這裡改用 calculateHipDrive (前擺)
-            // 定義：骨盆前傾帶動大腿向前抬起
-            const calculateHipDriveInternal = (landmarks) => {
-                  const nose = landmarks[0];
-                  const shoulder = landmarks[12];
-                  const hip = landmarks[24];
-                  const knee = landmarks[26];
-                  if (!nose || !shoulder || !hip || !knee) return 0;
-                  const isFacingRight = nose.x > shoulder.x;
-                  // 判斷腿是否在前方
-                  const isLegInFront = isFacingRight ? (knee.x > hip.x) : (knee.x < hip.x);
-                  if (isLegInFront) {
-                      const ang = calculateAngle(shoulder, hip, knee);
-                      return Math.max(0, 180 - ang);
-                  }
-                  return 0;
-            };
-
+            // 計算送髖 (前擺)
             if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
-                hipDrive = calculateHipDriveInternal(results.poseLandmarks);
+                hipDrive = calculateHipDrive(results.poseLandmarks);
                 
+                // 2. 疊加理想跑姿區間 (最上層)
                 if (showIdealFormRef.current) {
                     const nose = results.poseLandmarks[0];
                     const shoulder = results.poseLandmarks[12];
                     const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-                    // 注意：此處使用 drawHipAnalysisOverlay 來繪製前方的扇形
                     drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipDrive));
                 }
             }
@@ -287,22 +293,7 @@ export default function RunAnalysisView() {
     if (!data || data.length === 0) return null;
     
     // 跑姿分析核心：計算最大前擺 (Hip Drive)
-    const calculateHipDriveInternal = (landmarks) => {
-          const nose = landmarks[0];
-          const shoulder = landmarks[12];
-          const hip = landmarks[24];
-          const knee = landmarks[26];
-          if (!nose || !shoulder || !hip || !knee) return 0;
-          const isFacingRight = nose.x > shoulder.x;
-          const isLegInFront = isFacingRight ? (knee.x > hip.x) : (knee.x < hip.x);
-          if (isLegInFront) {
-              const ang = calculateAngle(shoulder, hip, knee);
-              return Math.max(0, 180 - ang);
-          }
-          return 0;
-    };
-
-    const hipDrives = data.map(d => calculateHipDriveInternal(d.landmarks));
+    const hipDrives = data.map(d => calculateHipDrive(d.landmarks));
     const maxHipDrive = Math.max(...hipDrives);
 
     const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
@@ -316,7 +307,7 @@ export default function RunAnalysisView() {
     const safeCadence = cadence > 100 && cadence < 250 ? cadence : 170;
 
     return {
-        hipDrive: { label: '最大送髖(前擺)', value: maxHipDrive.toFixed(1), unit: '°', status: maxHipDrive >= 20 ? 'good' : 'warning', hint: '目標: >20° (帶動大腿)', icon: Zap },
+        hipDrive: { label: '最大送髖(前擺)', value: maxHipDrive.toFixed(1), unit: '°', status: maxHipDrive >= 20 ? 'good' : 'warning', hint: '目標: 20-60°', icon: Zap },
         cadence: { label: '平均步頻', value: safeCadence.toString(), unit: 'spm', status: safeCadence >= 170 ? 'good' : 'warning', icon: Activity },
         vertOscillation: { label: '垂直振幅', value: '9.2', unit: 'cm', status: 'good', icon: MoveVertical },
         vertRatio: { label: '移動參數', value: '7.8', unit: '%', status: 'good', icon: Activity },
@@ -367,13 +358,14 @@ export default function RunAnalysisView() {
     if (!apiKey) { alert("請先設定 API Key"); return; }
     setAnalysisStep('analyzing_ai');
     
+    // 更新 Prompt 以符合前擺定義
     const prompt = `
-      角色：專業生物力學分析師與跑步教練。
+      角色：專業生物力學分析師與跑步教練 (專精送髖 Hip Drive)。
       任務：分析以下「跑步」數據。
       數據來源：AI 視覺全影片掃描 (Full Video Analysis)。
       ${JSON.stringify(metrics)}
       
-      特別針對「送髖技術 (Hip Drive)」進行分析：
+      特別針對「送髖技術」進行分析 (定義：骨盆前傾、帶動大腿向前抬起)：
       1. **前擺角度評估**：目前的抬腿角度是否足夠？(有效前進通常需 >20度)。
       2. **骨盆連動**：是否有利用骨盆前傾來輔助大腿前擺？還是單純靠股四頭肌？
       3. **修正訓練**：請提供 1-2 個針對「骨盆活動度」與「髂腰肌/臀肌」的訓練 (如：A Skip、高抬腿、弓箭步)。
@@ -478,8 +470,15 @@ export default function RunAnalysisView() {
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
             onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}
           >
-            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
+            {/* 骨架 Canvas 層 */}
+            <canvas 
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full pointer-events-none z-20"
+                width={640} 
+                height={360}
+            />
 
+            {/* 掃描進度條 */}
             {analysisStep === 'scanning' && (
               <div className="absolute inset-0 bg-gray-900/90 z-30 flex flex-col items-center justify-center text-blue-400">
                   <Cpu className="animate-pulse mb-2" size={32}/> 
@@ -500,6 +499,7 @@ export default function RunAnalysisView() {
               </div>
             )}
 
+            {/* 影片播放器 (背景淡化效果) */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -559,9 +559,7 @@ export default function RunAnalysisView() {
                    <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
                    {Object.entries(metrics).map(([k, m]) => (
                        <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
-                           <span className="text-gray-400 text-sm flex items-center gap-2">
-                               {m.icon && <m.icon size={14}/>} {m.label}
-                           </span>
+                           <span className="text-gray-400 text-sm flex items-center gap-2"><m.icon size={14}/> {m.label}</span>
                            <div className="flex items-center gap-1">
                                <input type="text" value={m.value} onChange={(e) => updateMetric(k, e.target.value)} className={`bg-transparent text-right font-bold w-16 outline-none ${m.status==='good'?'text-green-400':'text-yellow-400'}`}/>
                                <span className="text-xs text-gray-500">{m.unit}</span>

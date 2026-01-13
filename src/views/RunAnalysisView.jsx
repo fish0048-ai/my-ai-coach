@@ -8,6 +8,7 @@ import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 
 export default function RunAnalysisView() {
+  const [mode, setMode] = useState('run'); 
   const [videoFile, setVideoFile] = useState(null); 
   const [isFitMode, setIsFitMode] = useState(false); 
   const fileInputRef = useRef(null);
@@ -19,9 +20,24 @@ export default function RunAnalysisView() {
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
+  
+  // 狀態
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [showIdealForm, setShowIdealForm] = useState(false);
   
+  // --- 關鍵修復：使用 Ref 解決 MediaPipe 閉包問題 ---
+  const showSkeletonRef = useRef(true);
+  const showIdealFormRef = useRef(false);
+  const modeRef = useRef('run');
+
+  // 當狀態改變時，同步更新 Ref
+  useEffect(() => {
+    showSkeletonRef.current = showSkeleton;
+    showIdealFormRef.current = showIdealForm;
+    modeRef.current = mode;
+  }, [showSkeleton, showIdealForm, mode]);
+  // ------------------------------------------------
+
   const [metrics, setMetrics] = useState(null);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -68,7 +84,6 @@ export default function RunAnalysisView() {
       return 0; 
   };
 
-  // --- 繪製理想跑姿 (視覺化疊加層 - 強制最上層) ---
   const drawHipAnalysisOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
       
@@ -76,7 +91,6 @@ export default function RunAnalysisView() {
       const h = ctx.canvas.height;
       const hipX = hip.x * w;
       const hipY = hip.y * h;
-      
       const kneeX = knee.x * w;
       const kneeY = knee.y * h;
       const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
@@ -85,13 +99,11 @@ export default function RunAnalysisView() {
       ctx.save();
       ctx.translate(hipX, hipY);
       
-      // 增加陰影，讓圖層更立體
       ctx.shadowColor = "rgba(0, 0, 0, 1)";
       ctx.shadowBlur = 10;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // 1. 垂直參考線 (白色虛線)
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(0, radius);
@@ -100,7 +112,6 @@ export default function RunAnalysisView() {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 2. 理想送髖區間 (扇形)
       ctx.beginPath();
       ctx.moveTo(0, 0);
       
@@ -116,8 +127,7 @@ export default function RunAnalysisView() {
       }
 
       ctx.lineTo(0, 0);
-      // 扇形顏色：不透明度提高，因為背景已經變淡了
-      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.6)' : 'rgba(34, 197, 94, 0.4)'; 
+      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.4)'; 
       ctx.fill();
       
       ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
@@ -125,19 +135,17 @@ export default function RunAnalysisView() {
       ctx.lineWidth = 3; 
       ctx.stroke();
 
-      // 3. 繪製當前大腿向量 (Highlighter)
       const vecX = (knee.x * w) - hipX;
       const vecY = (knee.y * h) - hipY;
       
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(vecX, vecY);
-      ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; // 達標金黃，未達標紅
+      ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; 
       ctx.lineWidth = 6;
       ctx.lineCap = 'round';
       ctx.stroke();
 
-      // 4. 浮動標籤
       const labelDist = radius + 30;
       const labelAngle = isFacingRight ? (Math.PI/2 + 18*Math.PI/180) : (Math.PI/2 - 18*Math.PI/180);
       const labelX = Math.cos(labelAngle) * labelDist;
@@ -161,7 +169,6 @@ export default function RunAnalysisView() {
   };
 
   const onPoseResults = (results) => {
-    // 即使在掃描模式，也記錄數據
     if (isScanningRef.current) {
         if (results.poseLandmarks) {
             fullScanDataRef.current.push({
@@ -169,7 +176,7 @@ export default function RunAnalysisView() {
                 landmarks: results.poseLandmarks
             });
         }
-        // 注意：不 return，確保掃描時也會畫圖
+        // Scanning 模式下依然繪圖
     }
 
     const canvas = canvasRef.current;
@@ -179,8 +186,8 @@ export default function RunAnalysisView() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (results.poseLandmarks) {
-        // 1. 繪製標準骨架 (底層)
-        if (showSkeleton) {
+        // 1. 使用 Ref 讀取最新狀態
+        if (showSkeletonRef.current) {
             drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
             drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
         }
@@ -188,21 +195,26 @@ export default function RunAnalysisView() {
         let angle = 0;
         let hipExt = 0;
         
-        // 膝蓋角度
-        if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
-            angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
-        }
-        
-        // 送髖計算與繪製
-        if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
-            hipExt = calculateRealHipExtension(results.poseLandmarks);
+        if (modeRef.current === 'bench') {
+            if (results.poseLandmarks[12] && results.poseLandmarks[14] && results.poseLandmarks[16]) {
+                angle = calculateAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
+            }
+        } else {
+            // Run mode
+            if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
+                angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
+            }
             
-            // 2. 理想跑姿疊加層 (最上層)
-            if (showIdealForm) {
-                const nose = results.poseLandmarks[0];
-                const shoulder = results.poseLandmarks[12];
-                const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-                drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
+            if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
+                hipExt = calculateRealHipExtension(results.poseLandmarks);
+                
+                // 使用 Ref 讀取最新狀態
+                if (showIdealFormRef.current) {
+                    const nose = results.poseLandmarks[0];
+                    const shoulder = results.poseLandmarks[12];
+                    const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
+                    drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
+                }
             }
         }
         
@@ -216,14 +228,13 @@ export default function RunAnalysisView() {
     const video = videoRef.current;
     if (!video || !poseModel) return;
 
-    await poseModel.reset(); // 重置模型狀態
+    await poseModel.reset(); 
 
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
     isScanningRef.current = true;
 
-    // 掃描時關閉平滑，確保每一幀都是獨立、準確的瞬間
     poseModel.setOptions({ 
         modelComplexity: 1, 
         smoothLandmarks: false, 
@@ -234,7 +245,6 @@ export default function RunAnalysisView() {
     video.pause();
     const duration = video.duration;
     
-    // 0.1秒跳一次 (10 FPS Sampling)
     for (let t = 0; t <= duration; t += 0.1) {
         if (!isScanningRef.current) break; 
         video.currentTime = t;
@@ -242,7 +252,6 @@ export default function RunAnalysisView() {
         await new Promise(resolve => {
             const onSeek = () => { 
                 video.removeEventListener('seeked', onSeek); 
-                // 關鍵：Seek 完成後，稍微等一下瀏覽器渲染畫面，避免送到黑畫面或上一幀
                 setTimeout(resolve, 50); 
             };
             video.addEventListener('seeked', onSeek);
@@ -253,7 +262,6 @@ export default function RunAnalysisView() {
     }
 
     isScanningRef.current = false;
-    // 掃描結束，恢復平滑
     poseModel.setOptions({ smoothLandmarks: true }); 
 
     const computedMetrics = processScanData(fullScanDataRef.current);
@@ -265,7 +273,6 @@ export default function RunAnalysisView() {
   const processScanData = (data) => {
     if (!data || data.length === 0) return null;
     
-    // 跑姿分析核心
     const hipExtensions = data.map(d => calculateRealHipExtension(d.landmarks));
     const maxHipExt = Math.max(...hipExtensions);
 
@@ -385,6 +392,27 @@ export default function RunAnalysisView() {
   
   const updateMetric = (key, val) => setMetrics(prev => ({...prev, [key]: {...prev[key], value: val}}));
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const clearAll = () => {
+    isScanningRef.current = false;
+    setAnalysisStep('idle');
+    setMetrics(null);
+    setAiFeedback('');
+    setVideoFile(null);
+    setIsFitMode(false);
+    setScanProgress(0);
+    if (poseModel) poseModel.setOptions({ smoothLandmarks: true });
+    
+    const canvas = canvasRef.current;
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*, .fit" className="hidden" />
@@ -419,9 +447,9 @@ export default function RunAnalysisView() {
         <div className="lg:col-span-2 space-y-4">
           <div 
             className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
-            onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}
+            onClick={(!videoFile && !isFitMode) ? handleUploadClick : undefined}
           >
-            {/* 骨架 Canvas 層 (z-index 20，確保在影片之上) */}
+            {/* 骨架 Canvas 層 */}
             <canvas 
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full pointer-events-none z-20"
@@ -445,7 +473,7 @@ export default function RunAnalysisView() {
               </div>
             )}
 
-            {/* 影片播放器 (背景淡化效果) */}
+            {/* 影片播放器 (背景淡化效果 - 使用 Ref 讀取 showIdealForm) */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -476,17 +504,50 @@ export default function RunAnalysisView() {
           <div className="flex gap-4 justify-center">
              {(videoFile || isFitMode) && analysisStep === 'idle' && (
                  <>
-                    <button onClick={() => fileInputRef.current.click()} className="px-6 py-2 bg-gray-700 text-white rounded-lg">更換</button>
-                    {!isFitMode && <button onClick={startFullVideoScan} className="px-6 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"><Cpu size={18}/> 全片分析</button>}
-                 </>
-             )}
-             {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
-                 <>
-                    <button onClick={() => { setAnalysisStep('idle'); setMetrics(null); setAiFeedback(''); }} className="px-6 py-2 bg-gray-700 text-white rounded-lg">重置</button>
-                    {analysisStep !== 'ai_complete' && <button onClick={performAIAnalysis} className="px-6 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2"><Sparkles size={18}/> AI 診斷</button>}
-                    {analysisStep === 'ai_complete' && <button onClick={saveToCalendar} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"><Save size={18}/> 儲存</button>}
-                 </>
-             )}
+                    <button onClick={handleUploadClick} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
+                      更換檔案
+                </button>
+                {/* 影片模式才顯示全片分析按鈕 */}
+                {!isFitMode && (
+                    <button 
+                    onClick={startFullVideoScan}
+                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
+                    >
+                    <Cpu size={20} />
+                    開始全影片分析
+                    </button>
+                )}
+              </>
+            )}
+
+            {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
+               <div className="flex gap-4 items-center">
+                 <button onClick={clearAll} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
+                    重置
+                 </button>
+                 
+                 {analysisStep !== 'ai_complete' && (
+                    <button 
+                      onClick={performAIAnalysis}
+                      className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold shadow-lg shadow-purple-900/30 transition-all hover:scale-105 animate-pulse-slow"
+                    >
+                      <Sparkles size={20} />
+                      第二階段：AI 診斷
+                    </button>
+                 )}
+
+                 {analysisStep === 'ai_complete' && (
+                    <button 
+                        onClick={saveToCalendar}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-900/30 transition-all hover:scale-105"
+                    >
+                        {isSaving ? <CheckCircle className="animate-spin" size={20} /> : <Save size={20} />}
+                        儲存報告
+                    </button>
+                 )}
+               </div>
+            )}
           </div>
         </div>
 

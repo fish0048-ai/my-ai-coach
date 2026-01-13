@@ -1,18 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Zap, Layers, BookOpen, AlertTriangle, FileCode, CheckCircle } from 'lucide-react';
+import { Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, MoveVertical, Timer, Zap, Layers, BookOpen, AlertTriangle, CheckCircle } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
-// 核心修復：引入 Buffer 以支援瀏覽器端的 Fit 檔案解析
-import { Buffer } from 'buffer';
-import FitParser from 'fit-file-parser';
 import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 
 export default function RunAnalysisView() {
   // --- 狀態管理 ---
   const [videoFile, setVideoFile] = useState(null); 
-  const [isFitMode, setIsFitMode] = useState(false); 
   const [analysisStep, setAnalysisStep] = useState('idle'); // idle, scanning, analyzing_ai, internal_complete, ai_complete
   const [scanProgress, setScanProgress] = useState(0);
   const [videoError, setVideoError] = useState(null);
@@ -102,8 +98,6 @@ export default function RunAnalysisView() {
       
       if (isLegInFront) {
           const angle = calculateAngle(shoulder, hip, knee);
-          // 垂直線為 180 度，往前抬腿角度越小代表抬越高 (這取決於計算基準，這裡簡化為前擺幅度)
-          // 修正邏輯：計算大腿與軀幹的夾角，理想是前擺
           return Math.max(0, 180 - angle);
       }
       return 0; 
@@ -214,7 +208,7 @@ export default function RunAnalysisView() {
             }
         }
         
-        // 節流更新 UI (避免 React Render 太頻繁)
+        // 節流更新 UI
         const now = Date.now();
         if (now - lastUiUpdateRef.current > 100) {
             setHipDriveAngle(Math.round(hipDrive));
@@ -268,7 +262,6 @@ export default function RunAnalysisView() {
                 setTimeout(resolve, 50); 
             };
             video.addEventListener('seeked', onSeek);
-            // 防呆：若 seek 太久直接繼續
             setTimeout(onSeek, 500); 
         });
 
@@ -320,56 +313,7 @@ export default function RunAnalysisView() {
     };
   };
 
-  // --- 6. 功能：FIT 檔案處理 (修復版) ---
-  const handleFitAnalysis = (file) => {
-      setAnalysisStep('scanning'); // 借用 scanning 狀態顯示 Loading
-      setIsFitMode(true);
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-            // 關鍵修復：使用 Buffer.from
-            const content = Buffer.from(e.target.result);
-            const parser = new FitParser({
-                force: true,
-                speedUnit: 'km/h',
-                lengthUnit: 'km',
-                temperatureUnit: 'celsius',
-            });
-
-            parser.parse(content, (error, data) => {
-                if (error) {
-                    setVideoError("FIT 解析失敗，請確認檔案格式");
-                    setAnalysisStep('idle');
-                } else {
-                    // 提取 FIT 數據
-                    const session = data.sessions?.[0];
-                    if (!session) throw new Error("無 Session 數據");
-
-                    const distance = (session.total_distance || 0) / 1000;
-                    const duration = (session.total_elapsed_time || 0) / 60;
-                    const avgSpeed = (session.avg_speed || 0) * 3.6; // km/h
-                    const avgCadence = (session.avg_cadence || 0) * 2; // spm (通常 fit 是 rpm 單腳，需 *2)
-                    
-                    setMetrics({
-                        distance: { label: '總距離', value: distance.toFixed(2), unit: 'km', status: 'good', icon: Activity },
-                        pace: { label: '平均配速', value: `${Math.floor(60/avgSpeed)}'${Math.round(((60/avgSpeed)%1)*60)}`, unit: '/km', status: 'good', icon: Timer },
-                        cadence: { label: '平均步頻', value: avgCadence.toString(), unit: 'spm', status: avgCadence >= 170 ? 'good' : 'warning', icon: Zap },
-                        heartRate: { label: '平均心率', value: session.avg_heart_rate || 'N/A', unit: 'bpm', status: 'good', icon: Activity }
-                    });
-                    setAnalysisStep('internal_complete');
-                }
-            });
-        } catch (err) {
-            console.error(err);
-            setVideoError("檔案讀取錯誤");
-            setAnalysisStep('idle');
-        }
-      };
-      reader.readAsArrayBuffer(file);
-  };
-
-  // --- 7. 功能：AI 診斷 ---
+  // --- 6. 功能：AI 診斷 ---
   const performAIAnalysis = async () => {
       if (!metrics) return;
       setAnalysisStep('analyzing_ai');
@@ -392,7 +336,7 @@ export default function RunAnalysisView() {
       }
   };
 
-  // --- 8. 功能：儲存至 Firebase ---
+  // --- 7. 功能：儲存至 Firebase ---
   const saveToCalendar = async () => {
     if (!auth.currentUser || !metrics) {
         alert("請先登入");
@@ -403,9 +347,9 @@ export default function RunAnalysisView() {
 
     try {
         await addDoc(collection(db, 'users', auth.currentUser.uid, 'calendar'), {
-            title: isFitMode ? "跑步紀錄 (FIT)" : "跑姿分析 (Video)",
+            title: "跑姿分析 (Video)",
             date: new Date().toISOString().split('T')[0],
-            type: isFitMode ? 'run' : 'analysis',
+            type: 'analysis',
             status: 'completed',
             score: metrics.cadence?.value > 170 ? 90 : 80, // 簡單評分
             details: metrics, // 儲存完整 metrics 物件
@@ -422,7 +366,7 @@ export default function RunAnalysisView() {
     }
   };
 
-  // --- 9. 檔案選擇處理 ---
+  // --- 8. 檔案選擇處理 ---
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -431,16 +375,12 @@ export default function RunAnalysisView() {
     clearAll(); 
     setVideoError(null);
 
-    if (file.name.toLowerCase().endsWith('.fit')) {
-        handleFitAnalysis(file);
-    } else {
-        const url = URL.createObjectURL(file);
-        setVideoFile(url);
-        setIsFitMode(false);
-        // 提示
-        if (file.name.toLowerCase().endsWith('.mov')) {
-            alert("建議使用 MP4 格式以獲得最佳效能。");
-        }
+    const url = URL.createObjectURL(file);
+    setVideoFile(url);
+    
+    // 提示
+    if (file.name.toLowerCase().endsWith('.mov')) {
+        alert("建議使用 MP4 格式以獲得最佳效能。");
     }
   };
 
@@ -448,7 +388,6 @@ export default function RunAnalysisView() {
       setMetrics(null);
       setAiFeedback('');
       setVideoFile(null);
-      setIsFitMode(false);
       setAnalysisStep('idle');
       setScanProgress(0);
       fullScanDataRef.current = [];
@@ -461,17 +400,17 @@ export default function RunAnalysisView() {
 
   return (
     <div className="space-y-6 animate-fadeIn p-4 md:p-0">
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*, .fit" className="hidden" />
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*" className="hidden" />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Activity className="text-green-500" /> 跑姿實驗室
-          <span className="text-xs text-gray-400 border border-gray-700 px-2 py-1 rounded">Video + FIT</span>
+          <span className="text-xs text-gray-400 border border-gray-700 px-2 py-1 rounded">Video Analysis</span>
         </h1>
         
         {/* 控制按鈕區 (僅在有影片時顯示) */}
-        {(videoFile && !isFitMode) && (
+        {videoFile && (
             <div className="flex gap-2">
                 <button 
                   onClick={() => setShowIdealForm(!showIdealForm)} 
@@ -492,8 +431,8 @@ export default function RunAnalysisView() {
         <div className="lg:col-span-2 space-y-4">
           <div 
             className={`relative aspect-video bg-black rounded-2xl border-2 border-dashed border-gray-800 flex flex-col items-center justify-center overflow-hidden group transition-all
-                ${!videoFile && !isFitMode ? 'cursor-pointer hover:border-blue-500 hover:bg-gray-900' : ''}`}
-            onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}
+                ${!videoFile ? 'cursor-pointer hover:border-blue-500 hover:bg-gray-900' : ''}`}
+            onClick={!videoFile ? () => fileInputRef.current.click() : undefined}
           >
             {/* Canvas 層 (繪製骨架) */}
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
@@ -503,7 +442,7 @@ export default function RunAnalysisView() {
               <div className="absolute inset-0 bg-gray-900/90 z-40 flex flex-col items-center justify-center text-blue-400">
                   <Cpu className="animate-pulse mb-4" size={48}/> 
                   <p className="mb-2 text-lg font-bold">正在深度分析中...</p>
-                  <p className="text-sm text-gray-400 mb-4">{isFitMode ? '解析 FIT 檔案結構' : `影像掃描進度: ${scanProgress}%`}</p>
+                  <p className="text-sm text-gray-400 mb-4">{`影像掃描進度: ${scanProgress}%`}</p>
                   <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-500 transition-all duration-100" style={{width: `${scanProgress}%`}}></div>
                   </div>
@@ -531,14 +470,14 @@ export default function RunAnalysisView() {
             )}
 
             {/* 初始上傳畫面 */}
-            {!videoFile && !isFitMode && !videoError && (
+            {!videoFile && !videoError && (
               <div className="text-center p-6">
                 <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                     <Upload size={32} className="text-gray-400 group-hover:text-blue-400" />
                 </div>
-                <h3 className="text-white font-bold text-xl mb-2">上傳影片或 FIT 檔</h3>
+                <h3 className="text-white font-bold text-xl mb-2">上傳影片</h3>
                 <p className="text-gray-500 text-sm max-w-xs mx-auto">
-                    支援 .mp4 跑步側錄影片 (分析跑姿)<br/>或 Garmin .fit 檔案 (分析數據)
+                    支援 .mp4 跑步側錄影片 (分析跑姿)
                 </p>
               </div>
             )}
@@ -557,33 +496,22 @@ export default function RunAnalysisView() {
                     onPlay={() => { if(!isScanningRef.current) processFrame(); }}
                 />
             )}
-            
-            {/* FIT 模式圖示 */}
-            {isFitMode && !videoError && analysisStep !== 'scanning' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-10">
-                    <FileCode size={64} className="mb-4 text-green-500"/>
-                    <h3 className="text-white font-bold text-xl">FIT 檔案已載入</h3>
-                    <p className="text-sm">數據已提取完成</p>
-                </div>
-            )}
           </div>
 
           {/* 操作按鈕區 */}
           <div className="flex gap-4 justify-center">
-             {(videoFile || isFitMode) && analysisStep === 'idle' && (
+             {videoFile && analysisStep === 'idle' && (
                  <>
                     <button onClick={() => fileInputRef.current.click()} className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-medium transition-all">
                       更換檔案
                     </button>
-                    {!isFitMode && (
-                        <button 
-                          onClick={startFullVideoScan}
-                          className="flex items-center gap-2 px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
-                        >
-                          <Cpu size={18} />
-                          開始全影片分析
-                        </button>
-                    )}
+                    <button 
+                      onClick={startFullVideoScan}
+                      className="flex items-center gap-2 px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
+                    >
+                      <Cpu size={18} />
+                      開始全影片分析
+                    </button>
                  </>
              )}
 
@@ -633,7 +561,6 @@ export default function RunAnalysisView() {
                     <h3 className="text-white font-bold flex items-center gap-2">
                         <Activity size={18} className="text-blue-400"/> 分析數據
                     </h3>
-                    <span className="text-xs text-gray-500">{isFitMode ? '來自 FIT' : '來自 CV'}</span>
                 </div>
                 <div className="p-4 space-y-3">
                    {Object.entries(metrics).map(([key, item]) => (

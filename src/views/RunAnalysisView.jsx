@@ -290,7 +290,7 @@ export default function RunAnalysisView() {
   const processScanData = (data) => {
     if (!data || data.length === 0) return null;
     
-    // 計算最大送髖 (前擺) 角度
+    // 跑姿分析核心
     const hipDrives = data.map(d => calculateHipDrive(d.landmarks));
     const maxHipDrive = Math.max(...hipDrives);
 

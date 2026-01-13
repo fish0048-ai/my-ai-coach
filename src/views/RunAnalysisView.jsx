@@ -199,7 +199,7 @@ export default function RunAnalysisView() {
   };
 
   const onPoseResults = (results) => {
-    // A. 掃描模式：只存數據，不畫圖以節省效能
+    // A. 掃描模式：收集數據，且允許繪圖 (取消了之前的 early return)
     if (isScanningRef.current) {
         if (results.poseLandmarks) {
             fullScanDataRef.current.push({
@@ -207,10 +207,10 @@ export default function RunAnalysisView() {
                 landmarks: results.poseLandmarks
             });
         }
-        return;
+        // 關鍵修改：不 return，讓程式繼續往下執行繪圖邏輯
     }
 
-    // B. 預覽模式：畫圖
+    // B. 預覽/掃描模式：畫圖
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -462,14 +462,18 @@ export default function RunAnalysisView() {
                 className="absolute inset-0 w-full h-full pointer-events-none z-20 object-contain" 
             />
 
-            {/* Loading / Scanning 遮罩 */}
+            {/* Loading / Scanning 遮罩 - 改為底部半透明顯示，讓使用者能看到分析過程 */}
             {analysisStep === 'scanning' && (
-              <div className="absolute inset-0 bg-gray-900/90 z-40 flex flex-col items-center justify-center text-blue-400">
-                  <Cpu className="animate-pulse mb-4" size={48}/> 
-                  <p className="mb-2 text-lg font-bold">正在深度分析中...</p>
-                  <p className="text-sm text-gray-400 mb-4">{`影像掃描進度: ${scanProgress}%`}</p>
-                  <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 transition-all duration-100" style={{width: `${scanProgress}%`}}></div>
+              <div className="absolute inset-0 z-40 flex flex-col justify-end pb-10 items-center text-blue-400 bg-gradient-to-t from-gray-900/90 via-gray-900/20 to-transparent pointer-events-none">
+                  <div className="bg-gray-900/80 p-4 rounded-2xl border border-blue-500/30 backdrop-blur-sm flex flex-col items-center shadow-2xl">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Cpu className="animate-pulse" size={24}/> 
+                        <span className="font-bold text-lg">AI 深度分析中...</span>
+                    </div>
+                    <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                        <div className="h-full bg-blue-500 transition-all duration-100" style={{width: `${scanProgress}%`}}></div>
+                    </div>
+                    <p className="text-xs text-blue-300 font-mono">{`掃描進度: ${scanProgress}%`}</p>
                   </div>
               </div>
             )}

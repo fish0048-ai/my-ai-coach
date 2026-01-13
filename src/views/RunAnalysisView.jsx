@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
@@ -16,6 +16,7 @@ export default function RunAnalysisView() {
 
   const fullScanDataRef = useRef([]);
   const isScanningRef = useRef(false);
+  const lastUiUpdateRef = useRef(0); // 用於節流 UI 更新
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
@@ -181,12 +182,11 @@ export default function RunAnalysisView() {
       } catch(err) {
           console.error("Overlay draw error:", err);
       } finally {
-          ctx.restore(); // 確保一定會復原，防止黑屏
+          ctx.restore(); 
       }
   };
 
   const onPoseResults = (results) => {
-    // 掃描模式數據收集
     if (isScanningRef.current && results.poseLandmarks) {
         fullScanDataRef.current.push({
             timestamp: videoRef.current ? videoRef.current.currentTime : 0,
@@ -232,13 +232,18 @@ export default function RunAnalysisView() {
                 }
             }
             
-            setHipExtensionAngle(Math.round(driveAngle));
-            setRealtimeAngle(angle);
+            // --- 節流 UI 更新 (Throttling) 防止 React 卡死 ---
+            const now = Date.now();
+            if (now - lastUiUpdateRef.current > 100) { // 每 100ms 更新一次 UI (10 FPS)
+                setHipDriveAngle(Math.round(driveAngle));
+                setRealtimeAngle(angle);
+                lastUiUpdateRef.current = now;
+            }
         }
     } catch(e) {
         console.error("Canvas main loop error:", e);
     } finally {
-        ctx.restore(); // 確保畫布狀態復原
+        ctx.restore(); 
     }
   };
 
@@ -271,15 +276,17 @@ export default function RunAnalysisView() {
         await new Promise((resolve) => {
             const onSeek = () => { 
                 video.removeEventListener('seeked', onSeek); 
-                // 稍微等待渲染
                 setTimeout(resolve, 50); 
             };
             video.addEventListener('seeked', onSeek);
-            // 兜底：如果0.5秒都沒反應，強制繼續，防止卡死
-            setTimeout(onSeek, 500); 
+            setTimeout(onSeek, 500); // 0.5s Timeout
         });
 
-        await poseModel.send({ image: video });
+        try {
+            await poseModel.send({ image: video });
+        } catch(err) {
+            console.warn("Pose estimation failed for frame:", t, err);
+        }
         setScanProgress(Math.round((t / duration) * 100));
     }
 
@@ -322,7 +329,11 @@ export default function RunAnalysisView() {
       const video = videoRef.current;
       const processFrame = async () => {
           if (video && !video.paused && !video.ended && poseModel && !isScanningRef.current) {
-              await poseModel.send({image: video});
+              try {
+                  await poseModel.send({image: video});
+              } catch(e) {
+                  console.warn("Frame drop", e);
+              }
               if (videoRef.current && !videoRef.current.paused) { 
                   requestAnimationFrame(processFrame);
               }
@@ -343,6 +354,11 @@ export default function RunAnalysisView() {
         setAnalysisStep('idle');
         fullScanDataRef.current = [];
     }
+  };
+
+  const handleVideoError = () => {
+    alert("影片格式不支援或無法播放。請嘗試使用 MP4 (H.264) 格式。");
+    setVideoFile(null);
   };
 
   const handleFitAnalysis = (file) => {
@@ -500,7 +516,7 @@ export default function RunAnalysisView() {
               </div>
             )}
 
-            {/* 影片播放器 (背景淡化效果 + playsInline) */}
+            {/* 影片播放器 (背景淡化效果 + playsInline + onError) */}
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -511,7 +527,8 @@ export default function RunAnalysisView() {
                     muted
                     playsInline
                     crossOrigin="anonymous"
-                    onPlay={onVideoPlay} 
+                    onPlay={onVideoPlay}
+                    onError={handleVideoError} 
                 />
             )}
             
@@ -561,7 +578,9 @@ export default function RunAnalysisView() {
                    <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
                    {Object.entries(metrics).map(([k, m]) => (
                        <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
-                           <span className="text-gray-400 text-sm flex items-center gap-2"><m.icon size={14}/> {m.label}</span>
+                           <span className="text-gray-400 text-sm flex items-center gap-2">
+                                {m.icon ? <m.icon size={14}/> : <Activity size={14} />} {m.label}
+                           </span>
                            <div className="flex items-center gap-1">
                                <input type="text" value={m.value} onChange={(e) => updateMetric(k, e.target.value)} className={`bg-transparent text-right font-bold w-16 outline-none ${m.status==='good'?'text-green-400':'text-yellow-400'}`}/>
                                <span className="text-xs text-gray-500">{m.unit}</span>

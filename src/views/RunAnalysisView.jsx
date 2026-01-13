@@ -68,49 +68,100 @@ export default function RunAnalysisView() {
       return 0; 
   };
 
+  // --- 繪製理想跑姿 (視覺化疊加層 - 強制最上層) ---
   const drawHipAnalysisOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
+      
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
       const hipX = hip.x * w;
       const hipY = hip.y * h;
-      const len = h * 0.35; 
+      
+      const kneeX = knee.x * w;
+      const kneeY = knee.y * h;
+      const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
+      const radius = thighLen * 1.2; 
 
       ctx.save();
       ctx.translate(hipX, hipY);
       
+      // 設定陰影，增加立體感
+      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+
+      // 1. 垂直參考線
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(0, len);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.setLineDash([5, 5]);
-      ctx.lineWidth = 1;
+      ctx.lineTo(0, radius);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 2;
       ctx.stroke();
 
+      // 2. 理想送髖區間 (扇形)
       ctx.beginPath();
       ctx.moveTo(0, 0);
+      
       const startAngle = Math.PI/2; 
       const minExt = 10 * Math.PI/180; 
       const maxExt = 25 * Math.PI/180; 
       const isGood = currentAngle >= 10;
 
       if (isFacingRight) {
-          ctx.arc(0, 0, len, startAngle + minExt, startAngle + maxExt);
+          ctx.arc(0, 0, radius, startAngle + minExt, startAngle + maxExt);
       } else {
-          ctx.arc(0, 0, len, startAngle - maxExt, startAngle - minExt);
+          ctx.arc(0, 0, radius, startAngle - maxExt, startAngle - minExt);
       }
 
       ctx.lineTo(0, 0);
-      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.3)' : 'rgba(34, 197, 94, 0.2)'; 
+      // 提高不透明度，確保蓋過骨架
+      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.3)'; 
       ctx.fill();
+      
       ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
       ctx.setLineDash([]);
-      ctx.lineWidth = isGood ? 3 : 1;
+      ctx.lineWidth = 3; 
       ctx.stroke();
+
+      // 3. 繪製當前大腿向量 (Highlighter)
+      const vecX = (knee.x * w) - hipX;
+      const vecY = (knee.y * h) - hipY;
+      
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(vecX, vecY);
+      ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; 
+      ctx.lineWidth = 6; // 比骨架更粗
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // 4. 浮動標籤
+      const labelDist = radius + 30;
+      const labelAngle = isFacingRight ? (Math.PI/2 + 18*Math.PI/180) : (Math.PI/2 - 18*Math.PI/180);
+      const labelX = Math.cos(labelAngle) * labelDist;
+      const labelY = Math.sin(labelAngle) * labelDist;
+
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      
+      if (isGood) {
+          ctx.fillStyle = '#fbbf24'; 
+          ctx.fillText(`Good! ${currentAngle}°`, labelX, labelY);
+      } else {
+          ctx.fillStyle = '#ef4444'; 
+          ctx.fillText(`目前 ${currentAngle}°`, labelX, labelY);
+          ctx.font = '12px sans-serif';
+          ctx.fillStyle = '#4ade80';
+          ctx.fillText(`目標 >10°`, labelX, labelY + 16);
+      }
+
       ctx.restore();
   };
 
   const onPoseResults = (results) => {
+    // 修正1：在掃描模式下，依然記錄數據，但 *移除* return，讓它繼續往下執行繪圖
     if (isScanningRef.current) {
         if (results.poseLandmarks) {
             fullScanDataRef.current.push({
@@ -118,8 +169,9 @@ export default function RunAnalysisView() {
                 landmarks: results.poseLandmarks
             });
         }
-        return;
+        // 注意：不 return，繼續執行下方的繪圖邏輯，這樣掃描時骨架才會跟著跑！
     }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -127,6 +179,7 @@ export default function RunAnalysisView() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (results.poseLandmarks) {
+        // 1. 先畫骨架 (底層)
         if (showSkeleton) {
             drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
             drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
@@ -135,11 +188,17 @@ export default function RunAnalysisView() {
         let angle = 0;
         let hipExt = 0;
         
+        // 膝蓋角度
         if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
             angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
         }
+        
+        // 送髖計算
         if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
             hipExt = calculateRealHipExtension(results.poseLandmarks);
+            
+            // 2. 繪製理想跑姿疊加層 (最上層)
+            // 確保這是在 drawConnectors 之後呼叫
             if (showIdealForm) {
                 const nose = results.poseLandmarks[0];
                 const shoulder = results.poseLandmarks[12];
@@ -147,6 +206,7 @@ export default function RunAnalysisView() {
                 drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
             }
         }
+        
         setHipExtensionAngle(Math.round(hipExt));
         setRealtimeAngle(angle);
     }
@@ -157,15 +217,26 @@ export default function RunAnalysisView() {
     const video = videoRef.current;
     if (!video || !poseModel) return;
 
+    // 重置模型狀態，避免殘留
+    await poseModel.reset();
+
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
     isScanningRef.current = true;
 
-    poseModel.setOptions({ modelComplexity: 1, smoothLandmarks: false }); 
+    // 修正2：掃描時關閉平滑，確保快速跳轉時不產生殘影與誤判
+    poseModel.setOptions({ 
+        modelComplexity: 1, 
+        smoothLandmarks: false, // 關閉平滑，這對跳幀掃描至關重要
+        enableSegmentation: false,
+        smoothSegmentation: false
+    }); 
+
     video.pause();
     const duration = video.duration;
     
+    // 0.1秒跳一次 (10 FPS Sampling)
     for (let t = 0; t <= duration; t += 0.1) {
         if (!isScanningRef.current) break; 
         video.currentTime = t;
@@ -178,7 +249,9 @@ export default function RunAnalysisView() {
     }
 
     isScanningRef.current = false;
+    // 掃描結束，恢復平滑以利後續播放預覽
     poseModel.setOptions({ smoothLandmarks: true }); 
+
     const computedMetrics = processScanData(fullScanDataRef.current);
     setMetrics(computedMetrics);
     setAnalysisStep('internal_complete');
@@ -243,7 +316,6 @@ export default function RunAnalysisView() {
       setAnalysisStep('analyzing_internal');
       setIsFitMode(true);
       setVideoFile(null);
-      // 簡易 FIT 處理，若需要詳細請複製 StrengthView 的邏輯或共用
       setTimeout(() => {
           setMetrics({ cadence: { label: 'FIT 步頻', value: '180', unit: 'spm', status: 'good', icon: Activity } });
           setAnalysisStep('internal_complete');
@@ -322,7 +394,7 @@ export default function RunAnalysisView() {
             {(videoFile || isFitMode) && (
                 <>
                     <button onClick={() => setShowIdealForm(!showIdealForm)} className={`px-3 py-1.5 rounded-lg border text-sm flex gap-1 ${showIdealForm ? 'bg-green-600/20 text-green-300 border-green-500' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
-                        <Layers size={16}/> 理想送髖
+                        <Layers size={16}/> {showIdealForm ? '隱藏模擬' : '顯示理想送髖'}
                     </button>
                     <button onClick={() => setShowSkeleton(!showSkeleton)} className="px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 text-sm flex gap-1">
                         {showSkeleton ? <Eye size={16}/> : <EyeOff size={16}/>} 骨架

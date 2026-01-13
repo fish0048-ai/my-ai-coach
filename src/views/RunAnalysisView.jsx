@@ -38,7 +38,7 @@ export default function RunAnalysisView() {
   const [isSaving, setIsSaving] = useState(false);
   const [poseModel, setPoseModel] = useState(null); 
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
-  const [hipDriveAngle, setHipDriveAngle] = useState(0); // 改名為 HipDrive
+  const [hipDriveAngle, setHipDriveAngle] = useState(0); 
 
   useEffect(() => {
     const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
@@ -63,131 +63,126 @@ export default function RunAnalysisView() {
     return Math.round(angle);
   };
 
-  // --- 計算送髖 (Forward Drive / Hip Flexion) ---
-  // 定義：骨盆前傾帶動大腿向前抬起
-  const calculateHipDrive = (landmarks) => {
+  const calculateRealHipExtension = (landmarks) => {
       if (!landmarks) return 0;
       const nose = landmarks[0];
-      const shoulder = landmarks[12]; // 右肩
-      const hip = landmarks[24];      // 右髖
-      const knee = landmarks[26];     // 右膝
-
+      const shoulder = landmarks[12];
+      const hip = landmarks[24];
+      const knee = landmarks[26];
       if (!nose || !shoulder || !hip || !knee) return 0;
-
-      // 1. 判斷跑向
       const isFacingRight = nose.x > shoulder.x;
-
-      // 2. 判斷腿是否在 "前方" (Forward Phase)
-      // 向右跑: 膝蓋 X > 臀部 X
-      // 向左跑: 膝蓋 X < 臀部 X
       const isLegInFront = isFacingRight ? (knee.x > hip.x) : (knee.x < hip.x);
-
       if (isLegInFront) {
           const angle = calculateAngle(shoulder, hip, knee);
-          // 直立是 180，前抬會讓角度變小
-          // Drive 角度 = 180 - 夾角
           return Math.max(0, 180 - angle);
       }
-      
       return 0; 
   };
 
-  // --- 繪製理想送髖區間 (疊加在骨架上) ---
+  // --- 繪製理想送髖區間 (安全強化版) ---
   const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
       
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
+      
+      // 安全檢查：防止 NaN 導致崩潰
+      if (!Number.isFinite(hip.x) || !Number.isFinite(hip.y) || !Number.isFinite(knee.x) || !Number.isFinite(knee.y)) return;
+
       const hipX = hip.x * w;
       const hipY = hip.y * h;
-      
-      // 計算大腿長度作為半徑
       const kneeX = knee.x * w;
       const kneeY = knee.y * h;
+      
       const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
-      const radius = thighLen * 1.1; // 畫稍微長一點點
+      const radius = thighLen * 1.2; 
 
-      ctx.save();
-      ctx.translate(hipX, hipY);
-      
-      // 設定陰影
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 6;
+      // 安全檢查：半徑必須有效
+      if (!Number.isFinite(radius) || radius <= 0) return;
 
-      // 1. 垂直參考線
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, radius);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.save(); // 保存當前狀態
+      try {
+          ctx.translate(hipX, hipY);
+          
+          ctx.shadowColor = "rgba(0, 0, 0, 1)";
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
 
-      // 2. 理想送髖區間 (扇形) - 設定在前方
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      
-      const startAngle = Math.PI/2; // 垂直向下
-      // 目標區間：前抬 20度 ~ 60度
-      const minDrive = 20 * Math.PI/180; 
-      const maxDrive = 60 * Math.PI/180; 
-      
-      // 判斷是否達標
-      const isGood = currentAngle >= 20;
+          // 1. 垂直參考線
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, radius);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 2;
+          ctx.stroke();
 
-      if (isFacingRight) {
-          // 向右跑，前腳在右 (逆時針 from down? No, canvas Y is down, X is right. 0 is right, PI/2 is down)
-          // 垂直向下是 PI/2. 向前(右)抬起是往 0度方向走 -> 角度減少
-          ctx.arc(0, 0, radius, startAngle - maxDrive, startAngle - minDrive);
-      } else {
-          // 向左跑，前腳在左 (順時針 from down) -> 角度增加
-          // 垂直向下是 PI/2. 向前(左/PI)抬起 -> 角度增加
-          ctx.arc(0, 0, radius, startAngle + minDrive, startAngle + maxDrive);
+          // 2. 理想送髖區間
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          
+          const startAngle = Math.PI/2; 
+          const minDrive = 20 * Math.PI/180; 
+          const maxDrive = 60 * Math.PI/180; 
+          const isGood = currentAngle >= 20;
+
+          if (isFacingRight) {
+              ctx.arc(0, 0, radius, startAngle - maxDrive, startAngle - minDrive);
+          } else {
+              ctx.arc(0, 0, radius, startAngle + minDrive, startAngle + maxDrive);
+          }
+
+          ctx.lineTo(0, 0);
+          ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.3)'; 
+          ctx.fill();
+          
+          ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
+          ctx.setLineDash([]);
+          ctx.lineWidth = 3; 
+          ctx.stroke();
+
+          // 3. 高亮大腿骨
+          const vecX = kneeX - hipX;
+          const vecY = kneeY - hipY;
+          
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(vecX, vecY);
+          ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; 
+          ctx.lineWidth = 6;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+
+          // 4. 浮動標籤
+          const labelDist = radius + 30;
+          const labelAngle = isFacingRight ? (Math.PI/2 - 40*Math.PI/180) : (Math.PI/2 + 40*Math.PI/180);
+          const labelX = Math.cos(labelAngle) * labelDist;
+          const labelY = Math.sin(labelAngle) * labelDist;
+
+          if (Number.isFinite(labelX) && Number.isFinite(labelY)) {
+              ctx.font = 'bold 16px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.shadowColor = "black";
+              ctx.shadowBlur = 4;
+              
+              if (isGood) {
+                  ctx.fillStyle = '#fbbf24'; 
+                  ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
+              } else {
+                  ctx.fillStyle = '#ef4444'; 
+                  ctx.fillText(`${currentAngle}°`, labelX, labelY);
+                  ctx.font = '12px sans-serif';
+                  ctx.fillStyle = '#4ade80';
+                  ctx.fillText(`目標 20-60°`, labelX, labelY + 16);
+              }
+          }
+
+      } catch(err) {
+          console.error("Overlay draw error:", err);
+      } finally {
+          ctx.restore(); // 確保一定會復原，這是防止黑屏的關鍵
       }
-
-      ctx.lineTo(0, 0);
-      ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.4)' : 'rgba(34, 197, 94, 0.2)'; 
-      ctx.fill();
-      
-      ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
-      ctx.setLineDash([]);
-      ctx.lineWidth = 2; 
-      ctx.stroke();
-
-      // 3. 高亮目前的大腿骨 (覆蓋 MediaPipe 的綠線)
-      const vecX = kneeX - hipX;
-      const vecY = kneeY - hipY;
-      
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(vecX, vecY);
-      // 達標顯示金黃色，否則顯示紅色提醒
-      ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; 
-      ctx.lineWidth = 5; // 比骨架粗一點
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      // 4. 浮動標籤
-      const labelDist = radius + 25;
-      const labelAngle = isFacingRight ? (Math.PI/2 - 40*Math.PI/180) : (Math.PI/2 + 40*Math.PI/180);
-      const labelX = Math.cos(labelAngle) * labelDist;
-      const labelY = Math.sin(labelAngle) * labelDist;
-
-      ctx.font = 'bold 14px sans-serif';
-      ctx.textAlign = 'center';
-      
-      if (isGood) {
-          ctx.fillStyle = '#fbbf24'; 
-          ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
-      } else {
-          ctx.fillStyle = '#ef4444'; 
-          ctx.fillText(`${currentAngle}°`, labelX, labelY);
-          ctx.font = '10px sans-serif';
-          ctx.fillStyle = '#4ade80';
-          ctx.fillText(`目標 20-60°`, labelX, labelY + 14);
-      }
-
-      ctx.restore();
   };
 
   const onPoseResults = (results) => {
@@ -203,45 +198,47 @@ export default function RunAnalysisView() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // 安全繪圖區塊
+    // --- 主繪圖迴圈 (包含安全機制) ---
+    ctx.save();
     try {
-        ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         if (results.poseLandmarks) {
-            // 1. 繪製標準骨架 (MediaPipe)
+            // 1. 繪製骨架
             if (showSkeletonRef.current) {
                 drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
                 drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
             }
 
             let angle = 0;
-            let hipDrive = 0;
+            let driveAngle = 0;
             
             // 膝蓋角度
             if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
                 angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
             }
             
-            // 計算送髖 (前擺)
+            // 送髖 (前擺) 計算
             if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
-                hipDrive = calculateHipDrive(results.poseLandmarks);
+                driveAngle = calculateHipDrive(results.poseLandmarks);
                 
                 // 2. 疊加理想跑姿區間 (最上層)
                 if (showIdealFormRef.current) {
                     const nose = results.poseLandmarks[0];
                     const shoulder = results.poseLandmarks[12];
                     const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-                    drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipDrive));
+                    
+                    drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(driveAngle));
                 }
             }
             
-            setHipExtensionAngle(Math.round(hipDrive));
+            setHipExtensionAngle(Math.round(driveAngle));
             setRealtimeAngle(angle);
         }
-        ctx.restore();
-    } catch (e) {
-        console.error("Canvas draw error:", e);
+    } catch(e) {
+        console.error("Canvas main loop error:", e);
+    } finally {
+        ctx.restore(); // 確保畫布狀態復原
     }
   };
 
@@ -292,7 +289,6 @@ export default function RunAnalysisView() {
   const processScanData = (data) => {
     if (!data || data.length === 0) return null;
     
-    // 跑姿分析核心：計算最大前擺 (Hip Drive)
     const hipDrives = data.map(d => calculateHipDrive(d.landmarks));
     const maxHipDrive = Math.max(...hipDrives);
 
@@ -358,7 +354,6 @@ export default function RunAnalysisView() {
     if (!apiKey) { alert("請先設定 API Key"); return; }
     setAnalysisStep('analyzing_ai');
     
-    // 更新 Prompt 以符合前擺定義
     const prompt = `
       角色：專業生物力學分析師與跑步教練 (專精送髖 Hip Drive)。
       任務：分析以下「跑步」數據。

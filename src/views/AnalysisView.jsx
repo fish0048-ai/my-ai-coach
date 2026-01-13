@@ -69,8 +69,6 @@ export default function AnalysisView() {
   const calculateRealHipExtension = (landmarks) => {
       if (!landmarks) return 0;
       
-      // 使用右側 (12, 24, 26) 或 左側 (11, 23, 25)
-      // 這裡簡單取右側示範 (建議未來可做自動側別偵測)
       const nose = landmarks[0];
       const shoulder = landmarks[12];
       const hip = landmarks[24];
@@ -78,79 +76,93 @@ export default function AnalysisView() {
 
       if (!nose || !shoulder || !hip || !knee) return 0;
 
-      // 1. 判斷跑向 (鼻子在肩膀右邊 = 向右跑)
+      // 1. 判斷跑向
       const isFacingRight = nose.x > shoulder.x;
 
-      // 2. 判斷腿是否在後方 (Extension Phase)
-      // 向右跑: 膝蓋 X < 臀部 X (左邊)
-      // 向左跑: 膝蓋 X > 臀部 X (右邊)
+      // 2. 判斷腿是否在後方
       const isLegBehind = isFacingRight ? (knee.x < hip.x) : (knee.x > hip.x);
 
       if (isLegBehind) {
-          // 計算軀幹與大腿夾角
           const angle = calculateAngle(shoulder, hip, knee);
-          // 直立是 180，送髖會讓角度變小 (例如 160)
-          // 送髖角度 = 180 - 夾角
           return Math.max(0, 180 - angle);
       }
       
-      return 0; // 腿在前擺階段，送髖為 0
+      return 0; 
   };
 
-  // --- 繪製理想跑姿 (方向感知) ---
-  const drawIdealHipDrive = (ctx, hip, isFacingRight) => {
-      if (!hip) return;
+  // --- 繪製理想跑姿 (視覺化疊加層) ---
+  const drawHipAnalysisOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
+      if (!hip || !knee) return;
       
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
       const hipX = hip.x * w;
       const hipY = hip.y * h;
-      const len = h * 0.35; 
+      const len = h * 0.35; // 參考長度
 
       ctx.save();
       ctx.translate(hipX, hipY);
       
-      // 1. 垂直參考線
+      // 1. 垂直參考線 (白色虛線)
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(0, len);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.setLineDash([5, 5]);
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 2. 理想送髖區間 (根據跑向繪製)
+      // 2. 理想送髖區間 (綠色扇形 10~25度)
       ctx.beginPath();
       ctx.moveTo(0, 0);
       
       const startAngle = Math.PI/2; // 正下方
-      const extStart = 10 * Math.PI/180;
-      const extEnd = 25 * Math.PI/180;
+      const minExt = 10 * Math.PI/180;
+      const maxExt = 25 * Math.PI/180;
+
+      // 判斷是否達標 (大於 10 度)
+      const isGood = currentAngle >= 10;
 
       if (isFacingRight) {
-          // 向右跑，腳在左 (逆時針方向偏) -> Math.PI/2 + angle ? No, canvas Y is down.
-          // Right on screen is X+. Down is Y+.
-          // Angle 0 is Right. PI/2 is Down. PI is Left.
-          // Leg back (Left) is towards PI.
-          ctx.arc(0, 0, len, startAngle + extStart, startAngle + extEnd);
+          // 向右跑，後腳在左 (角度增加)
+          ctx.arc(0, 0, len, startAngle + minExt, startAngle + maxExt);
       } else {
-          // 向左跑，腳在右 -> towards 0
-          ctx.arc(0, 0, len, startAngle - extEnd, startAngle - extStart);
+          // 向左跑，後腳在右 (角度減少)
+          ctx.arc(0, 0, len, startAngle - maxExt, startAngle - minExt);
       }
 
       ctx.lineTo(0, 0);
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.2)'; 
+      ctx.fillStyle = isGood ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.15)'; 
       ctx.fill();
       ctx.strokeStyle = '#22c55e';
       ctx.setLineDash([]);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = isGood ? 3 : 1;
       ctx.stroke();
 
-      // 3. 文字
-      ctx.fillStyle = '#4ade80';
-      ctx.font = '10px sans-serif';
+      // 3. 繪製當前大腿向量
+      const kneeX = (knee.x * w) - hipX;
+      const kneeY = (knee.y * h) - hipY;
+      
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(kneeX, kneeY);
+      ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; // 達標金黃，未達標紅
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // 4. 浮動數據標籤
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('理想送髖 (10-25°)', isFacingRight ? 40 : -40, len);
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 4;
+      
+      const labelY = len + 20;
+      ctx.fillText(`送髖: ${currentAngle}°`, 0, labelY);
+      
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = isGood ? '#4ade80' : '#d1d5db';
+      ctx.fillText(isGood ? 'Excellent! 區間內' : '目標: >10°', 0, labelY + 15);
 
       ctx.restore();
   };
@@ -186,37 +198,36 @@ export default function AnalysisView() {
         let angle = 0;
         let hipExt = 0;
 
-        // 計算即時送髖
-        if (mode === 'run') {
-             hipExt = calculateRealHipExtension(results.poseLandmarks);
-             setHipExtensionAngle(Math.round(hipExt));
-
-             // 判斷跑向以繪製 Ideal Form
-             const nose = results.poseLandmarks[0];
-             const shoulder = results.poseLandmarks[12];
-             const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-
-             if (showIdealForm) {
-                 drawIdealHipDrive(ctx, results.poseLandmarks[24], isFacingRight);
-             }
-        }
-
-        // 計算即時角度 (膝蓋/手肘)
         if (mode === 'bench') {
             if (results.poseLandmarks[12] && results.poseLandmarks[14] && results.poseLandmarks[16]) {
                 angle = calculateAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
             }
         } else {
+            // 跑步模式
             if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
                 angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
             }
+            
+            // 計算送髖
+            if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
+                hipExt = calculateRealHipExtension(results.poseLandmarks);
+                
+                // 繪製理想跑姿疊加層 (如果開啟)
+                if (showIdealForm) {
+                    const nose = results.poseLandmarks[0];
+                    const shoulder = results.poseLandmarks[12];
+                    const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
+                    // 傳入膝蓋座標以繪製當前大腿線
+                    drawHipAnalysisOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipExt));
+                }
+            }
+            setHipExtensionAngle(Math.round(hipExt));
         }
         setRealtimeAngle(angle);
     }
     ctx.restore();
   };
 
-  // --- 啟動全影片掃描 ---
   const startFullVideoScan = async () => {
     const video = videoRef.current;
     if (!video || !poseModel) return;
@@ -281,7 +292,6 @@ export default function AnalysisView() {
       if (poseModel) poseModel.setOptions({ smoothLandmarks: true });
   };
 
-  // --- 統計分析核心 (整合送髖) ---
   const processScanData = (data) => {
     if (!data || data.length === 0) return null;
 
@@ -314,12 +324,9 @@ export default function AnalysisView() {
             eccentricTime: { label: '離心時間', value: '1.8', unit: 's', status: 'good', icon: Timer },
         };
     } else {
-        // 跑步分析 - 包含送髖
-        // 計算所有幀的送髖角度，取最大值
         const hipExtensions = data.map(d => calculateRealHipExtension(d.landmarks));
         const maxHipExt = Math.max(...hipExtensions);
 
-        // 步頻計算
         const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
         let steps = 0;
         const avgY = hipYs.reduce((a,b)=>a+b,0) / hipYs.length;

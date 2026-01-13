@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// 新增 Calendar 圖標
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine, Calendar } from 'lucide-react';
+// 新增 BicepsFlexed (用 Dumbbell 代替如果沒有), Activity
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine, Calendar, Activity, Zap } from 'lucide-react';
 import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -66,18 +66,20 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             active={currentView === 'calendar'} 
             onClick={() => { setCurrentView('calendar'); setIsSidebarOpen(false); }} 
           />
+          {/* 拆分後的兩個入口 */}
           <SidebarItem 
-            icon={Dumbbell} 
-            text="訓練計畫 Training" 
-            active={currentView === 'training'} 
-            onClick={() => { setCurrentView('training'); setIsSidebarOpen(false); }} 
+            icon={Zap} 
+            text="重訓分析 Strength AI" 
+            active={currentView === 'strength-analysis'} 
+            onClick={() => { setCurrentView('strength-analysis'); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
-            icon={ScanLine} 
-            text="動作分析 Analysis" 
-            active={currentView === 'analysis'} 
-            onClick={() => { setCurrentView('analysis'); setIsSidebarOpen(false); }} 
+            icon={Activity} 
+            text="跑姿分析 Running AI" 
+            active={currentView === 'run-analysis'} 
+            onClick={() => { setCurrentView('run-analysis'); setIsSidebarOpen(false); }} 
           />
+          
           <SidebarItem 
             icon={User} 
             text="個人檔案 Profile" 

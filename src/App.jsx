@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-// 引入新建立的儀表板頁面
-import TrainingDashboardView from './views/TrainingDashboardView.jsx';
+// 引入新頁面
 import DashboardView from './views/DashboardView.jsx'; 
 import FeatureViews from './views/FeatureViews.jsx'; 
-import AnalysisView from './views/AnalysisView.jsx'; 
 import CalendarView from './views/CalendarView.jsx';
+import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; // 新增
+import RunAnalysisView from './views/RunAnalysisView.jsx'; // 新增
 import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -74,13 +74,15 @@ export default function App() {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView userData={userData} />;
-      case 'training':
-        // 將原本的 FeatureViews 替換為新的儀表板
-        return <TrainingDashboardView />; 
+      case 'training': // 相容舊連結，導向儀表板
+        return <DashboardView userData={userData} />; 
       case 'profile':
         return <FeatureViews view="profile" userData={userData} />;
-      case 'analysis':
-        return <AnalysisView />;
+      // 新增路由
+      case 'strength-analysis':
+        return <StrengthAnalysisView />;
+      case 'run-analysis':
+        return <RunAnalysisView />;
       case 'calendar': 
         return <CalendarView />;
       default:

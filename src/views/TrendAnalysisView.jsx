@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download } from 'lucide-react';
+import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, CloudRain } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { updateAIContext } from '../utils/contextManager';
 
 // --- 簡易 SVG 圖表組件 ---
 const SimpleLineChart = ({ data, dataKey, color, unit }) => {
@@ -130,6 +131,9 @@ export default function TrendAnalysisView() {
         bodyFat: parseFloat(inputFat) || 0,
         createdAt: serverTimestamp()
       });
+      // 更新 AI 記憶
+      await updateAIContext();
+      
       setInputWeight('');
       setInputFat('');
       setShowAddForm(false);
@@ -144,19 +148,19 @@ export default function TrendAnalysisView() {
     if (!window.confirm('確定要刪除這筆紀錄嗎？')) return;
     try {
       await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'body_logs', id));
+      await updateAIContext();
     } catch (err) {
       console.error(err);
     }
   };
 
-  // --- CSV 匯出功能 (新增) ---
+  // --- CSV 匯出功能 (Download from Cloud) ---
   const handleExport = async () => {
     const user = auth.currentUser;
     if (!user) return;
     
     try {
-        // 抓取所有資料 (使用現有的 logs 狀態即可，不需重新 fetch，因為已經是即時同步)
-        // 但為了保險起見，我們直接從 logs 生成 CSV
+        // 使用目前已載入的 logs 狀態，這是最準確的雲端同步資料
         if (logs.length === 0) {
             alert("目前沒有資料可匯出");
             return;
@@ -165,6 +169,7 @@ export default function TrendAnalysisView() {
         const headers = ['日期', '體重 (kg)', '體脂率 (%)'];
         const rows = [headers];
 
+        // 轉換資料為 CSV 陣列
         logs.forEach(log => {
             rows.push([
                 log.date,
@@ -173,14 +178,16 @@ export default function TrendAnalysisView() {
             ]);
         });
 
-        // 組合 CSV 字串 (加入 BOM)
+        // 組合 CSV 字串 (加入 BOM \uFEFF 以支援 Excel 中文顯示)
         const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        // 觸發下載
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
         const today = new Date().toISOString().split('T')[0];
-        link.setAttribute("download", `body_composition_${today}.csv`);
+        link.setAttribute("download", `body_trends_backup_${today}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -215,7 +222,6 @@ export default function TrendAnalysisView() {
         // 解析標題
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').replace(/^\uFEFF/, ''));
         
-        // 尋找對應欄位索引
         const dateIdx = headers.findIndex(h => /date|日期/i.test(h));
         const weightIdx = headers.findIndex(h => /weight|體重|kg/i.test(h));
         const fatIdx = headers.findIndex(h => /fat|體脂|%/i.test(h));
@@ -230,7 +236,6 @@ export default function TrendAnalysisView() {
         let importCount = 0;
         let skipCount = 0;
 
-        // 批次寫入
         for (let i = 1; i < lines.length; i++) {
             const row = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
             if (row.length < headers.length) continue;
@@ -249,9 +254,7 @@ export default function TrendAnalysisView() {
 
             if (!weight) continue;
 
-            // 檢查重複
             const isDup = logs.some(log => log.date === dateStr);
-
             if (isDup) {
                 skipCount++;
                 continue;
@@ -271,6 +274,7 @@ export default function TrendAnalysisView() {
             }
         }
 
+        await updateAIContext();
         setLoading(false);
         if (csvInputRef.current) csvInputRef.current.value = '';
         alert(`匯入完成！成功：${importCount} 筆，重複略過：${skipCount} 筆。`);
@@ -332,9 +336,9 @@ export default function TrendAnalysisView() {
             </button>
             <button 
                 onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors font-medium border border-gray-600"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-medium shadow-lg shadow-blue-900/20"
             >
-                <Download size={18} /> 下載備份
+                <Download size={18} /> 下載雲端資料
             </button>
             <button 
                 onClick={() => setShowAddForm(!showAddForm)}

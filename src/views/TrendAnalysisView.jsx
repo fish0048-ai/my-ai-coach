@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText } from 'lucide-react';
+import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -149,6 +149,48 @@ export default function TrendAnalysisView() {
     }
   };
 
+  // --- CSV 匯出功能 (新增) ---
+  const handleExport = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+        // 抓取所有資料 (使用現有的 logs 狀態即可，不需重新 fetch，因為已經是即時同步)
+        // 但為了保險起見，我們直接從 logs 生成 CSV
+        if (logs.length === 0) {
+            alert("目前沒有資料可匯出");
+            return;
+        }
+
+        const headers = ['日期', '體重 (kg)', '體脂率 (%)'];
+        const rows = [headers];
+
+        logs.forEach(log => {
+            rows.push([
+                log.date,
+                log.weight || '',
+                log.bodyFat || ''
+            ]);
+        });
+
+        // 組合 CSV 字串 (加入 BOM)
+        const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        const today = new Date().toISOString().split('T')[0];
+        link.setAttribute("download", `body_composition_${today}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+    } catch (error) {
+        console.error("Export failed:", error);
+        alert("匯出失敗");
+    }
+  };
+
   // --- CSV 匯入功能 ---
   const handleImportClick = () => {
     csvInputRef.current?.click();
@@ -194,7 +236,6 @@ export default function TrendAnalysisView() {
             if (row.length < headers.length) continue;
 
             const dateRaw = row[dateIdx];
-            // 簡易日期格式化 (支援 2023/1/1 或 2023-01-01)
             let dateStr = '';
             const d = new Date(dateRaw);
             if (!isNaN(d.getTime())) {
@@ -208,15 +249,10 @@ export default function TrendAnalysisView() {
 
             if (!weight) continue;
 
-            // 檢查是否重複 (此處簡單檢查本地 state，更嚴謹應查 DB)
-            // 這裡直接查 DB 以防萬一
-            const q = query(
-                collection(db, 'users', user.uid, 'body_logs'),
-                where('date', '==', dateStr)
-            );
-            const snapshot = await getDocs(q);
+            // 檢查重複
+            const isDup = logs.some(log => log.date === dateStr);
 
-            if (!snapshot.empty) {
+            if (isDup) {
                 skipCount++;
                 continue;
             }
@@ -293,6 +329,12 @@ export default function TrendAnalysisView() {
                 className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors font-medium border border-gray-600"
             >
                 <Upload size={18} /> 匯入 CSV
+            </button>
+            <button 
+                onClick={handleExport}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors font-medium border border-gray-600"
+            >
+                <Download size={18} /> 下載備份
             </button>
             <button 
                 onClick={() => setShowAddForm(!showAddForm)}

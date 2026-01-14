@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart } from 'lucide-react';
+// 確保引入 where
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -43,9 +44,8 @@ export default function DashboardView({ userData }) {
   });
   const [loading, setLoading] = useState(false);
 
-  // 計算 Zone 2 範圍 (用於建議卡片)
+  // 計算 Zone 2 範圍
   const age = parseInt(userData?.age) || 30;
-  // 優先使用手動輸入的最大心率，否則用公式估算
   const maxHR = parseInt(userData?.maxHeartRate) || (220 - age);
   const z2Lower = Math.round(maxHR * 0.6);
   const z2Upper = Math.round(maxHR * 0.7);
@@ -60,7 +60,20 @@ export default function DashboardView({ userData }) {
 
     setLoading(true);
     try {
-      const q = query(collection(db, 'users', user.uid, 'calendar'));
+      // 1. 計算日期範圍 (過去 30 天)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+      // 2. 建立優化後的查詢 (只抓取日期 >= 30天前的資料)
+      // 注意：這會顯著減少讀取量，提升效能
+      const q = query(
+          collection(db, 'users', user.uid, 'calendar'),
+          where('date', '>=', startDateStr)
+          // 若要排序可加 orderBy('date', 'desc')，但需建立複合索引
+          // 這裡先不加 orderBy，直接在前端處理，避免需手動設定索引的麻煩
+      );
+      
       const querySnapshot = await getDocs(q);
 
       let totalSets = 0;
@@ -75,10 +88,7 @@ export default function DashboardView({ userData }) {
       let zone2Minutes = 0;
       let totalRunMinutes = 0;
 
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const todayStr = thirtyDaysAgo.toISOString().split('T')[0];
-
+      // 計算本週起始日
       const now = new Date();
       const day = now.getDay() || 7; 
       const weekStart = new Date(now);
@@ -93,7 +103,8 @@ export default function DashboardView({ userData }) {
         const data = doc.data();
         if (!data) return;
 
-        if (data.status === 'completed' && data.date >= todayStr) {
+        // 因為已經用 where 篩選過日期，這裡只需判斷狀態
+        if (data.status === 'completed') {
           if (data.type !== 'analysis') {
              totalWorkouts++;
           }

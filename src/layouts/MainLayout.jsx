@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// 新增 LineChart 圖示
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine, Calendar, Activity, Zap, LineChart } from 'lucide-react';
+// 引入需要的圖示
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart } from 'lucide-react';
 import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -72,19 +72,26 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             active={currentView === 'trend'} 
             onClick={() => { setCurrentView('trend'); setIsSidebarOpen(false); }} 
           />
+          
+          <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            AI Tools
+          </div>
           <SidebarItem 
             icon={Zap} 
-            text="重訓分析 Strength AI" 
+            text="重訓分析 Strength" 
             active={currentView === 'strength-analysis'} 
             onClick={() => { setCurrentView('strength-analysis'); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={Activity} 
-            text="跑姿分析 Running AI" 
+            text="跑姿分析 Running" 
             active={currentView === 'run-analysis'} 
             onClick={() => { setCurrentView('run-analysis'); setIsSidebarOpen(false); }} 
           />
           
+          <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Account
+          </div>
           <SidebarItem 
             icon={User} 
             text="個人檔案 Profile" 

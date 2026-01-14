@@ -1,19 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { Pose } from '@mediapipe/pose';
 
-// 這是一個自定義 Hook，專門處理 MediaPipe 的初始化與運算
+/**
+ * 通用的 MediaPipe Pose Hook
+ * @param {Function} onResultsCallback - 當 AI 偵測到骨架時要執行的函式
+ * @returns {Object} poseModel - MediaPipe 實例，可用於 .send({image: video})
+ */
 export const usePoseDetection = (onResultsCallback) => {
-  const [model, setModel] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [pose, setPose] = useState(null);
+  
+  // 使用 Ref 儲存最新的 callback，避免閉包導致讀取到舊變數
+  const callbackRef = useRef(onResultsCallback);
 
   useEffect(() => {
-    let pose = null;
+    callbackRef.current = onResultsCallback;
+  }, [onResultsCallback]);
+
+  useEffect(() => {
+    let p = null;
     try {
-      pose = new Pose({
+      p = new Pose({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
       });
 
-      pose.setOptions({
+      p.setOptions({
         modelComplexity: 1,
         smoothLandmarks: true,
         enableSegmentation: false,
@@ -22,18 +32,23 @@ export const usePoseDetection = (onResultsCallback) => {
         minTrackingConfidence: 0.5,
       });
 
-      pose.onResults(onResultsCallback);
-      setModel(pose);
-      setIsLoading(false);
+      // 設置回呼，永遠執行 Ref 中的最新函式
+      p.onResults((results) => {
+        if (callbackRef.current) {
+          callbackRef.current(results);
+        }
+      });
+
+      setPose(p);
     } catch (error) {
       console.error("MediaPipe Init Error:", error);
-      setIsLoading(false);
     }
 
+    // 組件卸載時自動關閉模型，防止記憶體洩漏
     return () => {
-      if (pose) pose.close();
+      if (p) p.close();
     };
-  }, []); // 空依賴，只在掛載時執行一次
+  }, []);
 
-  return { poseModel: model, isModelLoading: isLoading };
+  return pose;
 };

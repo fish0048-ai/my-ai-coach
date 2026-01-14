@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-// 引入新頁面
+
+// 引入所有視圖組件
 import DashboardView from './views/DashboardView.jsx'; 
-import FeatureViews from './views/FeatureViews.jsx'; 
 import CalendarView from './views/CalendarView.jsx';
-import StrengthAnalysisView from './views/StrengthAnalysisView.jsx';
-import RunAnalysisView from './views/RunAnalysisView.jsx';
-import TrendAnalysisView from './views/TrendAnalysisView.jsx'; // 新增引入
+import FeatureViews from './views/FeatureViews.jsx'; 
+import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; // 新增
+import RunAnalysisView from './views/RunAnalysisView.jsx';           // 新增
+import TrendAnalysisView from './views/TrendAnalysisView.jsx';       // 新增
+
 import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -71,22 +73,25 @@ export default function App() {
     return <LoginView />; 
   }
 
+  // 路由切換邏輯
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView userData={userData} />;
-      case 'training': // 相容舊連結
-        return <DashboardView userData={userData} />; 
-      case 'profile':
-        return <FeatureViews view="profile" userData={userData} />;
-      case 'strength-analysis':
-        return <StrengthAnalysisView />;
-      case 'run-analysis':
-        return <RunAnalysisView />;
       case 'calendar': 
         return <CalendarView />;
-      case 'trend': // 新增
+      case 'trend': // 數據趨勢
         return <TrendAnalysisView />;
+      case 'strength-analysis': // 重訓 AI
+        return <StrengthAnalysisView />;
+      case 'run-analysis': // 跑姿 AI
+        return <RunAnalysisView />;
+      case 'profile':
+        return <FeatureViews view="profile" userData={userData} />;
+      // 舊連結相容
+      case 'training': 
+      case 'analysis':
+        return <DashboardView userData={userData} />; 
       default:
         return <DashboardView userData={userData} />;
     }

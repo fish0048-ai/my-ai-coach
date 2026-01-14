@@ -1,20 +1,17 @@
 import React, { useState } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-// 引入現有頁面
+// 引入新頁面
 import DashboardView from './views/DashboardView.jsx'; 
 import FeatureViews from './views/FeatureViews.jsx'; 
 import CalendarView from './views/CalendarView.jsx';
-import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; 
-import RunAnalysisView from './views/RunAnalysisView.jsx'; 
+import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; // 新增
+import RunAnalysisView from './views/RunAnalysisView.jsx'; // 新增
 import CoachChat from './components/AICoach/CoachChat.jsx';
-import TrendAnalysisView from './views/TrendAnalysisView.jsx'; // 引入趨勢分析
-
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from './firebase';
 
-// 內建登入畫面元件
 const LoginView = () => {
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
@@ -61,7 +58,6 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // 1. 載入中狀態
   if (loading) {
     return (
       <div className="h-screen w-full bg-gray-900 flex items-center justify-center">
@@ -70,37 +66,25 @@ export default function App() {
     );
   }
 
-  // 2. 未登入狀態
   if (!user) {
     return <LoginView />; 
   }
 
-  // 3. 路由內容渲染邏輯 (Switch Case)
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView userData={userData} />;
-      case 'training': 
+      case 'training': // 相容舊連結，導向儀表板
         return <DashboardView userData={userData} />; 
-      
-      // 修正：當點擊側邊欄「AI 實驗室」時，顯示功能列表
-      case 'features': 
-        // 重要：必須傳遞 setCurrentView，卡片點擊才能跳轉
-        return <FeatureViews setCurrentView={setCurrentView} />;
-        
       case 'profile':
-        return <FeatureViews view="profile" userData={userData} setCurrentView={setCurrentView} />;
-        
+        return <FeatureViews view="profile" userData={userData} />;
+      // 新增路由
       case 'strength-analysis':
         return <StrengthAnalysisView />;
       case 'run-analysis':
         return <RunAnalysisView />;
-      case 'trend': 
-        return <TrendAnalysisView />;
-        
       case 'calendar': 
         return <CalendarView />;
-        
       default:
         return <DashboardView userData={userData} />;
     }

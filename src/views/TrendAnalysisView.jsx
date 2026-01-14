@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, CloudRain } from 'lucide-react';
-import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs } from 'firebase/firestore';
+// 新增 setDoc 用於同步 Profile
+import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { updateAIContext } from '../utils/contextManager';
 
@@ -119,24 +120,42 @@ export default function TrendAnalysisView() {
     return () => unsubscribe();
   }, []);
 
-  // 2. 新增紀錄
+  // 2. 新增紀錄 (已加入 Profile 同步功能)
   const handleAddLog = async (e) => {
     e.preventDefault();
-    if (!auth.currentUser) return alert('請先登入');
+    const user = auth.currentUser;
+    if (!user) return alert('請先登入');
     
+    const weightVal = parseFloat(inputWeight) || 0;
+    const fatVal = parseFloat(inputFat) || 0;
+
     try {
-      await addDoc(collection(db, 'users', auth.currentUser.uid, 'body_logs'), {
+      // (1) 新增到歷史紀錄
+      await addDoc(collection(db, 'users', user.uid, 'body_logs'), {
         date: inputDate,
-        weight: parseFloat(inputWeight) || 0,
-        bodyFat: parseFloat(inputFat) || 0,
+        weight: weightVal,
+        bodyFat: fatVal,
         createdAt: serverTimestamp()
       });
-      // 更新 AI 記憶
+
+      // (2) 同步更新個人檔案 (Profile)
+      // 使用 setDoc + merge 來更新或創建，只更新有輸入的數值
+      if (weightVal > 0 || fatVal > 0) {
+          const profileRef = doc(db, 'users', user.uid);
+          const updates = { lastUpdated: new Date() };
+          if (weightVal > 0) updates.weight = weightVal;
+          if (fatVal > 0) updates.bodyFat = fatVal;
+          
+          await setDoc(profileRef, updates, { merge: true });
+      }
+
+      // (3) 更新 AI 記憶
       await updateAIContext();
       
       setInputWeight('');
       setInputFat('');
       setShowAddForm(false);
+      alert("新增成功！個人檔案已同步更新。");
     } catch (err) {
       console.error("Error adding doc:", err);
       alert("新增失敗");
@@ -160,7 +179,6 @@ export default function TrendAnalysisView() {
     if (!user) return;
     
     try {
-        // 使用目前已載入的 logs 狀態，這是最準確的雲端同步資料
         if (logs.length === 0) {
             alert("目前沒有資料可匯出");
             return;
@@ -169,7 +187,6 @@ export default function TrendAnalysisView() {
         const headers = ['日期', '體重 (kg)', '體脂率 (%)'];
         const rows = [headers];
 
-        // 轉換資料為 CSV 陣列
         logs.forEach(log => {
             rows.push([
                 log.date,
@@ -178,11 +195,9 @@ export default function TrendAnalysisView() {
             ]);
         });
 
-        // 組合 CSV 字串 (加入 BOM \uFEFF 以支援 Excel 中文顯示)
         const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         
-        // 觸發下載
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
@@ -219,7 +234,6 @@ export default function TrendAnalysisView() {
             return;
         }
 
-        // 解析標題
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').replace(/^\uFEFF/, ''));
         
         const dateIdx = headers.findIndex(h => /date|日期/i.test(h));

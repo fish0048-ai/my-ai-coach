@@ -5,8 +5,9 @@ import MainLayout from './layouts/MainLayout';
 import DashboardView from './views/DashboardView.jsx'; 
 import FeatureViews from './views/FeatureViews.jsx'; 
 import CalendarView from './views/CalendarView.jsx';
-import StrengthAnalysisView from './views/StrengthAnalysisView.jsx'; // 新增
-import RunAnalysisView from './views/RunAnalysisView.jsx'; // 新增
+import StrengthAnalysisView from './views/StrengthAnalysisView.jsx';
+import RunAnalysisView from './views/RunAnalysisView.jsx';
+import TrendAnalysisView from './views/TrendAnalysisView.jsx'; // 新增引入
 import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -74,17 +75,18 @@ export default function App() {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView userData={userData} />;
-      case 'training': // 相容舊連結，導向儀表板
+      case 'training': // 相容舊連結
         return <DashboardView userData={userData} />; 
       case 'profile':
         return <FeatureViews view="profile" userData={userData} />;
-      // 新增路由
       case 'strength-analysis':
         return <StrengthAnalysisView />;
       case 'run-analysis':
         return <RunAnalysisView />;
       case 'calendar': 
         return <CalendarView />;
+      case 'trend': // 新增
+        return <TrendAnalysisView />;
       default:
         return <DashboardView userData={userData} />;
     }

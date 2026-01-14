@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// 新增 BicepsFlexed (用 Dumbbell 代替如果沒有), Activity
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine, Calendar, Activity, Zap } from 'lucide-react';
+// 新增 LineChart 圖示
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, ScanLine, Calendar, Activity, Zap, LineChart } from 'lucide-react';
 import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -66,7 +66,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             active={currentView === 'calendar'} 
             onClick={() => { setCurrentView('calendar'); setIsSidebarOpen(false); }} 
           />
-          {/* 拆分後的兩個入口 */}
+          <SidebarItem 
+            icon={LineChart} 
+            text="數據趨勢 Trends" 
+            active={currentView === 'trend'} 
+            onClick={() => { setCurrentView('trend'); setIsSidebarOpen(false); }} 
+          />
           <SidebarItem 
             icon={Zap} 
             text="重訓分析 Strength AI" 

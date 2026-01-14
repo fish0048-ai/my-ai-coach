@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown } from 'lucide-react';
-import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText } from 'lucide-react';
+import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
-// --- 簡易 SVG 圖表組件 (不需額外安裝套件) ---
+// --- 簡易 SVG 圖表組件 ---
 const SimpleLineChart = ({ data, dataKey, color, unit }) => {
   if (!data || data.length < 2) {
     return (
@@ -14,28 +14,24 @@ const SimpleLineChart = ({ data, dataKey, color, unit }) => {
     );
   }
 
-  // 1. 計算數值範圍以決定 Y 軸刻度
   const values = data.map(d => Number(d[dataKey]));
   const minVal = Math.min(...values);
   const maxVal = Math.max(...values);
-  const padding = (maxVal - minVal) * 0.1 || 1; // 上下留白
+  const padding = (maxVal - minVal) * 0.1 || 1; 
   const yMin = Math.floor(minVal - padding);
   const yMax = Math.ceil(maxVal + padding);
 
-  // 2. 座標轉換函式
   const width = 800;
   const height = 300;
   const getX = (index) => (index / (data.length - 1)) * width;
   const getY = (val) => height - ((val - yMin) / (yMax - yMin)) * height;
 
-  // 3. 產生路徑 (Path)
   const points = data.map((d, i) => `${getX(i)},${getY(d[dataKey])}`).join(' ');
 
   return (
     <div className="w-full overflow-x-auto">
       <div className="min-w-[600px] relative p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-inner">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
-          {/* 背景格線 */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = height * ratio;
             const val = yMax - (ratio * (yMax - yMin));
@@ -49,7 +45,6 @@ const SimpleLineChart = ({ data, dataKey, color, unit }) => {
             );
           })}
 
-          {/* 折線 */}
           <polyline
             fill="none"
             stroke={color}
@@ -60,7 +55,6 @@ const SimpleLineChart = ({ data, dataKey, color, unit }) => {
             className="drop-shadow-lg"
           />
 
-          {/* 數據點與 Tooltip */}
           {data.map((d, i) => (
             <g key={d.id} className="group">
               <circle
@@ -72,7 +66,6 @@ const SimpleLineChart = ({ data, dataKey, color, unit }) => {
                 strokeWidth="3"
                 className="cursor-pointer transition-all group-hover:r-8"
               />
-              {/* Hover 顯示數值 */}
               <foreignObject x={getX(i) - 50} y={getY(d[dataKey]) - 50} width="100" height="50" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                  <div className="flex flex-col items-center justify-center">
                     <div className="bg-gray-900 text-white text-xs py-1 px-2 rounded shadow-lg border border-gray-600 whitespace-nowrap">
@@ -84,8 +77,6 @@ const SimpleLineChart = ({ data, dataKey, color, unit }) => {
             </g>
           ))}
         </svg>
-        
-        {/* X 軸標籤 (日期) */}
         <div className="flex justify-between mt-2 text-xs text-gray-400 px-2">
            <span>{data[0].date}</span>
            <span>{data[data.length - 1].date}</span>
@@ -98,10 +89,10 @@ const SimpleLineChart = ({ data, dataKey, color, unit }) => {
 export default function TrendAnalysisView() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [metricType, setMetricType] = useState('weight'); // 'weight' or 'bodyFat'
+  const [metricType, setMetricType] = useState('weight'); 
   const [showAddForm, setShowAddForm] = useState(false);
+  const csvInputRef = useRef(null);
   
-  // 表單狀態
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]);
   const [inputWeight, setInputWeight] = useState('');
   const [inputFat, setInputFat] = useState('');
@@ -139,7 +130,6 @@ export default function TrendAnalysisView() {
         bodyFat: parseFloat(inputFat) || 0,
         createdAt: serverTimestamp()
       });
-      // 清空表單
       setInputWeight('');
       setInputFat('');
       setShowAddForm(false);
@@ -157,6 +147,99 @@ export default function TrendAnalysisView() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // --- CSV 匯入功能 ---
+  const handleImportClick = () => {
+    csvInputRef.current?.click();
+  };
+
+  const handleCSVUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        const text = event.target.result;
+        const lines = text.split(/\r\n|\n/).filter(l => l.trim());
+        
+        if (lines.length < 2) {
+            alert("CSV 內容為空或格式錯誤");
+            setLoading(false);
+            return;
+        }
+
+        // 解析標題
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').replace(/^\uFEFF/, ''));
+        
+        // 尋找對應欄位索引
+        const dateIdx = headers.findIndex(h => /date|日期/i.test(h));
+        const weightIdx = headers.findIndex(h => /weight|體重|kg/i.test(h));
+        const fatIdx = headers.findIndex(h => /fat|體脂|%/i.test(h));
+
+        if (dateIdx === -1 || weightIdx === -1) {
+            alert("找不到必要的欄位：日期 (Date) 或 體重 (Weight)。請檢查 CSV 標題。");
+            setLoading(false);
+            return;
+        }
+
+        const user = auth.currentUser;
+        let importCount = 0;
+        let skipCount = 0;
+
+        // 批次寫入
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+            if (row.length < headers.length) continue;
+
+            const dateRaw = row[dateIdx];
+            // 簡易日期格式化 (支援 2023/1/1 或 2023-01-01)
+            let dateStr = '';
+            const d = new Date(dateRaw);
+            if (!isNaN(d.getTime())) {
+                dateStr = d.toISOString().split('T')[0];
+            } else {
+                continue;
+            }
+
+            const weight = parseFloat(row[weightIdx]);
+            const bodyFat = fatIdx !== -1 ? parseFloat(row[fatIdx]) : 0;
+
+            if (!weight) continue;
+
+            // 檢查是否重複 (此處簡單檢查本地 state，更嚴謹應查 DB)
+            // 這裡直接查 DB 以防萬一
+            const q = query(
+                collection(db, 'users', user.uid, 'body_logs'),
+                where('date', '==', dateStr)
+            );
+            const snapshot = await getDocs(q);
+
+            if (!snapshot.empty) {
+                skipCount++;
+                continue;
+            }
+
+            try {
+                await addDoc(collection(db, 'users', user.uid, 'body_logs'), {
+                    date: dateStr,
+                    weight,
+                    bodyFat: bodyFat || 0,
+                    createdAt: serverTimestamp(),
+                    imported: true
+                });
+                importCount++;
+            } catch (err) {
+                console.error("Import error:", err);
+            }
+        }
+
+        setLoading(false);
+        if (csvInputRef.current) csvInputRef.current.value = '';
+        alert(`匯入完成！成功：${importCount} 筆，重複略過：${skipCount} 筆。`);
+    };
+    reader.readAsText(file);
   };
 
   // 4. 計算統計數據
@@ -179,14 +262,22 @@ export default function TrendAnalysisView() {
   }, [logs, metricType]);
 
   const config = {
-    weight: { label: '體重', unit: 'kg', color: '#60A5FA', bg: 'bg-blue-500/10' }, // Blue
-    bodyFat: { label: '體脂率', unit: '%', color: '#34D399', bg: 'bg-green-500/10' } // Green
+    weight: { label: '體重', unit: 'kg', color: '#60A5FA', bg: 'bg-blue-500/10' }, 
+    bodyFat: { label: '體脂率', unit: '%', color: '#34D399', bg: 'bg-green-500/10' } 
   };
 
   const activeConfig = config[metricType];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
+      <input 
+        type="file" 
+        ref={csvInputRef} 
+        onChange={handleCSVUpload} 
+        accept=".csv" 
+        className="hidden" 
+      />
+
       {/* 標題區 */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
@@ -196,15 +287,23 @@ export default function TrendAnalysisView() {
           </h2>
           <p className="text-gray-400 text-sm">追蹤您的長期變化，掌握進步軌跡</p>
         </div>
-        <button 
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors font-medium shadow-lg shadow-purple-900/20"
-        >
-          <Plus size={18} /> 新增紀錄
-        </button>
+        <div className="flex gap-3">
+            <button 
+                onClick={handleImportClick}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors font-medium border border-gray-600"
+            >
+                <Upload size={18} /> 匯入 CSV
+            </button>
+            <button 
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors font-medium shadow-lg shadow-purple-900/20"
+            >
+                <Plus size={18} /> 新增紀錄
+            </button>
+        </div>
       </div>
 
-      {/* 新增表單 (摺疊式) */}
+      {/* 新增表單 */}
       {showAddForm && (
         <form onSubmit={handleAddLog} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 space-y-4 animate-slideUp">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -15,8 +15,14 @@ export default function NutritionView({ userData }) {
   // 今日攝取統計
   const [summary, setSummary] = useState({ cal: 0, protein: 0, carbs: 0, fat: 0 });
   
-  // 目標設定 (安全讀取)
-  const targetCal = userData?.tdee ? parseInt(userData.tdee) : 2000;
+  // 目標設定 (安全讀取防呆)
+  // 如果 userData 尚未載入或 tdee 為空，預設 2000，確保不會是 NaN
+  const safeParseInt = (val, def) => {
+      const parsed = parseInt(val);
+      return isNaN(parsed) ? def : parsed;
+  };
+
+  const targetCal = safeParseInt(userData?.tdee, 2000);
   const targetProtein = Math.round((targetCal * 0.3) / 4);
   const targetCarbs = Math.round((targetCal * 0.4) / 4);
   const targetFat = Math.round((targetCal * 0.3) / 9);
@@ -32,7 +38,7 @@ export default function NutritionView({ userData }) {
   const [suggestion, setSuggestion] = useState('');
   const [suggesting, setSuggesting] = useState(false);
 
-  // 1. 讀取今日飲食紀錄 (修復：移除 orderBy 以避免索引錯誤，改用前端排序)
+  // 1. 讀取今日飲食紀錄
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
@@ -43,7 +49,6 @@ export default function NutritionView({ userData }) {
     try {
         const today = new Date().toISOString().split('T')[0];
         
-        // 簡化查詢：只用 where，不使用 orderBy (避免複合索引需求)
         const q = query(
           collection(db, 'users', user.uid, 'food_logs'),
           where('date', '==', today)
@@ -52,7 +57,7 @@ export default function NutritionView({ userData }) {
         const unsubscribe = onSnapshot(q, (snapshot) => {
           const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           
-          // 前端排序：最新的在上面
+          // 前端排序
           data.sort((a, b) => {
               const timeA = a.createdAt?.seconds || 0;
               const timeB = b.createdAt?.seconds || 0;
@@ -61,19 +66,19 @@ export default function NutritionView({ userData }) {
 
           setLogs(data);
           
-          // 計算總和
+          // 計算總和 (加入 parseFloat 防呆，防止資料庫存成字串導致計算錯誤)
           const sum = data.reduce((acc, curr) => ({
-            cal: acc.cal + (curr.calories || 0),
-            protein: acc.protein + (curr.protein || 0),
-            carbs: acc.carbs + (curr.carbs || 0),
-            fat: acc.fat + (curr.fat || 0),
+            cal: acc.cal + (parseFloat(curr.calories) || 0),
+            protein: acc.protein + (parseFloat(curr.protein) || 0),
+            carbs: acc.carbs + (parseFloat(curr.carbs) || 0),
+            fat: acc.fat + (parseFloat(curr.fat) || 0),
           }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
           
           setSummary(sum);
           setLoading(false);
         }, (error) => {
             console.error("Firestore read error:", error);
-            setLoading(false); // 發生錯誤也要停止 loading
+            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -144,7 +149,6 @@ export default function NutritionView({ userData }) {
             createdAt: serverTimestamp()
         });
 
-        // 重置表單
         setFoodName('');
         setFoodCal('');
         setFoodProtein('');
@@ -199,14 +203,18 @@ export default function NutritionView({ userData }) {
       }
   };
 
-  // 進度條組件
+  // 進度條組件 (數值防呆)
   const ProgressBar = ({ label, current, target, color }) => {
-      const pct = target > 0 ? Math.min(100, Math.max(0, (current / target) * 100)) : 0;
+      // 防止除以零或 NaN
+      const validTarget = target > 0 ? target : 1;
+      const validCurrent = !isNaN(current) ? current : 0;
+      const pct = Math.min(100, Math.max(0, (validCurrent / validTarget) * 100));
+      
       return (
           <div className="space-y-1">
               <div className="flex justify-between text-xs">
                   <span className="text-gray-400">{label}</span>
-                  <span className="text-white">{Math.round(current)} / {target}</span>
+                  <span className="text-white">{Math.round(validCurrent)} / {validTarget}</span>
               </div>
               <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
                   <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${pct}%` }}></div>
@@ -214,6 +222,11 @@ export default function NutritionView({ userData }) {
           </div>
       );
   };
+
+  // 圓餅圖數值計算 (SVG 安全防護)
+  const circleProgress = targetCal > 0 ? Math.min(1, summary.cal / targetCal) : 0;
+  const dashOffset = isNaN(circleProgress) ? 377 : 377 - (377 * circleProgress);
+  const remainingCal = Math.max(0, targetCal - summary.cal);
 
   if (loading) {
     return (
@@ -259,10 +272,14 @@ export default function NutritionView({ userData }) {
               <div className="relative w-32 h-32 flex items-center justify-center border-4 border-gray-700 rounded-full mb-4">
                   <div className="text-center">
                       <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-red-400' : 'text-white'}`}>
-                        {Math.max(0, targetCal - summary.cal)}
+                        {isNaN(remainingCal) ? 0 : remainingCal}
                       </span>
                       <p className="text-xs text-gray-400">剩餘 kcal</p>
                   </div>
+                  {/* SVG 圓環 */}
+                  <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
+                      <circle cx="64" cy="64" r="60" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="377" strokeDashoffset={dashOffset} strokeLinecap="round" />
+                  </svg>
               </div>
               <p className="text-sm text-gray-400">目標: {targetCal} kcal</p>
           </div>

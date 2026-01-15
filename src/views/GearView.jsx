@@ -5,22 +5,20 @@ import { db, auth } from '../firebase';
 
 export default function GearView() {
   const [gears, setGears] = useState([]);
-  const [runLogs, setRunLogs] = useState([]); // 暫存所有跑步紀錄用來計算
+  const [runLogs, setRunLogs] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingGear, setEditingGear] = useState(null);
 
-  // 表單狀態
   const [formData, setFormData] = useState({
     brand: '',
     model: '',
-    type: 'shoes', // shoes | bike | other
+    type: 'shoes', 
     startDate: new Date().toISOString().split('T')[0],
-    maxDistance: 800, // 預設跑鞋壽命
-    status: 'active' // active | retired
+    maxDistance: 800, 
+    status: 'active' 
   });
 
-  // 1. 讀取裝備列表
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -32,8 +30,6 @@ export default function GearView() {
       setLoading(false);
     });
 
-    // 同時讀取所有跑步紀錄 (為了計算里程)
-    // 為了效能，只抓取 type='run' 的必要欄位
     fetchRunLogs(user.uid);
 
     return () => unsubscribe();
@@ -57,13 +53,7 @@ export default function GearView() {
     }
   };
 
-  // 計算特定裝備的累積里程
   const calculateUsage = (gear) => {
-    // 篩選條件：活動日期 >= 啟用日期 (且若已退役，日期 <= 退役日期)
-    // 這裡簡化邏輯：只算啟用日期之後的所有里程 (假設同一時期只有一雙主力跑鞋，或使用者接受全部加總)
-    // 進階版可以加入 "isDefault" 標記，這裡先做通用版
-    
-    // 如果裝備已退役，照理說應該要有一個 endDate，這裡先假設 active 算到今天
     const validLogs = runLogs.filter(log => {
         return log.date >= gear.startDate && (gear.status === 'active' || log.date <= (gear.retireDate || '9999-12-31'));
     });
@@ -78,17 +68,14 @@ export default function GearView() {
     
     try {
       if (editingGear) {
-        // 更新
         await updateDoc(doc(db, 'users', user.uid, 'gears', editingGear.id), {
           ...formData,
-          // 如果狀態改為退役，自動補上退役日期為今天(若未設定)
           retireDate: formData.status === 'retired' ? (editingGear.retireDate || new Date().toISOString().split('T')[0]) : null
         });
       } else {
-        // 新增
         await addDoc(collection(db, 'users', user.uid, 'gears'), {
           ...formData,
-          currentDistance: 0, // 初始
+          currentDistance: 0, 
           createdAt: serverTimestamp()
         });
       }
@@ -132,7 +119,6 @@ export default function GearView() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -148,14 +134,12 @@ export default function GearView() {
         </button>
       </div>
 
-      {/* 裝備列表 Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {gears.map(gear => {
           const usage = calculateUsage(gear);
           const percent = Math.min(100, (usage / gear.maxDistance) * 100);
           const isRetired = gear.status === 'retired';
           
-          // 狀態顏色
           let statusColor = "bg-green-500";
           if (percent > 80) statusColor = "bg-yellow-500";
           if (percent >= 100) statusColor = "bg-red-500";
@@ -163,7 +147,6 @@ export default function GearView() {
 
           return (
             <div key={gear.id} className={`bg-gray-800 rounded-2xl border ${isRetired ? 'border-gray-700 opacity-70' : 'border-gray-600'} overflow-hidden relative group`}>
-              {/* 裝飾背景 */}
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <ShoppingBag size={80} />
               </div>
@@ -186,7 +169,6 @@ export default function GearView() {
                   )}
                 </div>
 
-                {/* 里程進度條 */}
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm font-medium">
                     <span className="text-white">{usage} km</span>
@@ -201,7 +183,6 @@ export default function GearView() {
                   <p className="text-xs text-gray-500 text-right">已使用 {Math.round(percent)}%</p>
                 </div>
 
-                {/* 操作按鈕 */}
                 <div className="flex gap-2 pt-4 border-t border-gray-700/50">
                    <button 
                      onClick={() => handleEditClick(gear)}
@@ -221,7 +202,6 @@ export default function GearView() {
           );
         })}
         
-        {/* 新增卡片 (Empty State) */}
         {gears.length === 0 && !loading && (
              <div 
                 onClick={() => setShowModal(true)}
@@ -235,7 +215,6 @@ export default function GearView() {
         )}
       </div>
 
-      {/* 編輯/新增 Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-900 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl p-6">

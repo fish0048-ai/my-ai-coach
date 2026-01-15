@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// 新增 Utensils
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils } from 'lucide-react';
+// 新增 ShoppingBag, Utensils, LineChart
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag } from 'lucide-react';
 import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -77,6 +77,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             text="數據趨勢 Trends" 
             active={currentView === 'trend'} 
             onClick={() => { setCurrentView('trend'); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={ShoppingBag} 
+            text="裝備管理 Gear" 
+            active={currentView === 'gear'} 
+            onClick={() => { setCurrentView('gear'); setIsSidebarOpen(false); }} 
           />
           
           <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">

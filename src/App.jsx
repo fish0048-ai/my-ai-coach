@@ -6,6 +6,7 @@ import { Loader, AlertTriangle } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from './firebase';
 
+// Lazy Load Views
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));
 const CalendarView = React.lazy(() => import('./views/CalendarView.jsx'));
 const FeatureViews = React.lazy(() => import('./views/FeatureViews.jsx'));
@@ -13,7 +14,7 @@ const StrengthAnalysisView = React.lazy(() => import('./views/StrengthAnalysisVi
 const RunAnalysisView = React.lazy(() => import('./views/RunAnalysisView.jsx'));
 const TrendAnalysisView = React.lazy(() => import('./views/TrendAnalysisView.jsx'));
 const NutritionView = React.lazy(() => import('./views/NutritionView.jsx'));
-const GearView = React.lazy(() => import('./views/GearView.jsx')); // 新增引入
+const GearView = React.lazy(() => import('./views/GearView.jsx')); // 確保已引入
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -106,7 +107,7 @@ export default function App() {
               case 'calendar': return <CalendarView />;
               case 'trend': return <TrendAnalysisView />;
               case 'nutrition': return <NutritionView userData={userData} />;
-              case 'gear': return <GearView />; // 新增
+              case 'gear': return <GearView />;
               case 'strength-analysis': return <StrengthAnalysisView />;
               case 'run-analysis': return <RunAnalysisView />;
               case 'profile': return <FeatureViews view="profile" userData={userData} />;

@@ -15,9 +15,8 @@ export default function NutritionView({ userData }) {
   // 今日攝取統計
   const [summary, setSummary] = useState({ cal: 0, protein: 0, carbs: 0, fat: 0 });
   
-  // 目標設定 (從 userData 讀取或預設)
+  // 目標設定 (安全讀取)
   const targetCal = userData?.tdee ? parseInt(userData.tdee) : 2000;
-  // 簡易營養素比例 (蛋白質 30%, 碳水 40%, 脂肪 30%)
   const targetProtein = Math.round((targetCal * 0.3) / 4);
   const targetCarbs = Math.round((targetCal * 0.4) / 4);
   const targetFat = Math.round((targetCal * 0.3) / 9);
@@ -33,36 +32,55 @@ export default function NutritionView({ userData }) {
   const [suggestion, setSuggestion] = useState('');
   const [suggesting, setSuggesting] = useState(false);
 
-  // 1. 讀取今日飲食紀錄
+  // 1. 讀取今日飲食紀錄 (修復：移除 orderBy 以避免索引錯誤，改用前端排序)
   useEffect(() => {
-    if (!auth.currentUser) return;
+    const user = auth.currentUser;
+    if (!user) {
+        setLoading(false);
+        return;
+    }
     
-    // 取得今日日期字串 YYYY-MM-DD
-    const today = new Date().toISOString().split('T')[0];
-    
-    const q = query(
-      collection(db, 'users', auth.currentUser.uid, 'food_logs'),
-      where('date', '==', today),
-      orderBy('createdAt', 'desc')
-    );
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // 簡化查詢：只用 where，不使用 orderBy (避免複合索引需求)
+        const q = query(
+          collection(db, 'users', user.uid, 'food_logs'),
+          where('date', '==', today)
+        );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLogs(data);
-      
-      // 計算總和
-      const sum = data.reduce((acc, curr) => ({
-        cal: acc.cal + (curr.calories || 0),
-        protein: acc.protein + (curr.protein || 0),
-        carbs: acc.carbs + (curr.carbs || 0),
-        fat: acc.fat + (curr.fat || 0),
-      }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
-      
-      setSummary(sum);
-      setLoading(false);
-    });
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // 前端排序：最新的在上面
+          data.sort((a, b) => {
+              const timeA = a.createdAt?.seconds || 0;
+              const timeB = b.createdAt?.seconds || 0;
+              return timeB - timeA;
+          });
 
-    return () => unsubscribe();
+          setLogs(data);
+          
+          // 計算總和
+          const sum = data.reduce((acc, curr) => ({
+            cal: acc.cal + (curr.calories || 0),
+            protein: acc.protein + (curr.protein || 0),
+            carbs: acc.carbs + (curr.carbs || 0),
+            fat: acc.fat + (curr.fat || 0),
+          }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
+          
+          setSummary(sum);
+          setLoading(false);
+        }, (error) => {
+            console.error("Firestore read error:", error);
+            setLoading(false); // 發生錯誤也要停止 loading
+        });
+
+        return () => unsubscribe();
+    } catch (err) {
+        console.error("Init error:", err);
+        setLoading(false);
+    }
   }, []);
 
   // 2. AI 圖片辨識處理
@@ -74,7 +92,7 @@ export default function NutritionView({ userData }) {
     if (!apiKey) return alert("請先在右下角 AI 教練視窗設定 API Key");
 
     setAnalyzing(true);
-    setShowAddForm(true); // 開啟表單準備填入
+    setShowAddForm(true); 
 
     try {
         const prompt = `
@@ -94,11 +112,11 @@ export default function NutritionView({ userData }) {
         const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
         const data = JSON.parse(cleanJson);
 
-        setFoodName(data.name);
-        setFoodCal(data.calories);
-        setFoodProtein(data.protein);
-        setFoodCarbs(data.carbs);
-        setFoodFat(data.fat);
+        setFoodName(data.name || '未知食物');
+        setFoodCal(data.calories || 0);
+        setFoodProtein(data.protein || 0);
+        setFoodCarbs(data.carbs || 0);
+        setFoodFat(data.fat || 0);
         
     } catch (error) {
         console.error(error);
@@ -134,7 +152,6 @@ export default function NutritionView({ userData }) {
         setFoodFat('');
         setShowAddForm(false);
         
-        // 更新 Context
         updateAIContext();
 
     } catch (error) {
@@ -145,8 +162,12 @@ export default function NutritionView({ userData }) {
 
   const handleDelete = async (id) => {
       if(!confirm("刪除此筆紀錄？")) return;
-      await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'food_logs', id));
-      updateAIContext();
+      try {
+        await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'food_logs', id));
+        updateAIContext();
+      } catch (err) {
+          console.error(err);
+      }
   };
 
   // 4. AI 飲食建議
@@ -180,7 +201,7 @@ export default function NutritionView({ userData }) {
 
   // 進度條組件
   const ProgressBar = ({ label, current, target, color }) => {
-      const pct = Math.min(100, Math.max(0, (current / target) * 100));
+      const pct = target > 0 ? Math.min(100, Math.max(0, (current / target) * 100)) : 0;
       return (
           <div className="space-y-1">
               <div className="flex justify-between text-xs">
@@ -193,6 +214,14 @@ export default function NutritionView({ userData }) {
           </div>
       );
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
@@ -225,17 +254,15 @@ export default function NutritionView({ userData }) {
 
       {/* Dashboard & Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 左側：熱量圓環 (簡易版用數值代替) */}
+          {/* 左側：熱量圓環 */}
           <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col items-center justify-center">
               <div className="relative w-32 h-32 flex items-center justify-center border-4 border-gray-700 rounded-full mb-4">
                   <div className="text-center">
-                      <span className="text-3xl font-bold text-white">{targetCal - summary.cal}</span>
+                      <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-red-400' : 'text-white'}`}>
+                        {Math.max(0, targetCal - summary.cal)}
+                      </span>
                       <p className="text-xs text-gray-400">剩餘 kcal</p>
                   </div>
-                  {/* 進度圓環可後續用 SVG 優化，暫以 border 模擬 */}
-                  <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
-                      <circle cx="64" cy="64" r="60" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="377" strokeDashoffset={377 - (377 * Math.min(1, summary.cal/targetCal))} strokeLinecap="round" />
-                  </svg>
               </div>
               <p className="text-sm text-gray-400">目標: {targetCal} kcal</p>
           </div>
@@ -253,7 +280,7 @@ export default function NutritionView({ userData }) {
           <div className="p-3 bg-green-500/20 rounded-full text-green-400">
               <ChefHat size={24} />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 w-full">
               <h3 className="font-bold text-white mb-1">不知道下一餐吃什麼？</h3>
               <p className="text-sm text-gray-400 mb-3">讓 AI 根據您剩餘的熱量與營養缺口，推薦最適合的選擇。</p>
               {suggestion && (
@@ -314,7 +341,7 @@ export default function NutritionView({ userData }) {
               <p className="text-center text-gray-500 py-8 border-2 border-dashed border-gray-800 rounded-xl">尚無紀錄，快去吃點好吃的！</p>
           ) : (
               logs.map(log => (
-                  <div key={log.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex justify-between items-center group">
+                  <div key={log.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex justify-between items-center group hover:bg-gray-750 transition-colors">
                       <div>
                           <h4 className="font-bold text-white">{log.name}</h4>
                           <div className="text-xs text-gray-400 flex gap-3 mt-1">

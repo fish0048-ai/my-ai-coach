@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// 引入需要的圖示
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart } from 'lucide-react';
+// 新增 Utensils
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils } from 'lucide-react';
 import { auth } from '../firebase'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -65,6 +65,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             text="行事曆 Calendar" 
             active={currentView === 'calendar'} 
             onClick={() => { setCurrentView('calendar'); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={Utensils} 
+            text="智慧營養師 Nutrition" 
+            active={currentView === 'nutrition'} 
+            onClick={() => { setCurrentView('nutrition'); setIsSidebarOpen(false); }} 
           />
           <SidebarItem 
             icon={LineChart} 

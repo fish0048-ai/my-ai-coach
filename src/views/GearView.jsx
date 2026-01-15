@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge } from 'lucide-react';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -10,15 +10,18 @@ export default function GearView() {
   const [showModal, setShowModal] = useState(false);
   const [editingGear, setEditingGear] = useState(null);
 
+  // 表單狀態
   const [formData, setFormData] = useState({
     brand: '',
     model: '',
     type: 'shoes', 
     startDate: new Date().toISOString().split('T')[0],
     maxDistance: 800, 
+    initialDistance: 0, // 新增：初始里程
     status: 'active' 
   });
 
+  // 1. 讀取裝備列表
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -53,29 +56,42 @@ export default function GearView() {
     }
   };
 
+  // 計算特定裝備的累積里程 (初始 + 紀錄)
   const calculateUsage = (gear) => {
+    // 找出啟用日期後的所有跑步紀錄
     const validLogs = runLogs.filter(log => {
         return log.date >= gear.startDate && (gear.status === 'active' || log.date <= (gear.retireDate || '9999-12-31'));
     });
 
-    const totalDist = validLogs.reduce((sum, log) => sum + log.distance, 0);
-    return totalDist.toFixed(1);
+    const loggedDist = validLogs.reduce((sum, log) => sum + log.distance, 0);
+    // 總里程 = 初始里程 (手動輸入) + APP紀錄里程
+    const initialDist = parseFloat(gear.initialDistance) || 0;
+    
+    return (initialDist + loggedDist).toFixed(1);
   };
 
   const handleSave = async () => {
     if (!formData.brand || !formData.model) return alert("請輸入品牌與型號");
     const user = auth.currentUser;
     
+    // 確保數值格式正確
+    const payload = {
+        ...formData,
+        maxDistance: Number(formData.maxDistance),
+        initialDistance: Number(formData.initialDistance) || 0
+    };
+
     try {
       if (editingGear) {
+        // 更新
         await updateDoc(doc(db, 'users', user.uid, 'gears', editingGear.id), {
-          ...formData,
+          ...payload,
           retireDate: formData.status === 'retired' ? (editingGear.retireDate || new Date().toISOString().split('T')[0]) : null
         });
       } else {
+        // 新增
         await addDoc(collection(db, 'users', user.uid, 'gears'), {
-          ...formData,
-          currentDistance: 0, 
+          ...payload,
           createdAt: serverTimestamp()
         });
       }
@@ -101,6 +117,7 @@ export default function GearView() {
       type: gear.type,
       startDate: gear.startDate,
       maxDistance: gear.maxDistance,
+      initialDistance: gear.initialDistance || 0, // 載入既有初始里程
       status: gear.status
     });
     setShowModal(true);
@@ -113,12 +130,14 @@ export default function GearView() {
       type: 'shoes',
       startDate: new Date().toISOString().split('T')[0],
       maxDistance: 800,
+      initialDistance: 0,
       status: 'active'
     });
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -134,6 +153,7 @@ export default function GearView() {
         </button>
       </div>
 
+      {/* 裝備列表 Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {gears.map(gear => {
           const usage = calculateUsage(gear);
@@ -215,6 +235,7 @@ export default function GearView() {
         )}
       </div>
 
+      {/* 編輯/新增 Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-900 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl p-6">
@@ -245,7 +266,7 @@ export default function GearView() {
               </div>
 
               <div>
-                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (從這天開始計算里程)</label>
+                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (此日期後的跑步里程將自動計入)</label>
                   <input 
                     type="date"
                     value={formData.startDate} 
@@ -254,14 +275,26 @@ export default function GearView() {
                   />
               </div>
 
-              <div>
-                  <label className="text-xs text-gray-500 block mb-1">預期壽命 (km)</label>
-                  <input 
-                    type="number"
-                    value={formData.maxDistance} 
-                    onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
-                  />
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1"><Gauge size={10}/> 預期壽命 (km)</label>
+                      <input 
+                        type="number"
+                        value={formData.maxDistance} 
+                        onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                      />
+                  </div>
+                  <div>
+                      <label className="text-xs text-gray-500 block mb-1 text-blue-300 flex items-center gap-1"><Plus size={10}/> 初始里程 (km)</label>
+                      <input 
+                        type="number"
+                        value={formData.initialDistance} 
+                        onChange={e => setFormData({...formData, initialDistance: Number(e.target.value)})}
+                        className="w-full bg-gray-800 border border-blue-500/50 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                        placeholder="0"
+                      />
+                  </div>
               </div>
 
               <div>

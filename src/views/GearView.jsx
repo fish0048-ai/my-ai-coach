@@ -235,7 +235,6 @@ export default function GearView() {
         )}
       </div>
 
-      {/* 編輯/新增 Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-900 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl p-6">
@@ -266,7 +265,7 @@ export default function GearView() {
               </div>
 
               <div>
-                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (此日期後的跑步里程將自動計入)</label>
+                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (從這天開始計算里程)</label>
                   <input 
                     type="date"
                     value={formData.startDate} 
@@ -275,6 +274,7 @@ export default function GearView() {
                   />
               </div>
 
+              {/* 新增欄位：初始里程與預期壽命並排 */}
               <div className="grid grid-cols-2 gap-4">
                   <div>
                       <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1"><Gauge size={10}/> 預期壽命 (km)</label>

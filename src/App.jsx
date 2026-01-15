@@ -6,17 +6,15 @@ import { Loader, AlertTriangle } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from './firebase';
 
-// --- 1. 使用 Lazy Loading 隔離錯誤 (如果某個檔案壞掉，不會影響其他頁面) ---
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));
 const CalendarView = React.lazy(() => import('./views/CalendarView.jsx'));
 const FeatureViews = React.lazy(() => import('./views/FeatureViews.jsx'));
 const StrengthAnalysisView = React.lazy(() => import('./views/StrengthAnalysisView.jsx'));
 const RunAnalysisView = React.lazy(() => import('./views/RunAnalysisView.jsx'));
 const TrendAnalysisView = React.lazy(() => import('./views/TrendAnalysisView.jsx'));
-const NutritionView = React.lazy(() => import('./views/NutritionView.jsx')); // 確保檔案存在
+const NutritionView = React.lazy(() => import('./views/NutritionView.jsx'));
+const GearView = React.lazy(() => import('./views/GearView.jsx')); // 新增引入
 
-// --- 2. 錯誤邊界元件 (Error Boundary) ---
-// 當某個區塊崩潰時，顯示錯誤訊息而不是黑屏
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -54,7 +52,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// --- 3. 登入畫面 ---
 const LoginView = () => {
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
@@ -100,7 +97,6 @@ export default function App() {
   }
 
   const renderContent = () => {
-    // 每個視圖都包在 ErrorBoundary 和 Suspense 中
     return (
       <ErrorBoundary>
         <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader className="animate-spin text-gray-500"/></div>}>
@@ -110,6 +106,7 @@ export default function App() {
               case 'calendar': return <CalendarView />;
               case 'trend': return <TrendAnalysisView />;
               case 'nutrition': return <NutritionView userData={userData} />;
+              case 'gear': return <GearView />; // 新增
               case 'strength-analysis': return <StrengthAnalysisView />;
               case 'run-analysis': return <RunAnalysisView />;
               case 'profile': return <FeatureViews view="profile" userData={userData} />;

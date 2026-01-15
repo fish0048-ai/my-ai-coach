@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, ChefHat, Loader, Search } from 'lucide-react';
+// 修正：補上 Sparkles 引入
+import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, ChefHat, Loader, Search, Sparkles } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGeminiVision, runGemini } from '../utils/gemini';
@@ -12,7 +13,7 @@ export default function NutritionView({ userData }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const fileInputRef = useRef(null);
 
-  // 1. 安全解析 TDEE，防止 NaN 導致 SVG 崩潰
+  // 安全解析 TDEE
   const safeParseInt = (val, def) => {
       const parsed = parseInt(val);
       return isNaN(parsed) ? def : parsed;
@@ -34,31 +35,42 @@ export default function NutritionView({ userData }) {
 
   useEffect(() => {
     const user = auth.currentUser;
-    if (!user) { setLoading(false); return; }
+    if (!user) {
+        setLoading(false);
+        return;
+    }
     
-    // 簡單查詢，避免索引問題
-    const today = new Date().toISOString().split('T')[0];
-    const q = query(collection(db, 'users', user.uid, 'food_logs'), where('date', '==', today));
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const q = query(
+          collection(db, 'users', user.uid, 'food_logs'),
+          where('date', '==', today)
+        );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // 前端排序
-      data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setLogs(data);
-      
-      // 安全加總
-      const sum = data.reduce((acc, curr) => ({
-        cal: acc.cal + (parseFloat(curr.calories) || 0),
-        protein: acc.protein + (parseFloat(curr.protein) || 0),
-        carbs: acc.carbs + (parseFloat(curr.carbs) || 0),
-        fat: acc.fat + (parseFloat(curr.fat) || 0),
-      }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
-      
-      setSummary(sum);
-      setLoading(false);
-    });
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+          setLogs(data);
+          
+          const sum = data.reduce((acc, curr) => ({
+            cal: acc.cal + (parseFloat(curr.calories) || 0),
+            protein: acc.protein + (parseFloat(curr.protein) || 0),
+            carbs: acc.carbs + (parseFloat(curr.carbs) || 0),
+            fat: acc.fat + (parseFloat(curr.fat) || 0),
+          }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
+          
+          setSummary(sum);
+          setLoading(false);
+        }, (error) => {
+            console.error("Firestore read error:", error);
+            setLoading(false);
+        });
 
-    return () => unsubscribe();
+        return () => unsubscribe();
+    } catch (err) {
+        console.error("Init error:", err);
+        setLoading(false);
+    }
   }, []);
 
   const handleImageUpload = async (e) => {
@@ -71,17 +83,32 @@ export default function NutritionView({ userData }) {
     setShowAddForm(true); 
 
     try {
-        const prompt = `分析食物圖片，回傳JSON: {"name": "食物名", "calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字}`;
+        const prompt = `
+            請分析這張食物圖片。
+            請回傳一個 JSON 物件 (不要 Markdown)，包含以下欄位估算值：
+            {
+                "name": "食物名稱 (繁體中文)",
+                "calories": 數字 (大卡),
+                "protein": 數字 (克),
+                "carbs": 數字 (克),
+                "fat": 數字 (克)
+            }
+            如果無法辨識，數值填 0，名稱填 "無法辨識"。
+        `;
+        
         const resultText = await runGeminiVision(prompt, file, apiKey);
         const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
         const data = JSON.parse(cleanJson);
-        setFoodName(data.name || '未知');
+
+        setFoodName(data.name || '未知食物');
         setFoodCal(data.calories || 0);
         setFoodProtein(data.protein || 0);
         setFoodCarbs(data.carbs || 0);
         setFoodFat(data.fat || 0);
+        
     } catch (error) {
-        alert("辨識失敗");
+        console.error(error);
+        alert("辨識失敗，請重試或手動輸入。");
     } finally {
         setAnalyzing(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -89,9 +116,10 @@ export default function NutritionView({ userData }) {
   };
 
   const handleAddFood = async () => {
-    if (!foodName) return alert("請輸入名稱");
+    if (!foodName) return alert("請輸入食物名稱");
     const user = auth.currentUser;
     if (!user) return;
+
     try {
         await addDoc(collection(db, 'users', user.uid, 'food_logs'), {
             date: new Date().toISOString().split('T')[0],
@@ -102,26 +130,58 @@ export default function NutritionView({ userData }) {
             fat: parseFloat(foodFat) || 0,
             createdAt: serverTimestamp()
         });
-        setFoodName(''); setFoodCal(''); setFoodProtein(''); setFoodCarbs(''); setFoodFat('');
+
+        setFoodName('');
+        setFoodCal('');
+        setFoodProtein('');
+        setFoodCarbs('');
+        setFoodFat('');
         setShowAddForm(false);
-        updateAIContext(); // 更新記憶
-    } catch (error) { alert("新增失敗"); }
+        
+        updateAIContext();
+
+    } catch (error) {
+        console.error(error);
+        alert("新增失敗");
+    }
   };
 
   const handleDelete = async (id) => {
-      if(!confirm("刪除?")) return;
-      try { await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'food_logs', id)); } catch(e){}
+      if(!confirm("刪除此筆紀錄？")) return;
+      try {
+        await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'food_logs', id));
+        updateAIContext();
+      } catch (err) {
+          console.error(err);
+      }
   };
 
   const getSuggestion = async () => {
       const apiKey = localStorage.getItem('gemini_api_key');
-      if (!apiKey) return alert("請設定 API Key");
+      if (!apiKey) return alert("請先設定 API Key");
+      
       setSuggesting(true);
       try {
-          const prompt = `目標TDEE:${targetCal}, 已吃:${summary.cal}。請推薦3個晚餐建議(繁中)。`;
+          const remainingCal = targetCal - summary.cal;
+          const remainingProtein = targetProtein - summary.protein;
+          
+          const prompt = `
+            使用者目標 TDEE: ${targetCal} kcal (蛋白質 ${targetProtein}g)。
+            目前已攝取: ${summary.cal} kcal (蛋白質 ${summary.protein}g)。
+            還剩下: ${remainingCal} kcal, 蛋白質差 ${remainingProtein}g。
+            
+            請給出 3 個具體的晚餐或點心建議 (符合台灣常見食物，如超商、自助餐)，
+            幫助使用者達標 (特別是蛋白質)。
+            請用條列式，繁體中文，150字內。
+          `;
+          
           const text = await runGemini(prompt, apiKey);
           setSuggestion(text);
-      } catch (e) { alert("失敗"); } finally { setSuggesting(false); }
+      } catch (e) {
+          alert("無法取得建議");
+      } finally {
+          setSuggesting(false);
+      }
   };
 
   const ProgressBar = ({ label, current, target, color }) => {
@@ -129,32 +189,44 @@ export default function NutritionView({ userData }) {
       const pct = Math.min(100, Math.max(0, (current / safeTarget) * 100));
       return (
           <div className="space-y-1">
-              <div className="flex justify-between text-xs text-gray-400">
-                  <span>{label}</span><span>{Math.round(current)}/{safeTarget}</span>
+              <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">{label}</span>
+                  <span className="text-white">{Math.round(current)} / {safeTarget}</span>
               </div>
               <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div className={`h-full ${color}`} style={{ width: `${pct}%` }}></div>
+                  <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${pct}%` }}></div>
               </div>
           </div>
       );
   };
 
-  // SVG 計算防呆
   const safeCircleProgress = targetCal > 0 ? Math.min(1, summary.cal / targetCal) : 0;
   const dashOffset = isNaN(safeCircleProgress) ? 377 : 377 - (377 * safeCircleProgress);
   const remaining = Math.max(0, targetCal - summary.cal);
 
-  if (loading) return <div className="p-8 text-center text-gray-500"><Loader className="animate-spin inline"/> 載入中...</div>;
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
 
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white flex gap-2"><Utensils className="text-green-500"/> 智慧營養師</h2>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Utensils className="text-green-500" /> 智慧營養師
+        </h2>
         <div className="flex gap-2">
-            <button onClick={() => fileInputRef.current.click()} className="px-4 py-2 bg-blue-600 text-white rounded-xl flex gap-2 items-center">
-                {analyzing ? <Loader className="animate-spin" size={18}/> : <Camera size={18}/>} 拍照
+            <button 
+                onClick={() => fileInputRef.current.click()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-xl flex gap-2 items-center shadow-lg shadow-blue-900/20"
+            >
+                {analyzing ? <Loader className="animate-spin" size={18}/> : <Camera size={18}/>}
+                {analyzing ? '辨識中...' : '拍照辨識'}
             </button>
             <button onClick={() => setShowAddForm(!showAddForm)} className="px-4 py-2 bg-gray-700 text-white rounded-xl"><Plus size={18}/></button>
         </div>
@@ -180,18 +252,18 @@ export default function NutritionView({ userData }) {
           </div>
       </div>
 
-      {/* AI 建議 */}
       <div className="bg-green-900/20 p-5 rounded-2xl border border-green-500/30">
           <h3 className="font-bold text-white mb-2 flex gap-2"><ChefHat size={20}/> 飲食建議</h3>
           {suggestion ? <p className="text-sm text-gray-300 whitespace-pre-wrap">{suggestion}</p> : <p className="text-sm text-gray-500">點擊下方按鈕取得建議</p>}
           <button onClick={getSuggestion} disabled={suggesting} className="mt-3 text-xs bg-green-600 px-4 py-2 rounded text-white flex gap-2 items-center w-fit">
-              {suggesting ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} 生成建議
+              {suggesting ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} 
+              {suggesting ? '思考中...' : '生成建議'}
           </button>
       </div>
 
       {showAddForm && (
           <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 animate-slideUp">
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                   <input placeholder="食物名稱" value={foodName} onChange={e=>setFoodName(e.target.value)} className="col-span-2 bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
                   <input type="number" placeholder="熱量" value={foodCal} onChange={e=>setFoodCal(e.target.value)} className="bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
                   <input type="number" placeholder="蛋白質" value={foodProtein} onChange={e=>setFoodProtein(e.target.value)} className="bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>

@@ -1,43 +1,97 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge } from 'lucide-react';
+import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { updateAIContext } from '../utils/contextManager';
 
-// --- 輔助：解析配速字串為小數分鐘 (例如 "5'30"" -> 5.5) ---
+// --- 輔助：解析配速字串 ---
 const parsePaceToDecimal = (paceStr) => {
     if (!paceStr) return 0;
     const match = paceStr.match(/(\d+)'(\d+)"/);
-    if (match) {
-        return parseInt(match[1]) + parseInt(match[2]) / 60;
-    }
+    if (match) return parseInt(match[1]) + parseInt(match[2]) / 60;
     return 0;
 };
 
-// --- 輔助：計算重訓總容量 (Volume Load) ---
+// --- 輔助：計算重訓容量 ---
 const calculateVolume = (exercises) => {
     if (!Array.isArray(exercises)) return 0;
     return exercises.reduce((total, ex) => {
         const weight = parseFloat(ex.weight) || 0;
         const sets = parseFloat(ex.sets) || 0;
         const reps = parseFloat(ex.reps) || 0;
-        // 如果是自重訓練(weight=0)，可以給一個基礎值或是忽略容量計算，這裡僅計算有負重的
         return total + (weight * sets * reps);
     }, 0);
 };
 
-// --- 簡易 SVG 圖表組件 ---
-const SimpleLineChart = ({ data, dataKey, color, unit, label }) => {
+// --- 核心：資料處理 (移動平均 & 週彙整) ---
+const processData = (rawData, metric, timeScale) => {
+    if (!rawData || rawData.length === 0) return [];
+
+    // 1. 轉換為標準格式
+    let data = rawData.map(d => {
+        let val = 0;
+        // 根據不同 metric 取值
+        if (metric === 'pace') val = d.pace || 0;
+        else if (metric === 'sets') val = d.sets || 0;
+        else if (metric === 'volume') val = d.volume || 0;
+        else val = parseFloat(d[metric]) || 0;
+        
+        return { date: d.date, value: val, original: d };
+    }).filter(d => !isNaN(d.value) && d.value !== 0);
+
+    // 2. 如果是週模式，進行彙整
+    if (timeScale === 'weekly') {
+        const weeklyMap = {};
+        data.forEach(d => {
+            // 取得該日期的週一
+            const dateObj = new Date(d.date);
+            const day = dateObj.getDay();
+            const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(dateObj.setDate(diff)).toISOString().split('T')[0];
+
+            if (!weeklyMap[monday]) weeklyMap[monday] = { sum: 0, count: 0, values: [] };
+            weeklyMap[monday].sum += d.value;
+            weeklyMap[monday].count += 1;
+            weeklyMap[monday].values.push(d.value);
+        });
+
+        // 決定彙整方式：累加 (Sum) 還是 平均 (Avg)
+        // 累加：距離、組數、容量
+        // 平均：體重、體脂、配速、心率
+        const isSumType = ['distance', 'sets', 'volume'].includes(metric);
+
+        data = Object.keys(weeklyMap).sort().map(week => {
+            const info = weeklyMap[week];
+            const finalVal = isSumType ? info.sum : (info.sum / info.count);
+            return { date: week, value: finalVal };
+        });
+    }
+
+    // 3. 計算移動平均 (Trend Line) - 簡單移動平均 (SMA)
+    // 若為日檢視取 7日均線，若為週檢視取 4週均線
+    const windowSize = timeScale === 'daily' ? 7 : 4;
+    data = data.map((item, idx, arr) => {
+        const start = Math.max(0, idx - windowSize + 1);
+        const subset = arr.slice(start, idx + 1);
+        const avg = subset.reduce((a, b) => a + b.value, 0) / subset.length;
+        return { ...item, trend: avg };
+    });
+
+    return data;
+};
+
+// --- 進階圖表組件 ---
+const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
   if (!data || data.length < 2) {
     return (
-      <div className="h-64 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-700 rounded-xl bg-gray-800/30">
-        <LineChart size={48} className="mb-4 opacity-50" />
-        <p>資料不足，無法繪製 {label} 趨勢圖 (至少需兩筆)</p>
+      <div className="h-72 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-700 rounded-xl bg-gray-800/30">
+        <Activity size={48} className="mb-4 opacity-50" />
+        <p>資料不足，無法繪製趨勢 (至少需兩筆)</p>
       </div>
     );
   }
 
-  const values = data.map(d => Number(d[dataKey]));
+  const values = data.map(d => d.value);
   const minVal = Math.min(...values);
   const maxVal = Math.max(...values);
   const padding = (maxVal - minVal) * 0.1 || (minVal === 0 ? 1 : minVal * 0.1); 
@@ -45,32 +99,79 @@ const SimpleLineChart = ({ data, dataKey, color, unit, label }) => {
   const yMax = Math.ceil(maxVal + padding);
 
   const width = 800;
-  const height = 300;
-  const getX = (index) => (index / (data.length - 1)) * width;
-  const getY = (val) => height - ((val - yMin) / (yMax - yMin || 1)) * height;
+  const height = 350;
+  const paddingX = 40;
+  const paddingY = 40;
+  const chartW = width - paddingX * 2;
+  const chartH = height - paddingY * 2;
 
-  const points = data.map((d, i) => `${getX(i)},${getY(d[dataKey])}`).join(' ');
+  const getX = (index) => paddingX + (index / (data.length - 1)) * chartW;
+  const getY = (val) => height - paddingY - ((val - yMin) / (yMax - yMin || 1)) * chartH;
+
+  const points = data.map((d, i) => `${getX(i)},${getY(d.value)}`).join(' ');
+  const trendPoints = data.map((d, i) => `${getX(i)},${getY(d.trend)}`).join(' ');
+
+  // 建構漸層區域
+  const areaPoints = `${getX(0)},${height-paddingY} ${points} ${getX(data.length-1)},${height-paddingY}`;
 
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="min-w-[600px] relative p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-inner">
-        <h4 className="text-gray-400 text-xs font-bold uppercase mb-4 ml-2 flex items-center gap-2">
-            <Activity size={12}/> {label} 趨勢 ({unit})
-        </h4>
+    <div className="w-full overflow-x-auto rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
+      <div className="min-w-[600px] relative p-4">
+        <div className="flex justify-between items-center mb-4 px-4">
+            <h4 className="text-gray-300 text-sm font-bold flex items-center gap-2">
+                <Activity size={16} style={{color}}/> {label} ({unit})
+            </h4>
+            <div className="flex gap-4 text-xs">
+                <span className="flex items-center gap-1 text-gray-400">
+                    <span className="w-3 h-1 rounded-full" style={{backgroundColor: color}}></span> 實際數據
+                </span>
+                {showTrend && (
+                    <span className="flex items-center gap-1 text-gray-400">
+                        <span className="w-3 h-1 rounded-full bg-gray-400 border border-gray-500 border-dashed"></span> 趨勢線 (平均)
+                    </span>
+                )}
+            </div>
+        </div>
+
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
+          <defs>
+            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Y軸格線 */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-            const y = height * ratio;
-            const val = yMax - (ratio * (yMax - yMin));
+            const y = (height - paddingY) - (chartH * ratio);
+            const val = yMin + (ratio * (yMax - yMin));
             return (
               <g key={ratio}>
-                <line x1="0" y1={y} x2={width} y2={y} stroke="#374151" strokeDasharray="4" />
-                <text x="-10" y={y + 4} fill="#9CA3AF" fontSize="12" textAnchor="end">
+                <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#374151" strokeDasharray="4" />
+                <text x={paddingX - 10} y={y + 4} fill="#9CA3AF" fontSize="10" textAnchor="end">
                   {val.toFixed(1)}
                 </text>
               </g>
             );
           })}
 
+          {/* 區域填充 */}
+          <polygon points={areaPoints} fill="url(#chartGradient)" />
+
+          {/* 趨勢線 (虛線) */}
+          {showTrend && (
+              <polyline
+                fill="none"
+                stroke="#9CA3AF"
+                strokeWidth="2"
+                strokeDasharray="5,5"
+                points={trendPoints}
+                strokeLinecap="round"
+                className="opacity-70"
+              />
+          )}
+
+          {/* 主線 */}
           <polyline
             fill="none"
             stroke={color}
@@ -81,33 +182,31 @@ const SimpleLineChart = ({ data, dataKey, color, unit, label }) => {
             className="drop-shadow-lg"
           />
 
+          {/* 數據點 */}
           {data.map((d, i) => (
             <g key={i} className="group">
               <circle
                 cx={getX(i)}
-                cy={getY(d[dataKey])}
+                cy={getY(d.value)}
                 r="4"
                 fill="#1F2937"
                 stroke={color}
                 strokeWidth="2"
                 className="cursor-pointer transition-all group-hover:r-6"
               />
-              <foreignObject x={getX(i) - 60} y={getY(d[dataKey]) - 60} width="120" height="60" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              {/* Tooltip */}
+              <foreignObject x={getX(i) - 60} y={getY(d.value) - 70} width="120" height="60" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                  <div className="flex flex-col items-center justify-center">
                     <div className="bg-gray-900 text-white text-xs py-1 px-2 rounded shadow-lg border border-gray-600 whitespace-nowrap text-center">
                       <div className="font-mono text-gray-400 mb-0.5">{d.date}</div>
-                      <span className="font-bold text-sm" style={{color}}>{Number(d[dataKey]).toFixed(2)} {unit}</span>
-                      {d.originalValue && <div className="text-[10px] text-gray-500">({d.originalValue})</div>}
+                      <span className="font-bold text-sm" style={{color}}>{d.value.toFixed(2)} {unit}</span>
+                      {showTrend && <div className="text-[10px] text-gray-500">均: {d.trend.toFixed(2)}</div>}
                     </div>
                  </div>
               </foreignObject>
             </g>
           ))}
         </svg>
-        <div className="flex justify-between mt-2 text-xs text-gray-500 px-2 font-mono">
-           <span>{data[0].date}</span>
-           <span>{data[data.length - 1].date}</span>
-        </div>
       </div>
     </div>
   );
@@ -115,12 +214,14 @@ const SimpleLineChart = ({ data, dataKey, color, unit, label }) => {
 
 export default function TrendAnalysisView() {
   const [bodyLogs, setBodyLogs] = useState([]);
-  const [workoutLogs, setWorkoutLogs] = useState([]); // 新增：運動紀錄
+  const [workoutLogs, setWorkoutLogs] = useState([]); 
   const [loading, setLoading] = useState(true);
   
-  // 視圖狀態
-  const [category, setCategory] = useState('body'); // 'body', 'run', 'strength'
+  // 狀態控制
+  const [category, setCategory] = useState('body'); 
   const [metricType, setMetricType] = useState('weight'); 
+  const [timeScale, setTimeScale] = useState('daily'); // 'daily' | 'weekly'
+  const [showTrendLine, setShowTrendLine] = useState(true);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const csvInputRef = useRef(null);
@@ -129,32 +230,18 @@ export default function TrendAnalysisView() {
   const [inputWeight, setInputWeight] = useState('');
   const [inputFat, setInputFat] = useState('');
 
-  // 1. 讀取資料 (Firestore Realtime)
+  // 1. 讀取資料
   useEffect(() => {
     if (!auth.currentUser) return;
     
-    // 監聽身體數據
-    const qBody = query(
-      collection(db, 'users', auth.currentUser.uid, 'body_logs'),
-      orderBy('date', 'asc')
-    );
+    // Body Logs
+    const qBody = query(collection(db, 'users', auth.currentUser.uid, 'body_logs'), orderBy('date', 'asc'));
     const unsubBody = onSnapshot(qBody, (snapshot) => {
       setBodyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 監聽運動數據 (行事曆)
-    const qCalendar = query(
-        collection(db, 'users', auth.currentUser.uid, 'calendar'),
-        where('status', '==', 'completed'),
-        orderBy('date', 'asc') // 需注意 Firebase 索引
-    );
-    // 注意：若 orderBy date 報錯，請先移除 orderBy，改在前端 sort
-    // 為求穩定，這裡先抓所有 completed 再前端排序
-    const qCalSafe = query(
-        collection(db, 'users', auth.currentUser.uid, 'calendar'),
-        where('status', '==', 'completed')
-    );
-
+    // Calendar Logs
+    const qCalSafe = query(collection(db, 'users', auth.currentUser.uid, 'calendar'), where('status', '==', 'completed'));
     const unsubCalendar = onSnapshot(qCalSafe, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         data.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -162,74 +249,56 @@ export default function TrendAnalysisView() {
         setLoading(false);
     });
 
-    return () => {
-        unsubBody();
-        unsubCalendar();
-    };
+    return () => { unsubBody(); unsubCalendar(); };
   }, []);
 
-  // 2. 處理圖表數據
-  const chartData = useMemo(() => {
-      if (category === 'body') {
-          return bodyLogs;
-      }
-      
+  // 2. 準備原始數據
+  const rawData = useMemo(() => {
+      if (category === 'body') return bodyLogs;
       if (category === 'run') {
-          return workoutLogs
-            .filter(l => l.type === 'run')
-            .map(l => ({
-                id: l.id,
-                date: l.date,
-                distance: parseFloat(l.runDistance) || 0,
-                heartRate: parseFloat(l.runHeartRate) || 0,
-                pace: parsePaceToDecimal(l.runPace),
-                originalValue: metricType === 'pace' ? l.runPace : null // 用於 Tooltip 顯示原始格式
-            }));
+          return workoutLogs.filter(l => l.type === 'run').map(l => ({
+              ...l,
+              pace: parsePaceToDecimal(l.runPace),
+              distance: parseFloat(l.runDistance),
+              heartRate: parseFloat(l.runHeartRate)
+          }));
       }
-
       if (category === 'strength') {
-          return workoutLogs
-            .filter(l => l.type === 'strength')
-            .map(l => ({
-                id: l.id,
-                date: l.date,
-                sets: l.exercises?.reduce((acc, ex) => acc + (parseInt(ex.sets)||0), 0) || 0,
-                volume: calculateVolume(l.exercises)
-            }));
+          return workoutLogs.filter(l => l.type === 'strength').map(l => ({
+              ...l,
+              sets: l.exercises?.reduce((acc, ex) => acc + (parseInt(ex.sets)||0), 0),
+              volume: calculateVolume(l.exercises)
+          }));
       }
       return [];
-  }, [category, metricType, bodyLogs, workoutLogs]);
+  }, [category, bodyLogs, workoutLogs]);
 
-  // 3. 計算統計數據 (針對目前選中的 Metric)
-  const stats = useMemo(() => {
-    if (chartData.length === 0) return null;
-    
-    // 根據 metricType 決定要讀哪個欄位
-    // Body: weight, bodyFat
-    // Run: distance, pace, heartRate
-    // Strength: sets, volume
-    const valKey = metricType;
-    
-    const validData = chartData.filter(d => !isNaN(d[valKey]) && d[valKey] !== 0);
-    if (validData.length === 0) return null;
+  // 3. 處理數據 (彙整 & 趨勢)
+  const chartData = useMemo(() => {
+      return processData(rawData, metricType, timeScale);
+  }, [rawData, metricType, timeScale]);
 
-    const current = validData[validData.length - 1];
-    const prev = validData.length > 1 ? validData[validData.length - 2] : current;
-    
-    const diff = (current[valKey] - prev[valKey]).toFixed(1);
-    const isUp = current[valKey] > prev[valKey];
-    
-    return {
-      current: current[valKey].toFixed(2),
-      diff: diff,
-      isUp: isUp,
-      highest: Math.max(...validData.map(l => l[valKey])).toFixed(1),
-      lowest: Math.min(...validData.map(l => l[valKey])).toFixed(1),
-      count: validData.length
-    };
+  // 4. 計算 Insight (進步幅度)
+  const insights = useMemo(() => {
+      if (chartData.length < 2) return null;
+      const current = chartData[chartData.length - 1];
+      const prev = chartData[chartData.length - 2];
+      const diff = current.value - prev.value;
+      const percent = prev.value !== 0 ? (diff / prev.value) * 100 : 0;
+      
+      const best = Math.max(...chartData.map(d => d.value));
+      const worst = Math.min(...chartData.map(d => d.value));
+
+      return {
+          current: current.value,
+          diff: diff.toFixed(1),
+          percent: percent.toFixed(1),
+          isImprove: metricType.includes('pace') || metricType.includes('weight') || metricType.includes('fat') ? diff < 0 : diff > 0, // 這些指標越低越好? (體重/配速/體脂)
+          best,
+          worst
+      };
   }, [chartData, metricType]);
 
-  // 配置表
   const configs = {
       body: {
           weight: { label: '體重', unit: 'kg', color: '#60A5FA' },
@@ -242,190 +311,142 @@ export default function TrendAnalysisView() {
       },
       strength: {
           sets: { label: '總組數', unit: 'sets', color: '#3B82F6' },
-          volume: { label: '訓練容量', unit: 'kg', color: '#EC4899' } // Volume Load
+          volume: { label: '訓練容量', unit: 'kg', color: '#EC4899' }
       }
   };
 
   const activeConfig = configs[category][metricType] || configs.body.weight;
 
-  // 切換類別時重置 metricType
+  // 切換類別
   const handleCategoryChange = (cat) => {
       setCategory(cat);
       setMetricType(Object.keys(configs[cat])[0]);
   };
 
-  // ... (保留 handleAddLog, handleDelete, handleExport, handleImportClick, handleCSVUpload) ...
-  const handleAddLog = async (e) => {
-    e.preventDefault(); const user = auth.currentUser; if (!user) return alert('請先登入');
-    const weightVal = parseFloat(inputWeight) || 0; const fatVal = parseFloat(inputFat) || 0;
-    try {
-      await addDoc(collection(db, 'users', user.uid, 'body_logs'), { date: inputDate, weight: weightVal, bodyFat: fatVal, createdAt: serverTimestamp() });
-      if (weightVal > 0 || fatVal > 0) {
-          const profileRef = doc(db, 'users', user.uid); const updates = { lastUpdated: new Date() };
-          if (weightVal > 0) updates.weight = weightVal; if (fatVal > 0) updates.bodyFat = fatVal;
-          await setDoc(profileRef, updates, { merge: true });
-      }
-      await updateAIContext(); setInputWeight(''); setInputFat(''); setShowAddForm(false); alert("新增成功！");
-    } catch (err) { alert("新增失敗"); }
-  };
-  const handleDelete = async (id) => { if (!window.confirm('確定刪除？')) return; try { await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'body_logs', id)); await updateAIContext(); } catch (err) { console.error(err); } };
-  const handleExport = async () => { /* Export logic from previous step */ 
-    const user = auth.currentUser; if (!user) return;
-    try {
-        const headers = ['日期', '數值', '類型']; const rows = [headers];
-        bodyLogs.forEach(log => rows.push([log.date, log.weight, 'weight']));
-        // 簡單實作：只匯出體重，若要完整需擴充
-        const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", `data_backup.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    } catch(e) { alert("匯出失敗"); }
-  };
+  // ... (保留 Add, Delete, Export, Import 邏輯) ...
+  const handleAddLog = async (e) => { e.preventDefault(); const user = auth.currentUser; if (!user) return alert('請先登入'); const w=parseFloat(inputWeight)||0; const f=parseFloat(inputFat)||0; try { await addDoc(collection(db,'users',user.uid,'body_logs'),{date:inputDate,weight:w,bodyFat:f,createdAt:serverTimestamp()}); if(w>0||f>0){ const ref=doc(db,'users',user.uid); const up={lastUpdated:new Date()}; if(w>0)up.weight=w; if(f>0)up.bodyFat=f; await setDoc(ref,up,{merge:true}); } await updateAIContext(); setInputWeight(''); setInputFat(''); setShowAddForm(false); alert("新增成功"); } catch(e){alert("失敗");} };
+  const handleDelete = async (id) => { if(!confirm('刪除?'))return; try{await deleteDoc(doc(db,'users',auth.currentUser.uid,'body_logs',id)); await updateAIContext();}catch(e){} };
+  const handleExport = async () => { const user=auth.currentUser; if(!user)return; try{ const head=['日期','數值']; const rows=[head]; chartData.forEach(d=>rows.push([d.date,d.value])); const csv="\uFEFF"+rows.map(r=>r.join(",")).join("\n"); const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`trend_export.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }catch(e){alert("失敗");} };
   const handleImportClick = () => csvInputRef.current?.click();
-  const handleCSVUpload = async (e) => { 
-      // Reuse import logic
-      alert("目前僅支援匯入體重資料"); 
-  };
+  const handleCSVUpload = async (e) => { alert("目前僅支援匯入體重資料，請至行事曆匯入運動資料"); };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
       <input type="file" ref={csvInputRef} onChange={handleCSVUpload} accept=".csv" className="hidden" />
 
-      {/* 1. 頂部導航與工具列 */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-800 p-4 rounded-xl border border-gray-700">
-        <div className="flex items-center gap-4">
+      {/* 1. 頂部導航 */}
+      <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-gray-800 p-4 rounded-xl border border-gray-700">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <LineChart className="text-purple-400" /> 數據中心
+                <BarChart3 className="text-purple-400" /> 數據中心
             </h2>
-            
-            {/* 類別切換 */}
             <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-600">
                 <button onClick={() => handleCategoryChange('body')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${category==='body'?'bg-blue-600 text-white':'text-gray-400 hover:text-white'}`}>身體</button>
                 <button onClick={() => handleCategoryChange('run')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${category==='run'?'bg-orange-600 text-white':'text-gray-400 hover:text-white'}`}>跑步</button>
                 <button onClick={() => handleCategoryChange('strength')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${category==='strength'?'bg-purple-600 text-white':'text-gray-400 hover:text-white'}`}>重訓</button>
             </div>
         </div>
-
         <div className="flex gap-2">
-            {category === 'body' && (
-                <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors shadow-lg"><Plus size={16} /> 紀錄體重</button>
-            )}
-            <button onClick={handleExport} className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600"><Download size={16} /> 匯出</button>
+            {category === 'body' && <button onClick={() => setShowAddForm(!showAddForm)} className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-lg"><Plus size={16}/> 紀錄</button>}
+            <button onClick={handleExport} className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm border border-gray-600"><Download size={16}/> 匯出</button>
         </div>
       </div>
 
-      {/* 2. 新增表單 (僅在 Body 模式顯示) */}
+      {/* 新增表單 */}
       {showAddForm && category === 'body' && (
         <form onSubmit={handleAddLog} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 space-y-4 animate-slideUp">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><label className="block text-gray-400 text-sm mb-1">日期</label><input type="date" required value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl py-2 px-4 focus:ring-2 focus:ring-purple-500 outline-none"/></div>
-            <div><label className="block text-gray-400 text-sm mb-1">體重 (kg)</label><input type="number" step="0.1" placeholder="70.5" required value={inputWeight} onChange={(e) => setInputWeight(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl py-2 px-4 focus:ring-2 focus:ring-blue-500 outline-none"/></div>
-            <div><label className="block text-gray-400 text-sm mb-1">體脂率 (%)</label><input type="number" step="0.1" placeholder="20.5" value={inputFat} onChange={(e) => setInputFat(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl py-2 px-4 focus:ring-2 focus:ring-green-500 outline-none"/></div>
+            <input type="date" required value={inputDate} onChange={(e) => setInputDate(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl py-2 px-4 outline-none"/>
+            <input type="number" step="0.1" placeholder="體重 (kg)" required value={inputWeight} onChange={(e) => setInputWeight(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl py-2 px-4 outline-none"/>
+            <input type="number" step="0.1" placeholder="體脂 (%)" value={inputFat} onChange={(e) => setInputFat(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl py-2 px-4 outline-none"/>
           </div>
-          <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-gray-400 hover:text-white">取消</button><button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">儲存</button></div>
+          <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-gray-400">取消</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">儲存</button></div>
         </form>
       )}
 
-      {/* 3. 子類別切換 & 統計卡片 */}
+      {/* 2. 主圖表與控制區 */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* 控制面板 */}
         <div className="lg:col-span-1 space-y-4">
-           {/* Metric Switcher */}
-           <div className="bg-gray-800 p-2 rounded-xl flex flex-col gap-2">
+           {/* 子類別選擇 */}
+           <div className="bg-gray-800 p-2 rounded-xl flex flex-col gap-1">
               {Object.entries(configs[category]).map(([key, conf]) => (
-                  <button 
-                    key={key}
-                    onClick={() => setMetricType(key)}
-                    className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all flex justify-between items-center ${metricType === key ? 'bg-gray-700 text-white shadow-inner border border-gray-600' : 'text-gray-500 hover:bg-gray-700/50 hover:text-gray-300'}`}
-                  >
+                  <button key={key} onClick={() => setMetricType(key)} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all flex justify-between items-center ${metricType === key ? 'bg-gray-700 text-white shadow-inner border border-gray-600' : 'text-gray-500 hover:bg-gray-700/50'}`}>
                     <span>{conf.label}</span>
                     <span className="text-xs opacity-60 bg-gray-900 px-2 py-0.5 rounded">{conf.unit}</span>
                   </button>
               ))}
            </div>
 
-           {/* Stats Card */}
-           {stats ? (
-             <div className="bg-gray-800 rounded-2xl border border-gray-700 p-5 space-y-4">
-                <div>
-                   <p className="text-gray-400 text-xs">目前數值 (最近一筆)</p>
-                   <div className="flex items-end gap-2">
-                      <span className="text-3xl font-bold text-white">{stats.current}</span>
-                      <span className="text-sm text-gray-500 mb-1">{activeConfig.unit}</span>
-                   </div>
-                   {stats.diff !== '0.0' && (
-                     <div className={`flex items-center text-xs mt-1 ${stats.isUp ? 'text-green-400' : 'text-blue-400'}`}>
-                        {stats.isUp ? <TrendingUp size={12} className="mr-1"/> : <TrendingDown size={12} className="mr-1"/>}
-                        {Math.abs(stats.diff)} (較上次)
-                     </div>
-                   )}
+           {/* 檢視模式切換 */}
+           <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 space-y-3">
+               <h4 className="text-xs text-gray-500 uppercase font-bold flex items-center gap-1"><Layers size={12}/> 檢視設定</h4>
+               <div className="flex bg-gray-900 rounded-lg p-1">
+                   <button onClick={() => setTimeScale('daily')} className={`flex-1 py-1 text-xs rounded transition-colors ${timeScale==='daily'?'bg-gray-700 text-white':'text-gray-500'}`}>日檢視</button>
+                   <button onClick={() => setTimeScale('weekly')} className={`flex-1 py-1 text-xs rounded transition-colors ${timeScale==='weekly'?'bg-gray-700 text-white':'text-gray-500'}`}>週彙整</button>
+               </div>
+               <button onClick={() => setShowTrendLine(!showTrendLine)} className={`w-full py-1.5 text-xs rounded border transition-colors flex items-center justify-center gap-2 ${showTrendLine ? 'border-purple-500 text-purple-400 bg-purple-500/10' : 'border-gray-600 text-gray-500'}`}>
+                   {showTrendLine ? <Eye size={12}/> : <EyeOff size={12}/>} 顯示平均趨勢線
+               </button>
+           </div>
+
+           {/* 智慧洞察 */}
+           {stats && (
+             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-5 shadow-lg">
+                <p className="text-gray-400 text-xs mb-1">近期變化 ({timeScale === 'daily' ? '較上筆' : '較上週'})</p>
+                <div className="flex items-end gap-2 mb-2">
+                    <span className="text-3xl font-bold text-white">{stats.current}</span>
+                    <span className="text-sm text-gray-500 mb-1">{activeConfig.unit}</span>
                 </div>
-                <div className="pt-4 border-t border-gray-700 grid grid-cols-2 gap-2">
-                   <div><p className="text-gray-500 text-[10px]">歷史最高</p><p className="text-white font-bold">{stats.highest}</p></div>
-                   <div><p className="text-gray-500 text-[10px]">歷史最低</p><p className="text-white font-bold">{stats.lowest}</p></div>
-                   <div className="col-span-2"><p className="text-gray-500 text-[10px]">資料筆數</p><p className="text-white font-bold">{stats.count}</p></div>
+                <div className={`flex items-center text-sm font-bold ${stats.isImprove ? 'text-green-400' : 'text-orange-400'}`}>
+                    {stats.diff > 0 ? <TrendingUp size={16} className="mr-1"/> : <TrendingDown size={16} className="mr-1"/>}
+                    {Math.abs(stats.diff)} ({Math.abs(stats.percent)}%)
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-700/50 flex justify-between text-xs text-gray-400">
+                    <div>最高: <span className="text-white">{stats.best}</span></div>
+                    <div>最低: <span className="text-white">{stats.worst}</span></div>
                 </div>
              </div>
-           ) : (
-               <div className="p-4 text-center text-gray-500 bg-gray-800 rounded-xl border border-gray-700 text-sm">尚無此類別數據</div>
            )}
         </div>
 
-        {/* 4. Chart Area */}
+        {/* 圖表區 */}
         <div className="lg:col-span-3">
-           <SimpleLineChart 
+           <AdvancedChart 
               data={chartData} 
-              dataKey={metricType} 
               color={activeConfig.color}
               unit={activeConfig.unit}
-              label={activeConfig.label}
+              label={`${activeConfig.label} (${timeScale === 'weekly' ? '週總量/均值' : '每日'})`}
+              showTrend={showTrendLine}
            />
         </div>
       </div>
 
-      {/* 5. 歷史列表 (只顯示目前的 Category) */}
-      <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-        <div className="p-4 bg-gray-900/50 border-b border-gray-700 font-bold text-white flex items-center gap-2">
-           <Activity size={18} className="text-gray-400"/> 詳細紀錄 ({category === 'body' ? '身體數據' : '運動紀錄'})
-        </div>
-        <div className="max-h-64 overflow-y-auto">
-           {category === 'body' ? (
-             <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
-                   <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">體重</th><th className="px-6 py-3">體脂率</th><th className="px-6 py-3 text-right">操作</th></tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                   {bodyLogs.slice().reverse().map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
-                         <td className="px-6 py-3 font-mono text-white">{log.date}</td>
-                         <td className="px-6 py-3 text-blue-300 font-bold">{log.weight} kg</td>
-                         <td className="px-6 py-3 text-green-300 font-bold">{log.bodyFat || '-'} %</td>
-                         <td className="px-6 py-3 text-right"><button onClick={() => handleDelete(log.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={16} /></button></td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-           ) : (
-             <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
-                   <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">項目</th><th className="px-6 py-3">關鍵數據</th><th className="px-6 py-3">狀態</th></tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                   {workoutLogs.filter(l => (category === 'run' ? l.type === 'run' : l.type === 'strength')).slice().reverse().map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
-                         <td className="px-6 py-3 font-mono text-white">{log.date}</td>
-                         <td className="px-6 py-3 font-bold text-white">{log.title}</td>
-                         <td className="px-6 py-3 text-gray-300">
-                             {log.type === 'run' 
-                                ? `${log.runDistance}km @ ${log.runPace}` 
-                                : `${log.exercises?.length || 0} 動作, ${calculateVolume(log.exercises)}kg Vol`}
-                         </td>
-                         <td className="px-6 py-3"><span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">完成</span></td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-           )}
-        </div>
-      </div>
+      {/* 5. 歷史列表 (Body 模式才顯示刪除) */}
+      {category === 'body' && (
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="p-4 bg-gray-900/50 border-b border-gray-700 font-bold text-white flex items-center gap-2">
+               <Activity size={18} className="text-gray-400"/> 詳細紀錄
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+               <table className="w-full text-left text-sm text-gray-400">
+                  <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
+                     <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">體重</th><th className="px-6 py-3">體脂率</th><th className="px-6 py-3 text-right">操作</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                     {bodyLogs.slice().reverse().map((log) => (
+                        <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
+                           <td className="px-6 py-3 font-mono text-white">{log.date}</td>
+                           <td className="px-6 py-3 text-blue-300 font-bold">{log.weight} kg</td>
+                           <td className="px-6 py-3 text-green-300 font-bold">{log.bodyFat || '-'} %</td>
+                           <td className="px-6 py-3 text-right"><button onClick={() => handleDelete(log.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={16} /></button></td>
+                        </tr>
+                     ))}
+                  </tbody>
+               </table>
+            </div>
+          </div>
+      )}
     </div>
   );
 }

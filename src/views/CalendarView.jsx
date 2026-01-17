@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -135,6 +135,7 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
+
         setEditForm(prev => ({
             ...prev,
             status: 'planned',
@@ -469,7 +470,7 @@ export default function CalendarView() {
             const isSelected = formatDate(selectedDate) === dateStr;
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
-            // 變數宣告與初始化
+
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
@@ -492,6 +493,19 @@ export default function CalendarView() {
                   {dayWorkouts.map((workout, wIdx) => {
                     const isRun = workout.type === 'run';
                     const isPlanned = workout.status === 'planned';
+                    let summaryText = workout.title || '訓練';
+                    if (isRun) {
+                    } else {
+                        if (workout.calories) summaryText += ` (${workout.calories}cal)`;
+                        else if (Array.isArray(workout.exercises) && workout.exercises.length > 0) {
+                             const firstEx = workout.exercises[0];
+                             if (firstEx.name && firstEx.name.includes('匯入')) {
+                                 summaryText += ` (${firstEx.sets}組)`;
+                             } else {
+                                 summaryText += ` (${workout.exercises.length}項目)`;
+                             }
+                        }
+                    }
                     return (
                         <div 
                             key={workout.id || wIdx}
@@ -501,10 +515,10 @@ export default function CalendarView() {
                                 isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
                             }`}
-                            title={workout.title}
+                            title={summaryText}
                         >
                             {isPlanned && <Clock size={8} />}
-                            {workout.title || (isRun ? '跑步' : '訓練')}
+                            {summaryText}
                         </div>
                     );
                   })}

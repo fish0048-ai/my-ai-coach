@@ -1,13 +1,63 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell } from 'lucide-react';
+// 新增 Trophy
+import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
 import { POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
-// 引入剛剛建立的 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
+
+// --- 重訓評分邏輯 ---
+const calculateStrengthScore = (m, mode) => {
+    if (!m) return 0;
+    let s = 100;
+    
+    // 1. 離心時間 (Tempo) [30%]
+    const ecc = parseFloat(m.eccentricTime.value);
+    if (ecc < 1.0) s -= 20; // 太快
+    else if (ecc < 1.5) s -= 10;
+    else if (ecc > 4.0) s -= 5; // 太慢
+    
+    // 2. 角度/行程 (ROM) [30%]
+    const angle = parseFloat(mode === 'bench' ? m.elbowAngle.value : m.kneeAngle.value);
+    if (mode === 'bench') {
+        if (angle > 90) s -= 20; // 下放不夠
+        if (angle < 45) s -= 10; // 過深
+    } else { // squat
+        if (angle > 100) s -= 20; // 沒蹲下去
+    }
+    
+    // 3. 穩定度 (Stability) [20%]
+    const stab = parseFloat(m.stability?.value || 100);
+    if (stab < 80) s -= 10;
+    if (stab < 60) s -= 20;
+
+    return Math.max(0, Math.round(s));
+};
+
+// 分數圈圈組件 (與 RunAnalysis 共用樣式)
+const ScoreGauge = ({ score }) => {
+  const radius = 30;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (score / 100) * circumference;
+  let color = 'text-red-500';
+  if (score >= 70) color = 'text-yellow-500';
+  if (score >= 85) color = 'text-green-500';
+  return (
+    <div className="relative flex items-center justify-center w-24 h-24">
+      <svg className="w-full h-full transform -rotate-90">
+        <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-700" />
+        <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className={`${color} transition-all duration-1000 ease-out`} />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className={`text-2xl font-bold ${color}`}>{score}</span>
+        <span className="text-[10px] text-gray-400">SCORE</span>
+      </div>
+    </div>
+  );
+};
 
 export default function StrengthAnalysisView() {
   const [mode, setMode] = useState('bench'); 
@@ -21,7 +71,6 @@ export default function StrengthAnalysisView() {
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [showSkeleton, setShowSkeleton] = useState(true);
   
-  // Refs for closure safety
   const showSkeletonRef = useRef(true);
   const modeRef = useRef('bench');
 
@@ -31,11 +80,11 @@ export default function StrengthAnalysisView() {
   }, [showSkeleton, mode]);
 
   const [metrics, setMetrics] = useState(null);
+  const [score, setScore] = useState(0); // 新增評分
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
 
-  // --- 核心邏輯 ---
   const calculateAngle = (a, b, c) => {
     if (!a || !b || !c) return 0;
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
@@ -87,49 +136,34 @@ export default function StrengthAnalysisView() {
             }
             setRealtimeAngle(angle);
         }
-    } catch(e) {
-        console.error("Canvas draw error:", e);
-    } finally {
-        ctx.restore();
-    }
+    } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
   };
 
-  // 使用 Custom Hook 初始化 MediaPipe
   const poseModel = usePoseDetection(onPoseResults);
 
   const onVideoPlay = () => {
       const video = videoRef.current;
       const processFrame = async () => {
           if (video && !video.paused && !video.ended && poseModel) {
-              try {
-                  await poseModel.send({image: video});
-              } catch(e) {}
-              if (videoRef.current && !videoRef.current.paused) { 
-                  requestRef.current = requestAnimationFrame(processFrame);
-              }
+              try { await poseModel.send({image: video}); } catch(e) {}
+              if (videoRef.current && !videoRef.current.paused) { requestRef.current = requestAnimationFrame(processFrame); }
           }
       };
       processFrame();
   };
 
-  // 清理 Animation Frame
-  useEffect(() => {
-    return () => {
-        if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    }
-  }, []);
+  useEffect(() => { return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); } }, []);
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.name.toLowerCase().endsWith('.fit')) {
-        handleFitAnalysis(file);
-    } else {
-        const url = URL.createObjectURL(file);
-        setVideoFile(url);
+    if (file.name.toLowerCase().endsWith('.fit')) { handleFitAnalysis(file); } 
+    else {
+        setVideoFile(URL.createObjectURL(file));
         setIsFitMode(false);
         setAnalysisStep('idle');
         setMetrics(null);
+        setScore(0);
         setAiFeedback('');
     }
   };
@@ -144,10 +178,12 @@ export default function StrengthAnalysisView() {
         fitParser.parse(event.target.result, (error, data) => {
             if (error || !data) { alert("FIT 解析失敗"); setAnalysisStep('idle'); return; }
             setTimeout(() => {
-                setMetrics({
+                const fitM = {
                     reps: { label: 'FIT 總次數', value: '12', unit: 'reps', status: 'good', icon: Activity },
                     weight: { label: 'FIT 平均重量', value: '60', unit: 'kg', status: 'good', icon: Scale },
-                });
+                };
+                setMetrics(fitM);
+                setScore(80);
                 setAnalysisStep('internal_complete');
             }, 1000);
         });
@@ -161,20 +197,23 @@ export default function StrengthAnalysisView() {
     setAnalysisStep('analyzing_internal');
     
     setTimeout(() => {
+      let m = {};
       if (mode === 'bench') {
-          setMetrics({
-              elbowAngle: { label: '手肘角度 (Snapshot)', value: capturedAngle.toString(), unit: '°', status: 'good', icon: Ruler },
-              barPath: { label: '軌跡偏移', value: '1.2', unit: 'cm', status: 'good', icon: Activity, hint: '越垂直越好' }, 
-              eccentricTime: { label: '離心時間', value: '1.8', unit: 's', status: 'warning', icon: Timer, hint: '建議放慢至 2-3s' },
+          m = {
+              elbowAngle: { label: '手肘角度', value: capturedAngle.toString(), unit: '°', status: 'good', icon: Ruler },
+              barPath: { label: '軌跡偏移', value: '1.2', unit: 'cm', status: 'good', icon: Activity }, 
+              eccentricTime: { label: '離心時間', value: '1.8', unit: 's', status: 'warning', icon: Timer },
               stability: { label: '核心穩定度', value: '92', unit: '%', status: 'good', icon: Scale }
-          });
+          };
       } else {
-          setMetrics({
-              kneeAngle: { label: '膝蓋角度 (Snapshot)', value: capturedAngle.toString(), unit: '°', status: 'good', icon: Ruler },
-              hipDepth: { label: '髖關節深度', value: '低於膝蓋', unit: '', status: 'good', icon: Activity },
+          m = {
+              kneeAngle: { label: '膝蓋角度', value: capturedAngle.toString(), unit: '°', status: 'good', icon: Ruler },
+              hipDepth: { label: '髖關節深度', value: '低', unit: '', status: 'good', icon: Activity },
               concentricTime: { label: '向心時間', value: '0.8', unit: 's', status: 'good', icon: Timer },
-          });
+          };
       }
+      setMetrics(m);
+      setScore(calculateStrengthScore(m, mode));
       setAnalysisStep('internal_complete');
     }, 1000);
   };
@@ -187,14 +226,10 @@ export default function StrengthAnalysisView() {
     const prompt = `
       角色：專業肌力與體能教練 (CSCS)。
       任務：分析以下「${mode === 'bench' ? '臥推' : '深蹲'}」數據。
-      數據來源：AI 視覺骨架偵測。
-      ${JSON.stringify(metrics)}
+      評分：${score} 分。
+      數據：${JSON.stringify(metrics)}
       
-      請針對以下重點分析：
-      1. **動作行程 (ROM)**：角度是否足夠？
-      2. **發力節奏**：離心/向心時間是否合理？
-      3. **優化建議**：如何調整動作以提升感受度並避免受傷？
-      200字內，繁體中文。
+      請給出評分理由與優化建議。200字內。
     `;
     try {
         const response = await runGemini(prompt, apiKey);
@@ -219,7 +254,7 @@ export default function StrengthAnalysisView() {
             title: `重訓分析 (${mode === 'bench' ? '臥推' : '深蹲'})`,
             feedback: aiFeedback,
             metrics: metrics,     
-            score: '已分析', 
+            score: `${score}分`, 
             createdAt: now.toISOString()
         };
         const docRef = doc(db, 'users', user.uid, 'calendar', dateStr);
@@ -237,7 +272,15 @@ export default function StrengthAnalysisView() {
     }
   };
 
-  const updateMetric = (key, val) => setMetrics(prev => ({...prev, [key]: {...prev[key], value: val}}));
+  const updateMetric = (key, val) => {
+      setMetrics(prev => {
+          const newMetrics = {...prev, [key]: {...prev[key], value: val}};
+          setScore(calculateStrengthScore(newMetrics, mode));
+          return newMetrics;
+      });
+  };
+
+  const clearAll = () => { setAnalysisStep('idle'); setMetrics(null); setScore(0); setAiFeedback(''); setVideoFile(null); setIsFitMode(false); };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -285,7 +328,7 @@ export default function StrengthAnalysisView() {
              )}
              {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
                  <>
-                    <button onClick={() => { setAnalysisStep('idle'); setMetrics(null); setAiFeedback(''); }} className="px-6 py-2 bg-gray-700 text-white rounded-lg">重置</button>
+                    <button onClick={clearAll} className="px-6 py-2 bg-gray-700 text-white rounded-lg">重置</button>
                     {analysisStep !== 'ai_complete' && <button onClick={performAIAnalysis} className="px-6 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2"><Sparkles size={18}/> AI 建議</button>}
                     {analysisStep === 'ai_complete' && <button onClick={saveToCalendar} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"><Save size={18}/> 儲存</button>}
                  </>
@@ -294,6 +337,22 @@ export default function StrengthAnalysisView() {
         </div>
 
         <div className="space-y-4">
+           {metrics && (
+             <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
+                  <div>
+                      <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-yellow-400"/> 動作評分</h3>
+                  </div>
+                  <ScoreGauge score={score} />
+              </div>
+           )}
+
+           {videoFile && !metrics && (
+             <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-700 text-center">
+                 <div className="text-4xl font-bold text-white font-mono">{realtimeAngle}°</div>
+                 <div className="text-sm text-gray-400">即時關節角度</div>
+             </div>
+           )}
+
            {metrics && (
              <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
                <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動作數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>

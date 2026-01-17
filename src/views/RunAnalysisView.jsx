@@ -1,12 +1,41 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle } from 'lucide-react';
+import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
-import { POSE_CONNECTIONS } from '@mediapipe/pose';
+import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
-import { usePoseDetection } from '../hooks/usePoseDetection';
+
+// --- 分數計算組件 ---
+const ScoreGauge = ({ score }) => {
+  const radius = 30;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (score / 100) * circumference;
+  
+  let color = 'text-red-500';
+  if (score >= 70) color = 'text-yellow-500';
+  if (score >= 85) color = 'text-green-500';
+  if (score >= 95) color = 'text-blue-500'; // Elite
+
+  return (
+    <div className="relative flex items-center justify-center w-24 h-24">
+      <svg className="w-full h-full transform -rotate-90">
+        <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-700" />
+        <circle 
+          cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" 
+          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} 
+          strokeLinecap="round"
+          className={`${color} transition-all duration-1000 ease-out`} 
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className={`text-2xl font-bold ${color}`}>{score}</span>
+        <span className="text-[10px] text-gray-400">SCORE</span>
+      </div>
+    </div>
+  );
+};
 
 export default function RunAnalysisView() {
   const [videoFile, setVideoFile] = useState(null); 
@@ -36,12 +65,38 @@ export default function RunAnalysisView() {
   }, [showSkeleton, showIdealForm]);
   
   const [metrics, setMetrics] = useState(null);
+  const [score, setScore] = useState(0); // 新增：評分狀態
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [poseModel, setPoseModel] = useState(null); 
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
   const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
 
-  // --- Helper Functions ---
+  useEffect(() => {
+    let pose = null;
+    try {
+        pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+        pose.setOptions({
+          modelComplexity: 1, 
+          smoothLandmarks: true, 
+          enableSegmentation: false,
+          smoothSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        pose.onResults(onPoseResults);
+        setPoseModel(pose);
+    } catch (err) {
+        console.error("MediaPipe Init Error:", err);
+    }
+
+    return () => { 
+        if (pose) pose.close(); 
+        isScanningRef.current = false; 
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, []);
+
   const calculateAngle = (a, b, c) => {
     if (!a || !b || !c) return 0;
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
@@ -68,13 +123,17 @@ export default function RunAnalysisView() {
 
   const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
+      
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
-      if (!Number.isFinite(hip.x) || !Number.isFinite(hip.y) || !Number.isFinite(knee.x) || !Number.isFinite(knee.y)) return;
+      
+      if (!Number.isFinite(hip.x) || !Number.isFinite(hip.y)) return;
+
       const hipX = hip.x * w;
       const hipY = hip.y * h;
       const kneeX = knee.x * w;
       const kneeY = knee.y * h;
+      
       const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
       const radius = thighLen * 1.2; 
       if (!Number.isFinite(radius) || radius <= 0) return;
@@ -140,22 +199,15 @@ export default function RunAnalysisView() {
               ctx.fillStyle = isGood ? '#fbbf24' : '#ef4444'; 
               ctx.fillText(`${currentAngle}°`, labelX, labelY);
           }
-      } catch(err) {
-      } finally {
-          ctx.restore(); 
-      }
+      } catch(err) { } finally { ctx.restore(); }
   };
 
-  // --- Main MediaPipe Callback ---
   const onPoseResults = (results) => {
-    // 掃描模式只存資料
-    if (isScanningRef.current) {
-        if (results.poseLandmarks) {
-            fullScanDataRef.current.push({
-                timestamp: videoRef.current ? videoRef.current.currentTime : 0,
-                landmarks: results.poseLandmarks
-            });
-        }
+    if (isScanningRef.current && results.poseLandmarks) {
+        fullScanDataRef.current.push({
+            timestamp: videoRef.current ? videoRef.current.currentTime : 0,
+            landmarks: results.poseLandmarks
+        });
     }
 
     const canvas = canvasRef.current;
@@ -190,7 +242,6 @@ export default function RunAnalysisView() {
                 }
             }
             
-            // 節流 UI 更新
             const now = Date.now();
             if (now - lastUiUpdateRef.current > 100) { 
                 setHipExtensionAngle(Math.round(hipDrive));
@@ -198,23 +249,16 @@ export default function RunAnalysisView() {
                 lastUiUpdateRef.current = now;
             }
         }
-    } catch(e) {
-        console.error("Canvas error:", e);
-    } finally {
-        ctx.restore(); 
-    }
+    } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
   };
-
-  // 使用 Hook 初始化 MediaPipe
-  const poseModel = usePoseDetection(onPoseResults);
 
   const processFrame = async () => {
       const video = videoRef.current;
       if (video && !video.paused && !video.ended && poseModel && !isScanningRef.current) {
-          if (video.readyState >= 2 && video.videoWidth > 0) {
+          if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
               try {
                   await poseModel.send({image: video});
-              } catch(e) { console.warn(e); }
+              } catch(e) { console.warn("Frame skipped:", e); }
           }
           if (video && !video.paused) {
              requestRef.current = requestAnimationFrame(processFrame);
@@ -231,13 +275,6 @@ export default function RunAnalysisView() {
   const onVideoPause = () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
   };
-
-  // 清理 Animation Frame
-  useEffect(() => {
-    return () => {
-        if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    }
-  }, []);
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
@@ -275,20 +312,14 @@ export default function RunAnalysisView() {
     if (!video || !poseModel) return;
 
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    // 重置模型狀態
-    // 注意：poseModel 實例本身沒有 reset 方法，我們直接設定選項即可
-    
+    await poseModel.reset(); 
+
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
     isScanningRef.current = true;
 
-    poseModel.setOptions({ 
-        modelComplexity: 1, 
-        smoothLandmarks: false, 
-        enableSegmentation: false,
-        smoothSegmentation: false
-    });
+    poseModel.setOptions({ modelComplexity: 1, smoothLandmarks: false }); 
 
     video.pause();
     const duration = video.duration;
@@ -306,7 +337,7 @@ export default function RunAnalysisView() {
             setTimeout(onSeek, 500); 
         });
 
-        if (video.readyState >= 2) {
+        if (video.readyState >= 2 && video.videoWidth > 0) {
              try { await poseModel.send({ image: video }); } catch(e) {}
         }
         setScanProgress(Math.round((t / duration) * 100));
@@ -317,8 +348,49 @@ export default function RunAnalysisView() {
 
     const computedMetrics = processScanData(fullScanDataRef.current);
     setMetrics(computedMetrics);
+    
+    // --- 這裡加入評分計算 ---
+    const finalScore = calculateRunScore(computedMetrics);
+    setScore(finalScore);
+
     setAnalysisStep('internal_complete');
     video.currentTime = 0;
+  };
+
+  // --- 評分核心演算法 ---
+  const calculateRunScore = (m) => {
+      if (!m) return 0;
+      let s = 100;
+      
+      // 1. 步頻 (Cadence) [30%]
+      // 標準: 170-190 (最佳), <160 (差)
+      const cad = parseFloat(m.cadence.value);
+      if (cad < 150) s -= 30;
+      else if (cad < 160) s -= 20;
+      else if (cad < 170) s -= 10;
+      else if (cad > 200) s -= 10; // 太快也不正常
+      
+      // 2. 送髖 (Hip Drive) [25%]
+      // 標準: >20度
+      const hip = parseFloat(m.hipDrive.value);
+      if (hip < 10) s -= 25;
+      else if (hip < 20) s -= 15;
+      else if (hip < 30) s -= 5;
+      
+      // 3. 垂直振幅 (Vertical Osc) [25%]
+      // 標準: < 10cm
+      const osc = parseFloat(m.vertOscillation.value);
+      if (osc > 12) s -= 25;
+      else if (osc > 10) s -= 15;
+      else if (osc > 8) s -= 0; // excellent
+      
+      // 4. 移動參數 (Vertical Ratio) [20%]
+      // 標準: < 8%
+      const ratio = parseFloat(m.vertRatio.value);
+      if (ratio > 10) s -= 20;
+      else if (ratio > 8) s -= 10;
+
+      return Math.max(0, Math.round(s));
   };
 
   const processScanData = (data) => {
@@ -357,7 +429,13 @@ export default function RunAnalysisView() {
         fitParser.parse(event.target.result, (error, data) => {
             if (error || !data) { alert("FIT 解析失敗"); setAnalysisStep('idle'); return; }
             setTimeout(() => {
-                setMetrics({ cadence: { label: 'FIT 步頻', value: '180', unit: 'spm', status: 'good', icon: Activity } });
+                const fitMetrics = { 
+                    cadence: { label: 'FIT 步頻', value: '180', unit: 'spm', status: 'good', icon: Activity },
+                    // FIT 通常不含影像角度，這裡僅作示範
+                    hipDrive: { label: '送髖 (無影像)', value: '0', unit: '°', status: 'warning', icon: Zap }
+                };
+                setMetrics(fitMetrics);
+                setScore(85); // FIT 預設給個分
                 setAnalysisStep('internal_complete');
             }, 1000);
         });
@@ -371,16 +449,12 @@ export default function RunAnalysisView() {
     setAnalysisStep('analyzing_ai');
     
     const prompt = `
-      角色：專業生物力學分析師與跑步教練 (專精送髖 Hip Drive)。
-      任務：分析以下「跑步」數據。
-      數據來源：AI 視覺全影片掃描 (Full Video Analysis)。
-      ${JSON.stringify(metrics)}
+      角色：專業生物力學分析師。
+      任務：跑姿評分與診斷。
+      綜合評分：${score} 分。
+      數據：${JSON.stringify(metrics)}
       
-      特別針對「送髖技術」進行分析 (定義：骨盆前傾、帶動大腿向前抬起)：
-      1. **前擺角度評估**：目前的抬腿角度是否足夠？(有效前進通常需 >20度)。
-      2. **骨盆連動**：是否有利用骨盆前傾來輔助大腿前擺？還是單純靠股四頭肌？
-      3. **修正訓練**：請提供 1-2 個針對「骨盆活動度」與「髂腰肌/臀肌」的訓練 (如：A Skip、高抬腿、弓箭步)。
-      250字內，繁體中文。
+      請依據評分給予鼓勵或警告，並針對低分項目提供修正訓練(Drill)。
     `;
     try {
         const response = await runGemini(prompt, apiKey);
@@ -405,7 +479,7 @@ export default function RunAnalysisView() {
             title: '跑步跑姿分析 (Running AI)',
             feedback: aiFeedback,
             metrics: metrics,     
-            score: '已分析', 
+            score: `${score}分`, 
             createdAt: now.toISOString()
         };
         const docRef = doc(db, 'users', user.uid, 'calendar', dateStr);
@@ -422,18 +496,24 @@ export default function RunAnalysisView() {
     }
   };
   
-  const updateMetric = (key, val) => setMetrics(prev => ({...prev, [key]: {...prev[key], value: val}}));
+  const updateMetric = (key, val) => {
+      setMetrics(prev => {
+          const newMetrics = {...prev, [key]: {...prev[key], value: val}};
+          // 數值修改後重新計算分數
+          setScore(calculateRunScore(newMetrics));
+          return newMetrics;
+      });
+  };
   const clearAll = () => {
     isScanningRef.current = false;
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
     setAnalysisStep('idle');
     setMetrics(null);
+    setScore(0);
     setAiFeedback('');
     setVideoFile(null);
     setVideoError(null);
     setIsFitMode(false);
-    setScanProgress(0);
-    if (poseModel) poseModel.setOptions({ smoothLandmarks: true });
     
     const canvas = canvasRef.current;
     if (canvas) {
@@ -479,7 +559,6 @@ export default function RunAnalysisView() {
             onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}
           >
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
-
             {analysisStep === 'scanning' && (
               <div className="absolute inset-0 bg-gray-900/90 z-30 flex flex-col items-center justify-center text-blue-400">
                   <Cpu className="animate-pulse mb-2" size={32}/> 
@@ -489,10 +568,7 @@ export default function RunAnalysisView() {
                   </div>
               </div>
             )}
-
             {analysisStep === 'analyzing_ai' && <div className="absolute inset-0 bg-gray-900/80 z-30 flex items-center justify-center text-purple-400 font-mono"><BrainCircuit className="animate-pulse mr-2"/> AI 診斷中...</div>}
-
-            {/* 錯誤提示 */}
             {videoError && (
                 <div className="absolute inset-0 z-40 bg-gray-900 flex flex-col items-center justify-center text-red-400 p-4 text-center">
                     <AlertTriangle size={48} className="mb-2" />
@@ -501,7 +577,6 @@ export default function RunAnalysisView() {
                     <button onClick={clearAll} className="mt-4 px-4 py-2 bg-gray-800 rounded hover:bg-gray-700 text-white">重試</button>
                 </div>
             )}
-
             {!videoFile && !isFitMode && !videoError && (
               <div className="text-center p-6 cursor-pointer">
                 <Upload size={32} className="mx-auto mb-2 text-gray-400" />
@@ -509,7 +584,6 @@ export default function RunAnalysisView() {
                 <p className="text-gray-500 text-sm">支援 .mp4 (分析送髖、步頻)</p>
               </div>
             )}
-
             {videoFile && (
                 <video 
                     ref={videoRef}
@@ -522,31 +596,21 @@ export default function RunAnalysisView() {
                     crossOrigin="anonymous"
                     onPlay={onVideoPlay}
                     onPause={onVideoPause}
-                    onError={handleVideoError} 
+                    onError={(e) => { console.error("Video Error:", e); setVideoError("瀏覽器不支援此影片格式 (建議使用 MP4)"); }}
                 />
             )}
-            
             {isFitMode && <div className="absolute inset-0 flex items-center justify-center text-gray-500"><FileCode size={48}/> FIT 模式</div>}
           </div>
 
           <div className="flex gap-4 justify-center">
              {(videoFile || isFitMode) && analysisStep === 'idle' && (
                  <>
-                    <button onClick={handleUploadClick} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">
-                      更換檔案
-                    </button>
+                    <button onClick={handleUploadClick} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">更換檔案</button>
                     {!isFitMode && (
-                        <button 
-                        onClick={startFullVideoScan}
-                        className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"
-                        >
-                        <Cpu size={20} />
-                        開始全影片分析
-                        </button>
+                        <button onClick={startFullVideoScan} className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"><Cpu size={20} /> 開始全影片分析</button>
                     )}
                  </>
              )}
-
              {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
                  <>
                     <button onClick={() => { setAnalysisStep('idle'); setMetrics(null); setAiFeedback(''); }} className="px-6 py-2 bg-gray-700 text-white rounded-lg">重置</button>
@@ -558,6 +622,17 @@ export default function RunAnalysisView() {
         </div>
 
         <div className="space-y-4">
+           {/* 分數顯示區 */}
+           {metrics && (
+              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
+                  <div>
+                      <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-yellow-400"/> 跑姿評分</h3>
+                      <p className="text-xs text-gray-400">基於動力學指標計算</p>
+                  </div>
+                  <ScoreGauge score={score} />
+              </div>
+           )}
+
            {videoFile && !metrics && analysisStep !== 'scanning' && (
              <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-700 text-center">
                  <div className="text-4xl font-bold text-white font-mono">{realtimeAngle}°</div>
@@ -582,21 +657,12 @@ export default function RunAnalysisView() {
                        </div>
                    ))}
                 </div>
-
                 <div className="bg-blue-900/20 p-5 rounded-xl border border-blue-500/30 text-gray-300 text-sm space-y-3">
-                    <h3 className="text-blue-400 font-bold flex items-center gap-2">
-                        <BookOpen size={16} /> 什麼是送髖 (Hip Drive)?
-                    </h3>
-                    <p>
-                        <strong>定義：</strong> 跑步時利用骨盆前傾，主動帶動大腿<strong>向前抬起</strong>，創造有效前進動力。
-                    </p>
-                    <p>
-                        <strong>觀察重點：</strong> 畫面中的 <span className="text-green-400">綠色前扇形區間</span> 代表大腿前擺的理想角度 (20°-60°)。良好的送髖能增加步幅並減少觸地時間。
-                    </p>
+                    <h3 className="text-blue-400 font-bold flex items-center gap-2"><BookOpen size={16} /> 什麼是送髖 (Hip Drive)?</h3>
+                    <p><strong>定義：</strong> 跑步時利用骨盆前傾，主動帶動大腿<strong>向前抬起</strong>。</p>
                 </div>
              </>
            )}
-           
            {aiFeedback && (
                <div className="bg-purple-900/20 p-5 rounded-xl border border-purple-500/30 text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
                    <h3 className="text-purple-400 font-bold mb-2 flex items-center gap-2"><Sparkles size={16}/> 跑姿診斷</h3>

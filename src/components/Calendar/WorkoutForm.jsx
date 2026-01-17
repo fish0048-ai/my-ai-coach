@@ -1,5 +1,6 @@
 import React from 'react';
-import { Dumbbell, Activity, Sparkles, Loader, Plus, Trash2, Timer, Flame, Heart, BarChart2, AlignLeft, ShoppingBag, Tag, Gauge } from 'lucide-react';
+// 修正：加入 Zap
+import { Dumbbell, Activity, Sparkles, Loader, Plus, Trash2, Timer, Flame, Heart, BarChart2, AlignLeft, ShoppingBag, Tag, Gauge, Zap } from 'lucide-react';
 
 export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCoachGenerate, isGenerating, handleExerciseNameChange }) {
   return (

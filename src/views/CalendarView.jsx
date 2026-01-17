@@ -126,6 +126,7 @@ export default function CalendarView() {
     }
   };
 
+  // --- AI 總教練生成邏輯 (修復版) ---
   const handleHeadCoachGenerate = async () => {
     const user = auth.currentUser;
     if (!user) return alert("請先登入");
@@ -140,16 +141,35 @@ export default function CalendarView() {
         const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
         const targetDateStr = formatDate(selectedDate);
-        const prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
+        
+        let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
+        // 加強 Prompt 指令，確保回傳 JSON
+        prompt += "\n\nIMPORTANT: Output ONLY raw JSON. Do not use Markdown code blocks. Do not add any text before or after the JSON.";
+
         const response = await runGemini(prompt, apiKey);
-        const cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // --- 增強版 JSON 解析邏輯 ---
+        let cleanJson = response;
+        // 1. 嘗試移除 Markdown 標記
+        cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // 2. 尋找 JSON 物件的起止點 (防止 AI 在 JSON 前後講廢話)
+        const startIndex = cleanJson.indexOf('{');
+        const endIndex = cleanJson.lastIndexOf('}');
+        if (startIndex !== -1 && endIndex !== -1) {
+            cleanJson = cleanJson.substring(startIndex, endIndex + 1);
+        }
+        
+        console.log("AI Raw Response:", response); // 除錯用
+        console.log("Cleaned JSON:", cleanJson);   // 除錯用
+
         const plan = JSON.parse(cleanJson);
 
         setEditForm(prev => ({
             ...prev,
             type: plan.type === 'run' ? 'run' : 'strength',
             title: plan.title,
-            notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes}`,
+            notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
             exercises: plan.exercises || [],
             runDistance: plan.runDistance || '',
             runDuration: plan.runDuration || '',
@@ -157,8 +177,8 @@ export default function CalendarView() {
         }));
 
     } catch (error) {
-        console.error(error);
-        alert("總教練思考中斷，請重試 (可能是 JSON 格式錯誤)");
+        console.error("AI Gen Error:", error);
+        alert(`總教練思考中斷: ${error.message}\n請檢查 Console (F12) 的錯誤訊息。`);
     } finally {
         setIsGenerating(false);
     }
@@ -295,12 +315,9 @@ export default function CalendarView() {
 
           let importCount = 0;
           let updateCount = 0;
-          // 注意：CSV 匯入目前無法自動判斷裝備，因為 Garmin CSV 通常不含裝備欄位
-          
-          // ... (後續 CSV 解析邏輯省略，與前版相同) ...
-          // 為節省篇幅，此處邏輯與上個版本完全一致，請確保保留完整的解析代碼
-          
-           for (let i = 1; i < lines.length; i++) {
+          const currentData = await fetchCurrentWorkoutsForCheck(user.uid); 
+
+          for (let i = 1; i < lines.length; i++) {
                 const row = parseLine(lines[i]);
                 if (row.length < headers.length) continue;
                 
@@ -401,10 +418,20 @@ export default function CalendarView() {
                     updatedAt: new Date().toISOString()
                 };
 
+                const existingDoc = currentData.find(d => 
+                    d.date === dateStr && 
+                    d.title === dataToSave.title && 
+                    d.type === type
+                );
+
                 try {
-                    // Check duplicate logic here if needed...
-                    await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
-                    importCount++;
+                    if (existingDoc) {
+                        await updateDoc(doc(db, 'users', user.uid, 'calendar', existingDoc.id), dataToSave);
+                        updateCount++;
+                    } else {
+                        await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+                        importCount++;
+                    }
                 } catch (e) {
                     console.error("Import error row " + i, e);
                 }
@@ -436,7 +463,7 @@ export default function CalendarView() {
           if (res.success) {
               await updateAIContext();
               await fetchMonthWorkouts();
-              alert(`匯入完成！成功新增 ${res.count} 筆。`);
+              alert(`匯入完成！\n新增：${res.count} 筆\n更新：${res.updateCount} 筆`);
           } else {
               alert(res.message || "匯入失敗");
           }
@@ -464,17 +491,86 @@ export default function CalendarView() {
               const isRunning = session.sport === 'running';
               const type = isRunning ? 'run' : 'strength';
               
-              // ... FIT Parsing Logic ...
-              // (為了程式碼簡潔，這裡省略重複的 FIT 解析代碼，請保留您原本完整的 handleFitUpload)
+              const duration = Math.round((session.total_elapsed_time || 0) / 60).toString();
+              const distance = isRunning ? (session.total_distance || 0).toFixed(2) : '';
+              const calories = Math.round(session.total_calories || 0).toString();
+              const hr = Math.round(session.avg_heart_rate || 0).toString();
+              const power = Math.round(session.avg_power || 0).toString();
+
+              let exercises = [];
+              const rawSets = data.sets || data.set || [];
               
+              if (type === 'strength' && rawSets.length > 0) {
+                  rawSets.forEach((set, idx) => {
+                      if (!set.repetition_count || set.repetition_count === 0) return;
+
+                      let weight = set.weight || 0;
+                      if (weight > 1000) weight = weight / 1000;
+                      const reps = set.repetition_count;
+                      
+                      let name = "訓練動作";
+                      if (set.wkt_step_label) {
+                          name = set.wkt_step_label;
+                      } else if (set.category) {
+                           const catMap = { 
+                               13: '胸部', 15: '腿部', 3: '腹部', 1: '背部', 2: '手臂', 23: '肩膀' 
+                           };
+                           name = catMap[set.category] ? `${catMap[set.category]}訓練` : `動作(類別${set.category})`;
+                      }
+
+                      const lastEx = exercises[exercises.length - 1];
+                      if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - weight) < 0.1 && lastEx.reps === reps) {
+                          lastEx.sets += 1;
+                      } else {
+                          exercises.push({
+                              name: name,
+                              sets: 1, 
+                              reps: reps,
+                              weight: Math.round(weight), 
+                              targetMuscle: detectMuscleGroup(name) || "" 
+                          });
+                      }
+                  });
+              }
+
+              if (exercises.length === 0 && type === 'strength') {
+                  const totalSets = session.total_sets || session.num_sets || 0;
+                  const totalReps = session.total_reps || session.num_reps || 0;
+                  
+                  if (totalSets > 0) {
+                      exercises.push({
+                          name: "匯入訓練 (無詳細組數)",
+                          sets: totalSets,
+                          reps: totalReps || "N/A",
+                          weight: 0,
+                          targetMuscle: ""
+                      });
+                  }
+              }
+
               const dataToSave = {
                   date: dateStr,
                   status: 'completed',
                   type,
                   title: isRunning ? '跑步訓練 (FIT)' : '重訓 (FIT匯入)',
-                  // ... fields ...
+                  exercises,
+                  runDistance: distance,
+                  runDuration: duration,
+                  runPace: '', 
+                  runPower: power,
+                  runHeartRate: hr,
+                  calories,
+                  notes: `由 Garmin FIT 匯入。共解析 ${exercises.length} 項動作。`,
+                  imported: true,
                   updatedAt: new Date().toISOString()
               };
+
+              if (isRunning && parseFloat(distance) > 0 && parseFloat(duration) > 0) {
+                  const paceVal = parseFloat(duration) / parseFloat(distance);
+                  const pm = Math.floor(paceVal);
+                  const ps = Math.round((paceVal - pm) * 60);
+                  dataToSave.runPace = `${pm}'${String(ps).padStart(2, '0')}" /km`;
+              }
 
               try {
                   const user = auth.currentUser;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode, AlertTriangle, Download, ShoppingBag, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -163,7 +163,6 @@ export default function CalendarView() {
         const weekDates = getWeekDates(currentDate);
         const planningDates = weekDates.filter(d => {
             const hasCompleted = (workouts[d] || []).some(w => w.status === 'completed');
-            // 只要不是 'rest' 都加入規劃，即使已經有課表也可能想加練
             return !hasCompleted && weeklyPrefs[d] && !weeklyPrefs[d].includes('rest');
         });
 
@@ -248,16 +247,40 @@ export default function CalendarView() {
     if (!user) return;
     setLoading(true);
     try {
-        const csvContent = await generateCSVData(user.uid, gears);
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        const today = formatDate(new Date());
-        link.setAttribute("download", `training_backup_${today}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const q = query(collection(db, 'users', user.uid, 'calendar'));
+      const querySnapshot = await getDocs(q);
+      const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
+      const rows = [headers];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const type = data.type === 'run' ? '跑步' : '肌力訓練';
+        let totalSets = 0;
+        if (data.exercises && Array.isArray(data.exercises)) {
+            totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
+        }
+        const gearName = gears.find(g => g.id === data.gearId)?.model || '';
+        const row = [
+            type, data.date || '', data.title || '', data.runDistance || '', data.runDuration || '',
+            data.runHeartRate || '', data.runPower || '', data.calories || '',
+            totalSets > 0 ? totalSets : '', gearName, data.notes || ''
+        ];
+        const escapedRow = row.map(field => {
+            const str = String(field ?? '');
+            if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str.replace(/"/g, '""')}"`;
+            return str;
+        });
+        rows.push(escapedRow);
+      });
+      const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const today = formatDate(new Date());
+      link.setAttribute("download", `training_backup_${today}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) { alert("匯出失敗"); } finally { setLoading(false); }
   };
 
@@ -446,7 +469,7 @@ export default function CalendarView() {
             const isSelected = formatDate(selectedDate) === dateStr;
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
-            // 修正這裡：宣告變數
+            // 變數宣告與初始化
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
@@ -469,19 +492,6 @@ export default function CalendarView() {
                   {dayWorkouts.map((workout, wIdx) => {
                     const isRun = workout.type === 'run';
                     const isPlanned = workout.status === 'planned';
-                    let summaryText = workout.title || '訓練';
-                    if (isRun) {
-                    } else {
-                        if (workout.calories) summaryText += ` (${workout.calories}cal)`;
-                        else if (Array.isArray(workout.exercises) && workout.exercises.length > 0) {
-                             const firstEx = workout.exercises[0];
-                             if (firstEx.name && firstEx.name.includes('匯入')) {
-                                 summaryText += ` (${firstEx.sets}組)`;
-                             } else {
-                                 summaryText += ` (${workout.exercises.length}項目)`;
-                             }
-                        }
-                    }
                     return (
                         <div 
                             key={workout.id || wIdx}
@@ -491,10 +501,10 @@ export default function CalendarView() {
                                 isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
                             }`}
-                            title={summaryText}
+                            title={workout.title}
                         >
                             {isPlanned && <Clock size={8} />}
-                            {summaryText}
+                            {workout.title || (isRun ? '跑步' : '訓練')}
                         </div>
                     );
                   })}
@@ -576,9 +586,12 @@ export default function CalendarView() {
         </div>
       )}
 
+      {/* Detail Modal (保留) */}
       {isModalOpen && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+             {/* ...Modal Content (Reuse existing code)... */}
              <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
+                {/* Header */}
                 <div className="p-6 border-b border-gray-800 flex justify-between items-center">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -591,8 +604,10 @@ export default function CalendarView() {
                     </div>
                     <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
                 </div>
+
                 <div className="p-6 overflow-y-auto flex-1">
-                    {modalView === 'list' ? (
+                    {/* List View */}
+                    {modalView === 'list' && (
                         <div className="space-y-4">
                             {(!workouts[formatDate(selectedDate)] || workouts[formatDate(selectedDate)].length === 0) ? (
                                 <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
@@ -620,7 +635,10 @@ export default function CalendarView() {
                             )}
                             <button onClick={() => { setCurrentDocId(null); setModalView('form'); }} className="w-full py-4 rounded-xl border-2 border-dashed border-gray-700 text-gray-400 hover:text-white"><Plus /> 新增運動</button>
                         </div>
-                    ) : (
+                    )}
+
+                    {/* Form View */}
+                    {modalView === 'form' && (
                         <WorkoutForm 
                             editForm={editForm} 
                             setEditForm={setEditForm} 
@@ -637,6 +655,8 @@ export default function CalendarView() {
                         />
                     )}
                 </div>
+
+                {/* Footer */}
                 <div className="p-6 border-t border-gray-800 flex justify-between">
                      {modalView === 'form' && (
                          <>

@@ -1,9 +1,8 @@
-// --- 總教練 (Head Coach) - 負責行事曆與週期安排 ---
+// --- 總教練 (Head Coach) - 單日排程 ---
 export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyStats) => {
     const dateObj = new Date(targetDate);
-    const dayOfWeek = dateObj.getDay(); // 0=Sun, 1=Mon...
+    const dayOfWeek = dateObj.getDay(); 
     
-    // 計算月跑量進度
     const dayOfMonth = dateObj.getDate();
     const monthProgress = dayOfMonth / 30;
     const target80 = 80 * monthProgress;
@@ -48,6 +47,58 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
           { "name": "名稱", "targetMuscle": "pecs", "sets": "4", "reps": "10", "weight": "適重" }
         ]
       }
+    `;
+  };
+  
+  // --- 總教練：週課表安排 (Weekly Scheduler) - 新增 ---
+  export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats) => {
+    return `
+      角色：你是使用者的「健身總教練」，正在規劃本週剩餘日期的訓練課表。
+      
+      [使用者狀態]
+      - 目標：${userProfile.goal}
+      - 本月目前跑量：${monthlyStats.currentDist.toFixed(1)} km (目標 >80km)
+      
+      [近期訓練狀態 (Context)]
+      ${contextSummary}
+      
+      [待規劃日期]
+      ${JSON.stringify(planningDates)}
+      
+      [使用者指定偏好 (必須遵守)]
+      ${JSON.stringify(userPreferences)}
+      類型代碼說明：
+      - strength: 重訓 (必須5動作)
+      - run_lsd: 長距離跑 (週日不受60分限制)
+      - run_interval: 間歇跑 (高強度)
+      - run_easy: 輕鬆跑 (恢復)
+      - run_mp: 馬拉松配速跑
+      - rest: 休息日
+      - auto: 由你決定
+      
+      [規劃邏輯]
+      1. **絕對遵守偏好**：使用者指定的類型不可更改。
+      2. **動態調整 (Auto)**：針對 'auto' 的日期，請根據前後天的強度安排(例如間歇後排輕鬆跑)。
+      3. **跑步規範**：
+         - 平日(Mon-Fri) 總時間 <= 60分鐘 (LSD除外)。
+         - 確保配速與距離合理。
+      4. **重訓規範**：
+         - 每次 5 個動作，標註 targetMuscle。
+      
+      [輸出格式]
+      請回傳 JSON Array，包含所有待規劃日期的計畫：
+      [
+        {
+          "date": "YYYY-MM-DD",
+          "type": "run" | "strength" | "rest",
+          "title": "標題",
+          "advice": "規劃理由",
+          "runType": "LSD" | "Interval" | "Easy" | "MP",
+          "runDistance": 數字, "runDuration": 數字, "runPace": "字串", "runHeartRate": "字串",
+          "exercises": [{ "name": "...", "targetMuscle": "...", "sets": "...", "reps": "...", "weight": "..." }]
+        }
+      ]
+      Output ONLY JSON. No Markdown.
     `;
   };
   

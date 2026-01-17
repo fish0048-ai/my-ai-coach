@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-// 修正：補上 Eye, EyeOff 引入
 import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -22,7 +21,6 @@ const calculateVolume = (exercises) => {
         const weight = parseFloat(ex.weight) || 0;
         const sets = parseFloat(ex.sets) || 0;
         const reps = parseFloat(ex.reps) || 0;
-        // 如果是自重訓練(weight=0)，可以給一個基礎值或是忽略容量計算，這裡僅計算有負重的
         return total + (weight * sets * reps);
     }, 0);
 };
@@ -34,7 +32,6 @@ const processData = (rawData, metric, timeScale) => {
     // 1. 轉換為標準格式
     let data = rawData.map(d => {
         let val = 0;
-        // 根據不同 metric 取值
         if (metric === 'pace') val = d.pace || 0;
         else if (metric === 'sets') val = d.sets || 0;
         else if (metric === 'volume') val = d.volume || 0;
@@ -47,7 +44,6 @@ const processData = (rawData, metric, timeScale) => {
     if (timeScale === 'weekly') {
         const weeklyMap = {};
         data.forEach(d => {
-            // 取得該日期的週一
             const dateObj = new Date(d.date);
             const day = dateObj.getDay();
             const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1);
@@ -59,9 +55,6 @@ const processData = (rawData, metric, timeScale) => {
             weeklyMap[monday].values.push(d.value);
         });
 
-        // 決定彙整方式：累加 (Sum) 還是 平均 (Avg)
-        // 累加：距離、組數、容量
-        // 平均：體重、體脂、配速、心率
         const isSumType = ['distance', 'sets', 'volume'].includes(metric);
 
         data = Object.keys(weeklyMap).sort().map(week => {
@@ -71,8 +64,7 @@ const processData = (rawData, metric, timeScale) => {
         });
     }
 
-    // 3. 計算移動平均 (Trend Line) - 簡單移動平均 (SMA)
-    // 若為日檢視取 7日均線，若為週檢視取 4週均線
+    // 3. 計算移動平均 (Trend Line)
     const windowSize = timeScale === 'daily' ? 7 : 4;
     data = data.map((item, idx, arr) => {
         const start = Math.max(0, idx - windowSize + 1);
@@ -114,8 +106,6 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
 
   const points = data.map((d, i) => `${getX(i)},${getY(d.value)}`).join(' ');
   const trendPoints = data.map((d, i) => `${getX(i)},${getY(d.trend)}`).join(' ');
-
-  // 建構漸層區域
   const areaPoints = `${getX(0)},${height-paddingY} ${points} ${getX(data.length-1)},${height-paddingY}`;
 
   return (
@@ -145,60 +135,28 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
             </linearGradient>
           </defs>
 
-          {/* Y軸格線 */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = (height - paddingY) - (chartH * ratio);
             const val = yMin + (ratio * (yMax - yMin));
             return (
               <g key={ratio}>
                 <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#374151" strokeDasharray="4" />
-                <text x={paddingX - 10} y={y + 4} fill="#9CA3AF" fontSize="10" textAnchor="end">
-                  {val.toFixed(1)}
-                </text>
+                <text x={paddingX - 10} y={y + 4} fill="#9CA3AF" fontSize="10" textAnchor="end">{val.toFixed(1)}</text>
               </g>
             );
           })}
 
-          {/* 區域填充 */}
           <polygon points={areaPoints} fill="url(#chartGradient)" />
 
-          {/* 趨勢線 (虛線) */}
           {showTrend && (
-              <polyline
-                fill="none"
-                stroke="#9CA3AF"
-                strokeWidth="2"
-                strokeDasharray="5,5"
-                points={trendPoints}
-                strokeLinecap="round"
-                className="opacity-70"
-              />
+              <polyline fill="none" stroke="#9CA3AF" strokeWidth="2" strokeDasharray="5,5" points={trendPoints} strokeLinecap="round" className="opacity-70" />
           )}
 
-          {/* 主線 */}
-          <polyline
-            fill="none"
-            stroke={color}
-            strokeWidth="3"
-            points={points}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="drop-shadow-lg"
-          />
+          <polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-lg" />
 
-          {/* 數據點 */}
           {data.map((d, i) => (
             <g key={i} className="group">
-              <circle
-                cx={getX(i)}
-                cy={getY(d.value)}
-                r="4"
-                fill="#1F2937"
-                stroke={color}
-                strokeWidth="2"
-                className="cursor-pointer transition-all group-hover:r-6"
-              />
-              {/* Tooltip */}
+              <circle cx={getX(i)} cy={getY(d.value)} r="4" fill="#1F2937" stroke={color} strokeWidth="2" className="cursor-pointer transition-all group-hover:r-6" />
               <foreignObject x={getX(i) - 60} y={getY(d.value) - 70} width="120" height="60" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                  <div className="flex flex-col items-center justify-center">
                     <div className="bg-gray-900 text-white text-xs py-1 px-2 rounded shadow-lg border border-gray-600 whitespace-nowrap text-center">
@@ -221,10 +179,9 @@ export default function TrendAnalysisView() {
   const [workoutLogs, setWorkoutLogs] = useState([]); 
   const [loading, setLoading] = useState(true);
   
-  // 狀態控制
   const [category, setCategory] = useState('body'); 
   const [metricType, setMetricType] = useState('weight'); 
-  const [timeScale, setTimeScale] = useState('daily'); // 'daily' | 'weekly'
+  const [timeScale, setTimeScale] = useState('daily'); 
   const [showTrendLine, setShowTrendLine] = useState(true);
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -234,17 +191,14 @@ export default function TrendAnalysisView() {
   const [inputWeight, setInputWeight] = useState('');
   const [inputFat, setInputFat] = useState('');
 
-  // 1. 讀取資料
   useEffect(() => {
     if (!auth.currentUser) return;
     
-    // Body Logs
     const qBody = query(collection(db, 'users', auth.currentUser.uid, 'body_logs'), orderBy('date', 'asc'));
     const unsubBody = onSnapshot(qBody, (snapshot) => {
       setBodyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Calendar Logs
     const qCalSafe = query(collection(db, 'users', auth.currentUser.uid, 'calendar'), where('status', '==', 'completed'));
     const unsubCalendar = onSnapshot(qCalSafe, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -256,7 +210,6 @@ export default function TrendAnalysisView() {
     return () => { unsubBody(); unsubCalendar(); };
   }, []);
 
-  // 2. 準備原始數據
   const rawData = useMemo(() => {
       if (category === 'body') return bodyLogs;
       if (category === 'run') {
@@ -277,13 +230,12 @@ export default function TrendAnalysisView() {
       return [];
   }, [category, bodyLogs, workoutLogs]);
 
-  // 3. 處理數據 (彙整 & 趨勢)
   const chartData = useMemo(() => {
       return processData(rawData, metricType, timeScale);
   }, [rawData, metricType, timeScale]);
 
-  // 4. 計算 Insight (進步幅度)
-  const insights = useMemo(() => {
+  // 修正：將變數名稱統一為 stats，解決 ReferenceError
+  const stats = useMemo(() => {
       if (chartData.length < 2) return null;
       const current = chartData[chartData.length - 1];
       const prev = chartData[chartData.length - 2];
@@ -297,9 +249,11 @@ export default function TrendAnalysisView() {
           current: current.value,
           diff: diff.toFixed(1),
           percent: percent.toFixed(1),
-          isImprove: metricType.includes('pace') || metricType.includes('weight') || metricType.includes('fat') ? diff < 0 : diff > 0, // 這些指標越低越好? (體重/配速/體脂)
-          best,
-          worst
+          // 判斷進步：若是體重/體脂/配速，越低越好；其餘越高越好
+          isImprove: metricType.includes('pace') || metricType.includes('weight') || metricType.includes('fat') ? diff < 0 : diff > 0, 
+          best: best.toFixed(2),
+          worst: worst.toFixed(2),
+          count: chartData.length
       };
   }, [chartData, metricType]);
 
@@ -321,24 +275,20 @@ export default function TrendAnalysisView() {
 
   const activeConfig = configs[category][metricType] || configs.body.weight;
 
-  // 切換類別
   const handleCategoryChange = (cat) => {
       setCategory(cat);
       setMetricType(Object.keys(configs[cat])[0]);
   };
 
-  // ... (保留 Add, Delete, Export, Import 邏輯) ...
   const handleAddLog = async (e) => { e.preventDefault(); const user = auth.currentUser; if (!user) return alert('請先登入'); const w=parseFloat(inputWeight)||0; const f=parseFloat(inputFat)||0; try { await addDoc(collection(db,'users',user.uid,'body_logs'),{date:inputDate,weight:w,bodyFat:f,createdAt:serverTimestamp()}); if(w>0||f>0){ const ref=doc(db,'users',user.uid); const up={lastUpdated:new Date()}; if(w>0)up.weight=w; if(f>0)up.bodyFat=f; await setDoc(ref,up,{merge:true}); } await updateAIContext(); setInputWeight(''); setInputFat(''); setShowAddForm(false); alert("新增成功"); } catch(e){alert("失敗");} };
   const handleDelete = async (id) => { if(!confirm('刪除?'))return; try{await deleteDoc(doc(db,'users',auth.currentUser.uid,'body_logs',id)); await updateAIContext();}catch(e){} };
   const handleExport = async () => { const user=auth.currentUser; if(!user)return; try{ const head=['日期','數值']; const rows=[head]; chartData.forEach(d=>rows.push([d.date,d.value])); const csv="\uFEFF"+rows.map(r=>r.join(",")).join("\n"); const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`trend_export.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }catch(e){alert("失敗");} };
-  const handleImportClick = () => csvInputRef.current?.click();
   const handleCSVUpload = async (e) => { alert("目前僅支援匯入體重資料，請至行事曆匯入運動資料"); };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
       <input type="file" ref={csvInputRef} onChange={handleCSVUpload} accept=".csv" className="hidden" />
 
-      {/* 1. 頂部導航 */}
       <div className="flex flex-col xl:flex-row justify-between items-center gap-4 bg-gray-800 p-4 rounded-xl border border-gray-700">
         <div className="flex flex-col sm:flex-row items-center gap-4">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -356,7 +306,6 @@ export default function TrendAnalysisView() {
         </div>
       </div>
 
-      {/* 新增表單 */}
       {showAddForm && category === 'body' && (
         <form onSubmit={handleAddLog} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 space-y-4 animate-slideUp">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -368,11 +317,8 @@ export default function TrendAnalysisView() {
         </form>
       )}
 
-      {/* 2. 主圖表與控制區 */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* 控制面板 */}
         <div className="lg:col-span-1 space-y-4">
-           {/* 子類別選擇 */}
            <div className="bg-gray-800 p-2 rounded-xl flex flex-col gap-1">
               {Object.entries(configs[category]).map(([key, conf]) => (
                   <button key={key} onClick={() => setMetricType(key)} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all flex justify-between items-center ${metricType === key ? 'bg-gray-700 text-white shadow-inner border border-gray-600' : 'text-gray-500 hover:bg-gray-700/50'}`}>
@@ -382,7 +328,6 @@ export default function TrendAnalysisView() {
               ))}
            </div>
 
-           {/* 檢視模式切換 */}
            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 space-y-3">
                <h4 className="text-xs text-gray-500 uppercase font-bold flex items-center gap-1"><Layers size={12}/> 檢視設定</h4>
                <div className="flex bg-gray-900 rounded-lg p-1">
@@ -394,12 +339,12 @@ export default function TrendAnalysisView() {
                </button>
            </div>
 
-           {/* 智慧洞察 */}
+           {/* 修正後的 stats 顯示區塊 */}
            {stats && (
              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-5 shadow-lg">
                 <p className="text-gray-400 text-xs mb-1">近期變化 ({timeScale === 'daily' ? '較上筆' : '較上週'})</p>
                 <div className="flex items-end gap-2 mb-2">
-                    <span className="text-3xl font-bold text-white">{stats.current}</span>
+                    <span className="text-3xl font-bold text-white">{Number(stats.current).toFixed(2)}</span>
                     <span className="text-sm text-gray-500 mb-1">{activeConfig.unit}</span>
                 </div>
                 <div className={`flex items-center text-sm font-bold ${stats.isImprove ? 'text-green-400' : 'text-orange-400'}`}>
@@ -414,7 +359,6 @@ export default function TrendAnalysisView() {
            )}
         </div>
 
-        {/* 圖表區 */}
         <div className="lg:col-span-3">
            <AdvancedChart 
               data={chartData} 
@@ -426,7 +370,6 @@ export default function TrendAnalysisView() {
         </div>
       </div>
 
-      {/* 5. 歷史列表 (只顯示目前的 Category) */}
       <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
         <div className="p-4 bg-gray-900/50 border-b border-gray-700 font-bold text-white flex items-center gap-2">
            <Activity size={18} className="text-gray-400"/> 詳細紀錄 ({category === 'body' ? '身體數據' : '運動紀錄'})

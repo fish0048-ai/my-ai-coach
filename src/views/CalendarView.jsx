@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode, AlertTriangle, Download, ShoppingBag } from 'lucide-react';
-// 修正：補上 getDoc 引入
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -9,7 +8,6 @@ import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt } from '../utils/aiPrompts';
 
-// 日期格式化 (YYYY-MM-DD)
 const formatDate = (date) => {
   if (!date || isNaN(date.getTime())) return '';
   const year = date.getFullYear();
@@ -30,7 +28,6 @@ export default function CalendarView() {
 
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
-
   const fileInputRef = useRef(null);
   const csvInputRef = useRef(null);
 
@@ -54,7 +51,6 @@ export default function CalendarView() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [monthlyMileage, setMonthlyMileage] = useState(0); 
 
-  // 初始化：讀取裝備列表
   useEffect(() => {
     const fetchGears = async () => {
         const user = auth.currentUser;
@@ -71,7 +67,6 @@ export default function CalendarView() {
     fetchGears();
   }, []);
 
-  // 自動計算跑步配速
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {
       const dist = parseFloat(editForm.runDistance);
@@ -126,7 +121,6 @@ export default function CalendarView() {
     }
   };
 
-  // --- AI 總教練生成邏輯 (修復版) ---
   const handleHeadCoachGenerate = async () => {
     const user = auth.currentUser;
     if (!user) return alert("請先登入");
@@ -136,10 +130,8 @@ export default function CalendarView() {
     setIsGenerating(true);
     try {
         const profileRef = doc(db, 'users', user.uid);
-        // 使用 getDoc 讀取個人檔案
         const profileSnap = await getDoc(profileRef);
         const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
-        
         const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
         const targetDateStr = formatDate(selectedDate);
@@ -159,12 +151,13 @@ export default function CalendarView() {
         }
         
         console.log("AI Raw Response:", response);
-        console.log("Cleaned JSON:", cleanJson);
-
+        
         const plan = JSON.parse(cleanJson);
 
         setEditForm(prev => ({
             ...prev,
+            // 強制設定為計畫狀態
+            status: 'planned',
             type: plan.type === 'run' ? 'run' : 'strength',
             title: plan.title,
             notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
@@ -172,7 +165,11 @@ export default function CalendarView() {
             runDistance: plan.runDistance || '',
             runDuration: plan.runDuration || '',
             runPace: plan.runPace || '',
+            // 額外欄位，如果 AI 有回傳
+            runHeartRate: plan.runHeartRate || '', 
         }));
+        
+        alert("總教練已生成課表！\n請檢視內容後按「儲存計畫」。");
 
     } catch (error) {
         console.error("AI Gen Error:", error);

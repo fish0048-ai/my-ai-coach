@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 新增 CheckCircle (實心勾)
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag, CheckCircle } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -8,8 +7,19 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-import { parseAndUploadFIT, parseAndUploadCSV, generateCSVData, formatDate } from '../utils/importHelpers';
+// 修正：只匯入需要的函式，移除 formatDate 等未匯出的項目
+import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
+
+// --- 本地定義輔助函式 (避免匯入錯誤) ---
+
+const formatDate = (date) => {
+  if (!date || isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const getWeekDates = (baseDate) => {
   const current = new Date(baseDate);
@@ -26,13 +36,43 @@ const getWeekDates = (baseDate) => {
   return weekDates;
 };
 
-// 輔助：清理數字格式
 const cleanNumber = (val) => {
     if (typeof val === 'number') return val;
     if (typeof val === 'string') return parseFloat(val.replace(/[^\d.]/g, '')) || '';
     return '';
 };
 
+const generateCSVData = async (uid, gears) => {
+    const q = query(collection(db, 'users', uid, 'calendar'));
+    const querySnapshot = await getDocs(q);
+    const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
+    const rows = [headers];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const type = data.type === 'run' ? '跑步' : '肌力訓練';
+      let totalSets = 0;
+      if (data.exercises && Array.isArray(data.exercises)) {
+          totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
+      }
+      const gearName = gears.find(g => g.id === data.gearId)?.model || '';
+      const row = [
+          type, data.date || '', data.title || '', data.runDistance || '', data.runDuration || '',
+          data.runHeartRate || '', data.runPower || '', data.calories || '',
+          totalSets > 0 ? totalSets : '', gearName, data.notes || ''
+      ];
+      const escapedRow = row.map(field => {
+          const str = String(field ?? '');
+          if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str.replace(/"/g, '""')}"`;
+          return str;
+      });
+      rows.push(escapedRow);
+    });
+
+    return "\uFEFF" + rows.map(r => r.join(",")).join("\n");
+};
+
+// --- 組件主體 ---
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -112,26 +152,20 @@ export default function CalendarView() {
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
-  // --- 快速切換完成狀態 ---
+  // --- 狀態切換 (快速打勾) ---
   const handleStatusToggle = async (e, workout) => {
-      e.stopPropagation(); // 阻止冒泡，避免打開編輯視窗
+      e.stopPropagation();
       const user = auth.currentUser;
       if (!user) return;
-
       const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
-      
       try {
           await updateDoc(doc(db, 'users', user.uid, 'calendar', workout.id), {
               status: newStatus,
               updatedAt: new Date().toISOString()
           });
-          // 更新本地狀態以即時反應 (或重新 fetch)
           await fetchMonthWorkouts();
           await updateAIContext();
-      } catch (err) {
-          console.error("Toggle status failed:", err);
-          alert("狀態更新失敗");
-      }
+      } catch (err) { console.error(err); }
   };
 
   const handleHeadCoachGenerate = async () => {
@@ -158,6 +192,7 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
+        const cleanVal = (val) => (typeof val === 'number' ? val : parseFloat(val?.replace(/[^\d.]/g, '')) || '');
 
         setEditForm(prev => ({
             ...prev,
@@ -166,8 +201,8 @@ export default function CalendarView() {
             title: plan.title,
             notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
             exercises: plan.exercises || [],
-            runDistance: cleanNumber(plan.runDistance),
-            runDuration: cleanNumber(plan.runDuration),
+            runDistance: cleanVal(plan.runDistance),
+            runDuration: cleanVal(plan.runDuration),
             runPace: plan.runPace || '',
             runHeartRate: plan.runHeartRate || '', 
         }));
@@ -192,7 +227,7 @@ export default function CalendarView() {
 
         if (planningDates.length === 0) {
             setLoading(false);
-            return alert("本週無需規劃 (皆設為休息或已完成)。");
+            return alert("本週無需規劃。");
         }
 
         const profileRef = doc(db, 'users', user.uid);
@@ -402,6 +437,16 @@ export default function CalendarView() {
   const changeMonth = (offset) => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
   const weekDateList = getWeekDates(currentDate);
 
+  // 選項定義
+  const PREF_OPTIONS = [
+    { key: 'strength', label: '🏋️ 重訓', color: 'bg-blue-600' },
+    { key: 'run_lsd', label: '🐢 LSD', color: 'bg-orange-600' },
+    { key: 'run_interval', label: '🐇 間歇', color: 'bg-red-600' },
+    { key: 'run_easy', label: '👟 輕鬆', color: 'bg-green-600' },
+    { key: 'run_mp', label: '🔥 MP', color: 'bg-yellow-600' },
+    { key: 'rest', label: '😴 休息', color: 'bg-gray-600' }
+  ];
+
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, .fit" className="hidden" />
@@ -460,8 +505,9 @@ export default function CalendarView() {
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
             
+            // 修正：明確定義變數 (預設灰色)
             let bgClass = 'bg-gray-900 border-gray-700';
-            let textClass = 'text-gray-300'; // 宣告並初始化
+            let textClass = 'text-gray-300';
             
             if (isDragOver) {
                 bgClass = 'bg-blue-900/40 border-blue-400 border-dashed scale-105 shadow-xl'; 
@@ -481,33 +527,20 @@ export default function CalendarView() {
                 <div className="mt-1 flex flex-col gap-1 w-full overflow-hidden">
                   {dayWorkouts.map((workout, wIdx) => {
                     const isRun = workout.type === 'run';
-                    const isPlanned = workout.status === 'planned';
-                    let summaryText = workout.title || '訓練';
-                    if (isRun) {
-                    } else {
-                        if (workout.calories) summaryText += ` (${workout.calories}cal)`;
-                        else if (Array.isArray(workout.exercises) && workout.exercises.length > 0) {
-                             const firstEx = workout.exercises[0];
-                             if (firstEx.name && firstEx.name.includes('匯入')) {
-                                 summaryText += ` (${firstEx.sets}組)`;
-                             } else {
-                                 summaryText += ` (${workout.exercises.length}項目)`;
-                             }
-                        }
-                    }
+                    // const isPlanned = workout.status === 'planned'; // Remove unused
                     return (
                         <div 
                             key={workout.id || wIdx}
                             draggable={true}
                             onDragStart={(e) => handleDragStart(e, workout)}
                             className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
-                                isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
+                                workout.status === 'planned' ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
                             }`}
-                            title={summaryText}
+                            title={workout.title}
                         >
-                            {isPlanned && <Clock size={8} />}
-                            {summaryText}
+                            {workout.status === 'planned' && <Clock size={8} />}
+                            {workout.title || (isRun ? '跑步' : '訓練')}
                         </div>
                     );
                   })}
@@ -627,22 +660,15 @@ export default function CalendarView() {
                                                 {usedGear && <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300"><ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}</div>}
                                             </div>
                                         </div>
-                                        <div className="text-gray-500 group-hover:text-white"><Edit3 size={18} /></div>
-                                        {/* 快速打勾完成 */}
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
-                                                updateDoc(doc(db, 'users', auth.currentUser.uid, 'calendar', workout.id), { status: newStatus, updatedAt: new Date().toISOString() })
-                                                .then(() => {
-                                                    fetchMonthWorkouts();
-                                                    updateAIContext();
-                                                });
-                                            }}
-                                            className={`ml-2 p-2 rounded-full transition-colors ${workout.status === 'completed' ? 'text-green-500 bg-green-900/20' : 'text-gray-600 hover:text-gray-400'}`}
-                                        >
-                                            <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} />
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <Edit3 size={18} className="text-gray-600 group-hover:text-white" />
+                                            <button 
+                                                onClick={(e) => handleStatusToggle(e, workout)}
+                                                className={`p-2 rounded-full transition-colors ${workout.status === 'completed' ? 'text-green-500 bg-green-900/20' : 'text-gray-600 hover:text-gray-400'}`}
+                                            >
+                                                <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} />
+                                            </button>
+                                        </div>
                                     </div>
                                     )
                                 })

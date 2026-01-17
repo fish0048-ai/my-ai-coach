@@ -4,31 +4,25 @@ import { runGemini } from '../utils/gemini';
 import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
-import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
+import { POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
+// 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
-// 分數圈圈組件
+// 分數圈圈
 const ScoreGauge = ({ score }) => {
   const radius = 30;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (score / 100) * circumference;
-  
   let color = 'text-red-500';
   if (score >= 70) color = 'text-yellow-500';
   if (score >= 85) color = 'text-green-500';
   if (score >= 95) color = 'text-blue-500';
-
   return (
     <div className="relative flex items-center justify-center w-24 h-24">
       <svg className="w-full h-full transform -rotate-90">
         <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-700" />
-        <circle 
-          cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" 
-          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} 
-          strokeLinecap="round"
-          className={`${color} transition-all duration-1000 ease-out`} 
-        />
+        <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className={`${color} transition-all duration-1000 ease-out`} />
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className={`text-2xl font-bold ${color}`}>{score}</span>
@@ -69,27 +63,21 @@ export default function RunAnalysisView() {
   const [score, setScore] = useState(0); 
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  // 修正變數名稱：統一使用 hipExtensionAngle
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
   const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
 
-  // --- 評分邏輯 ---
+  // --- 評分與幾何運算 ---
   const calculateRunScore = (m) => {
       if (!m) return 0;
       let s = 100;
-      // 檢查欄位是否存在，避免 undefined
       const cad = parseFloat(m.cadence?.value || 0);
       if (cad < 150) s -= 30; else if (cad < 160) s -= 20; else if (cad < 170) s -= 10;
-      
       const hip = parseFloat(m.hipDrive?.value || 0);
-      if (hip < 10) s -= 25; else if (hip < 20) s -= 15; else if (hip < 30) s -= 5;
-      
+      if (hip < 10) s -= 25; else if (hip < 20) s -= 15;
       const osc = parseFloat(m.vertOscillation?.value || 10);
-      if (osc > 12) s -= 25; else if (osc > 10) s -= 15;
-      
+      if (osc > 12) s -= 25;
       const ratio = parseFloat(m.vertRatio?.value || 8);
-      if (ratio > 10) s -= 20; else if (ratio > 8) s -= 10;
-
+      if (ratio > 10) s -= 20;
       return Math.max(0, Math.round(s));
   };
 
@@ -138,6 +126,7 @@ export default function RunAnalysisView() {
           ctx.shadowOffsetX = 2;
           ctx.shadowOffsetY = 2;
 
+          // 參考線
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(0, radius);
@@ -146,6 +135,7 @@ export default function RunAnalysisView() {
           ctx.lineWidth = 2;
           ctx.stroke();
 
+          // 扇形
           ctx.beginPath();
           ctx.moveTo(0, 0);
           const startAngle = Math.PI/2; 
@@ -168,6 +158,7 @@ export default function RunAnalysisView() {
           ctx.lineWidth = 3; 
           ctx.stroke();
 
+          // 高亮大腿
           const vecX = kneeX - hipX;
           const vecY = kneeY - hipY;
           ctx.beginPath();
@@ -189,22 +180,19 @@ export default function RunAnalysisView() {
               ctx.shadowColor = "black";
               ctx.shadowBlur = 4;
               ctx.fillStyle = isGood ? '#fbbf24' : '#ef4444'; 
-              ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
+              ctx.fillText(`${currentAngle}°`, labelX, labelY);
           }
-      } catch(err) {
-      } finally {
-          ctx.restore(); 
-      }
+      } catch(err) {} finally { ctx.restore(); }
   };
 
+  // --- Main Pose Callback ---
   const onPoseResults = (results) => {
-    if (isScanningRef.current) {
-        if (results.poseLandmarks) {
-            fullScanDataRef.current.push({
-                timestamp: videoRef.current ? videoRef.current.currentTime : 0,
-                landmarks: results.poseLandmarks
-            });
-        }
+    // 掃描模式：存資料
+    if (isScanningRef.current && results.poseLandmarks) {
+        fullScanDataRef.current.push({
+            timestamp: videoRef.current ? videoRef.current.currentTime : 0,
+            landmarks: results.poseLandmarks
+        });
     }
 
     const canvas = canvasRef.current;
@@ -239,6 +227,7 @@ export default function RunAnalysisView() {
                 }
             }
             
+            // 節流 UI 更新
             const now = Date.now();
             if (now - lastUiUpdateRef.current > 100) { 
                 setHipExtensionAngle(Math.round(hipDrive));
@@ -246,15 +235,13 @@ export default function RunAnalysisView() {
                 lastUiUpdateRef.current = now;
             }
         }
-    } catch(e) {
-        console.error("Canvas error:", e);
-    } finally {
-        ctx.restore(); 
-    }
+    } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
   };
 
+  // 使用 Custom Hook
   const poseModel = usePoseDetection(onPoseResults);
 
+  // --- Video Loop & Scan Logic ---
   const processFrame = async () => {
       const video = videoRef.current;
       if (video && !video.paused && !video.ended && poseModel && !isScanningRef.current) {
@@ -273,43 +260,28 @@ export default function RunAnalysisView() {
       processFrame();
   };
 
-  const onVideoPause = () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-  };
+  const onVideoPause = () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
 
-  useEffect(() => {
-    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); }
-  }, []);
+  useEffect(() => { return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); } }, []);
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
     setVideoError(null); 
-
-    if (file.name.toLowerCase().endsWith('.fit')) {
-        handleFitAnalysis(file);
-    } else {
-        if (file.type && !file.type.startsWith('video/')) {
-            alert("請上傳有效的影片檔案");
-            return;
-        }
-        
-        const url = URL.createObjectURL(file);
-        setVideoFile(url);
+    if (file.name.toLowerCase().endsWith('.fit')) { handleFitAnalysis(file); } 
+    else {
+        if (file.type && !file.type.startsWith('video/')) { alert("請上傳有效的影片"); return; }
+        setVideoFile(URL.createObjectURL(file));
         setIsFitMode(false);
         setAnalysisStep('idle');
         fullScanDataRef.current = [];
-        
-        if (file.name.toLowerCase().endsWith('.mov')) {
-            alert("注意：.mov (HEVC) 格式可能不支援，建議使用 MP4。");
-        }
+        if (file.name.toLowerCase().endsWith('.mov')) alert("MOV 格式可能無法播放");
     }
   };
 
   const handleVideoError = (e) => {
       console.error("Video Error:", e);
-      setVideoError("瀏覽器不支援此影片格式 (建議使用 MP4)");
+      setVideoError("瀏覽器不支援此影片格式");
   };
 
   const startFullVideoScan = async () => {
@@ -317,10 +289,9 @@ export default function RunAnalysisView() {
     if (!video || !poseModel) return;
 
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    // 這裡我們直接操作 poseModel 實例，因為 Hook 回傳了它
-    // 注意：usePoseDetection 回傳的是 poseModel
-    // 但是 poseModel 可能為 null (尚未載入)
-    
+    // 重置並設定選項
+    if (poseModel.reset) await poseModel.reset(); 
+
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
@@ -328,7 +299,7 @@ export default function RunAnalysisView() {
 
     poseModel.setOptions({ 
         modelComplexity: 1, 
-        smoothLandmarks: false, 
+        smoothLandmarks: false, // 關閉平滑
         enableSegmentation: false,
         smoothSegmentation: false
     });
@@ -341,10 +312,7 @@ export default function RunAnalysisView() {
         video.currentTime = t;
         
         await new Promise(resolve => {
-            const onSeek = () => { 
-                video.removeEventListener('seeked', onSeek); 
-                setTimeout(resolve, 50); 
-            };
+            const onSeek = () => { video.removeEventListener('seeked', onSeek); setTimeout(resolve, 50); };
             video.addEventListener('seeked', onSeek);
             setTimeout(onSeek, 500); 
         });
@@ -485,8 +453,6 @@ export default function RunAnalysisView() {
     setVideoFile(null);
     setVideoError(null);
     setIsFitMode(false);
-    setScanProgress(0);
-    if (poseModel) poseModel.setOptions({ smoothLandmarks: true });
     
     const canvas = canvasRef.current;
     if (canvas) {

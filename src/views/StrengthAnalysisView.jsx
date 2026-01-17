@@ -1,43 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
-// 新增 query, where, getDocs, updateDoc 以實作檢查重複
-import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
+import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
 import { POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
+// 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
-// --- 重訓評分邏輯 ---
-const calculateStrengthScore = (m, mode) => {
-    if (!m) return 0;
-    let s = 100;
-    
-    // 1. 離心時間 (Tempo) [30%]
-    const ecc = parseFloat(m.eccentricTime.value);
-    if (ecc < 1.0) s -= 20; // 太快
-    else if (ecc < 1.5) s -= 10;
-    else if (ecc > 4.0) s -= 5; // 太慢
-    
-    // 2. 角度/行程 (ROM) [30%]
-    const angle = parseFloat(mode === 'bench' ? m.elbowAngle.value : m.kneeAngle.value);
-    if (mode === 'bench') {
-        if (angle > 90) s -= 20; // 下放不夠
-        if (angle < 45) s -= 10; // 過深
-    } else { // squat
-        if (angle > 100) s -= 20; // 沒蹲下去
-    }
-    
-    // 3. 穩定度 (Stability) [20%]
-    const stab = parseFloat(m.stability?.value || 100);
-    if (stab < 80) s -= 10;
-    if (stab < 60) s -= 20;
-
-    return Math.max(0, Math.round(s));
-};
-
-// 分數圈圈組件
+// --- 評分組件 ---
 const ScoreGauge = ({ score }) => {
   const radius = 30;
   const circumference = 2 * Math.PI * radius;
@@ -80,11 +52,12 @@ export default function StrengthAnalysisView() {
   }, [showSkeleton, mode]);
 
   const [metrics, setMetrics] = useState(null);
-  const [score, setScore] = useState(0); 
+  const [score, setScore] = useState(0);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
 
+  // --- 幾何運算 ---
   const calculateAngle = (a, b, c) => {
     if (!a || !b || !c) return 0;
     const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
@@ -93,6 +66,20 @@ export default function StrengthAnalysisView() {
     return Math.round(angle);
   };
 
+  const calculateStrengthScore = (m, mode) => {
+    if (!m) return 0;
+    let s = 100;
+    const ecc = parseFloat(m.eccentricTime?.value || 2);
+    if (ecc < 1.0) s -= 20; else if (ecc < 1.5) s -= 10;
+    
+    const angle = parseFloat(mode === 'bench' ? (m.elbowAngle?.value || 90) : (m.kneeAngle?.value || 90));
+    if (mode === 'bench') { if (angle > 90) s -= 20; } 
+    else { if (angle > 100) s -= 20; }
+    
+    return Math.max(0, Math.round(s));
+  };
+
+  // --- MediaPipe Callback ---
   const onPoseResults = (results) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -136,9 +123,14 @@ export default function StrengthAnalysisView() {
             }
             setRealtimeAngle(angle);
         }
-    } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
+    } catch(e) {
+        console.error("Canvas error", e);
+    } finally {
+        ctx.restore();
+    }
   };
 
+  // 使用 Hook
   const poseModel = usePoseDetection(onPoseResults);
 
   const onVideoPlay = () => {
@@ -146,19 +138,24 @@ export default function StrengthAnalysisView() {
       const processFrame = async () => {
           if (video && !video.paused && !video.ended && poseModel) {
               try { await poseModel.send({image: video}); } catch(e) {}
-              if (videoRef.current && !videoRef.current.paused) { requestRef.current = requestAnimationFrame(processFrame); }
+              if (videoRef.current && !videoRef.current.paused) { 
+                  requestRef.current = requestAnimationFrame(processFrame);
+              }
           }
       };
       processFrame();
   };
 
-  useEffect(() => { return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); } }, []);
+  useEffect(() => {
+    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); }
+  }, []);
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.name.toLowerCase().endsWith('.fit')) { handleFitAnalysis(file); } 
-    else {
+    if (file.name.toLowerCase().endsWith('.fit')) {
+        handleFitAnalysis(file);
+    } else {
         setVideoFile(URL.createObjectURL(file));
         setIsFitMode(false);
         setAnalysisStep('idle');
@@ -241,18 +238,15 @@ export default function StrengthAnalysisView() {
     }
   };
 
-  // --- 儲存邏輯 (含防重複檢查) ---
   const saveToCalendar = async () => {
     const user = auth.currentUser;
     if (!user) { alert("請先登入"); return; }
     setIsSaving(true);
-    
     try {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
         const title = `重訓分析 (${mode === 'bench' ? '臥推' : '深蹲'})`;
         
-        // 1. 檢查重複：查詢今天是否已有相同標題的分析報告
         const q = query(
             collection(db, 'users', user.uid, 'calendar'),
             where('date', '==', dateStr),
@@ -260,14 +254,12 @@ export default function StrengthAnalysisView() {
             where('type', '==', 'analysis')
         );
         const snapshot = await getDocs(q);
-        
         let shouldSave = true;
         let docId = null;
 
         if (!snapshot.empty) {
-            // 已存在，詢問使用者
-            if (confirm(`今天已經有一份「${title}」了。\n要覆蓋舊資料嗎？\n(取消則不儲存)`)) {
-                docId = snapshot.docs[0].id; // 取得舊文件 ID 以便更新
+            if (confirm(`今天已有「${title}」。要覆蓋嗎？`)) {
+                docId = snapshot.docs[0].id;
             } else {
                 shouldSave = false;
             }
@@ -285,22 +277,11 @@ export default function StrengthAnalysisView() {
                 status: 'completed',
                 updatedAt: now.toISOString()
             };
-
-            if (docId) {
-                // 更新舊文件
-                await updateDoc(doc(db, 'users', user.uid, 'calendar', docId), analysisEntry);
-                alert("分析報告已更新！");
-            } else {
-                // 新增新文件
-                await addDoc(collection(db, 'users', user.uid, 'calendar'), {
-                    ...analysisEntry,
-                    createdAt: now.toISOString()
-                });
-                alert("分析報告已儲存！");
-            }
+            if (docId) await updateDoc(doc(db, 'users', user.uid, 'calendar', docId), analysisEntry);
+            else await addDoc(collection(db, 'users', user.uid, 'calendar'), { ...analysisEntry, createdAt: now.toISOString() });
+            alert("分析報告已儲存！");
         }
     } catch (e) {
-        console.error("Save error:", e);
         alert("儲存失敗");
     } finally {
         setIsSaving(false);
@@ -339,7 +320,6 @@ export default function StrengthAnalysisView() {
         <div className="lg:col-span-2 space-y-4">
           <div className="relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group" onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}>
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
-            
             {!videoFile && !isFitMode && (
               <div className="text-center p-6 cursor-pointer">
                 <Upload size={32} className="mx-auto mb-2 text-gray-400" />
@@ -347,10 +327,8 @@ export default function StrengthAnalysisView() {
                 <p className="text-gray-500 text-sm">支援 .mp4 (分析關節角度與軌跡)</p>
               </div>
             )}
-            
             {videoFile && <video ref={videoRef} src={videoFile} className="absolute inset-0 w-full h-full object-contain bg-black z-10" controls loop muted playsInline crossOrigin="anonymous" onPlay={onVideoPlay} />}
             {isFitMode && <div className="absolute inset-0 flex items-center justify-center text-gray-500"><FileCode size={48}/> FIT 模式</div>}
-            
             {(analysisStep === 'analyzing_internal' || analysisStep === 'analyzing_ai') && <div className="absolute inset-0 bg-gray-900/80 z-30 flex items-center justify-center text-purple-400 font-mono"><BrainCircuit className="animate-pulse mr-2"/> AI 分析中...</div>}
           </div>
 

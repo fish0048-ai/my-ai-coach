@@ -7,7 +7,7 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-// 修正：移除導致錯誤的 formatDate 與 generateCSVData 匯入
+// 修正：只匯入確定有匯出的函式
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
@@ -227,7 +227,7 @@ export default function CalendarView() {
 
         if (planningDates.length === 0) {
             setLoading(false);
-            return alert("本週無需規劃 (皆設為休息或已完成)。");
+            return alert("本週無需規劃。");
         }
 
         const profileRef = doc(db, 'users', user.uid);
@@ -505,7 +505,7 @@ export default function CalendarView() {
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
             
-            // 修正：明確定義變數 (預設灰色)
+            // 修正：確保變數宣告
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
@@ -693,7 +693,6 @@ export default function CalendarView() {
                         />
                     )}
                 </div>
-
                 <div className="p-6 border-t border-gray-800 flex justify-between">
                      {modalView === 'form' && (
                          <>

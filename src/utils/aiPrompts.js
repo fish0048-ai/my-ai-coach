@@ -50,7 +50,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
     `;
   };
   
-  // --- 總教練：週課表安排 (Weekly Scheduler) - 新增 ---
+  // --- 總教練：週課表安排 (Weekly Scheduler) - 升級版 ---
   export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats) => {
     return `
       角色：你是使用者的「健身總教練」，正在規劃本週剩餘日期的訓練課表。
@@ -62,36 +62,32 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
       [近期訓練狀態 (Context)]
       ${contextSummary}
       
-      [待規劃日期]
-      ${JSON.stringify(planningDates)}
-      
-      [使用者指定偏好 (必須遵守)]
+      [使用者指定偏好 (Multiselect)]
       ${JSON.stringify(userPreferences)}
+      注意：使用者可能在同一天指定多種類型 (例如 ["strength", "run_easy"])，請為該日期生成 **兩筆** 不同的訓練計畫。
+      
       類型代碼說明：
       - strength: 重訓 (必須5動作)
       - run_lsd: 長距離跑 (週日不受60分限制)
       - run_interval: 間歇跑 (高強度)
       - run_easy: 輕鬆跑 (恢復)
       - run_mp: 馬拉松配速跑
-      - rest: 休息日
-      - auto: 由你決定
+      - rest: 休息日 (不排課)
+      - auto: 由你決定 (若無指定，請根據恢復狀態填補空缺)
       
       [規劃邏輯]
-      1. **絕對遵守偏好**：使用者指定的類型不可更改。
-      2. **動態調整 (Auto)**：針對 'auto' 的日期，請根據前後天的強度安排(例如間歇後排輕鬆跑)。
-      3. **跑步規範**：
-         - 平日(Mon-Fri) 總時間 <= 60分鐘 (LSD除外)。
-         - 確保配速與距離合理。
-      4. **重訓規範**：
-         - 每次 5 個動作，標註 targetMuscle。
+      1. **絕對遵守偏好**：若同一天有多個偏好，請生成多個物件。
+      2. **動態調整 (Auto)**：針對 'auto' 的日期，請根據前後天的強度安排。
+      3. **跑步規範**：平日(Mon-Fri) 跑步單次總時間 <= 60分鐘 (LSD除外)。
+      4. **重訓規範**：每次 5 個動作，標註 targetMuscle。
       
       [輸出格式]
-      請回傳 JSON Array，包含所有待規劃日期的計畫：
+      請回傳 JSON Array，包含所有計畫 (若一天兩練，該日期會有兩個物件)：
       [
         {
           "date": "YYYY-MM-DD",
-          "type": "run" | "strength" | "rest",
-          "title": "標題",
+          "type": "run" | "strength",
+          "title": "標題 (例: 早安輕鬆跑 / 晚間胸背訓練)",
           "advice": "規劃理由",
           "runType": "LSD" | "Interval" | "Easy" | "MP",
           "runDistance": 數字, "runDuration": 數字, "runPace": "字串", "runHeartRate": "字串",

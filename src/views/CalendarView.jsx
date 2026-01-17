@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -7,7 +7,7 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-// 修正：只匯入需要的函式，移除 formatDate 等未匯出的項目
+// 修正：移除導致錯誤的 formatDate 與 generateCSVData 匯入
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
@@ -42,6 +42,7 @@ const cleanNumber = (val) => {
     return '';
 };
 
+// 本地定義 CSV 生成邏輯
 const generateCSVData = async (uid, gears) => {
     const q = query(collection(db, 'users', uid, 'calendar'));
     const querySnapshot = await getDocs(q);
@@ -152,7 +153,6 @@ export default function CalendarView() {
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
-  // --- 狀態切換 (快速打勾) ---
   const handleStatusToggle = async (e, workout) => {
       e.stopPropagation();
       const user = auth.currentUser;
@@ -550,7 +550,7 @@ export default function CalendarView() {
           })}
         </div>
       </div>
-
+      {/* ... (Modals remain the same) ... */}
       {showWeeklyModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-gray-900 w-full max-w-3xl rounded-2xl border border-gray-700 shadow-2xl p-6 flex flex-col max-h-[90vh]">

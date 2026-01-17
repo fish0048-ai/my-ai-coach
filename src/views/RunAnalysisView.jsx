@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
-// 新增 query, where, getDocs, updateDoc, addDoc, collection
-import { doc, getDoc, setDoc, query, where, getDocs, updateDoc, addDoc, collection } from 'firebase/firestore'; 
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
 import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
@@ -70,23 +69,25 @@ export default function RunAnalysisView() {
   const [score, setScore] = useState(0); 
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  // 修正變數名稱：統一使用 hipExtensionAngle
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
-  const [hipDriveAngle, setHipDriveAngle] = useState(0); 
+  const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
 
   // --- 評分邏輯 ---
   const calculateRunScore = (m) => {
       if (!m) return 0;
       let s = 100;
-      const cad = parseFloat(m.cadence.value);
+      // 檢查欄位是否存在，避免 undefined
+      const cad = parseFloat(m.cadence?.value || 0);
       if (cad < 150) s -= 30; else if (cad < 160) s -= 20; else if (cad < 170) s -= 10;
       
-      const hip = parseFloat(m.hipDrive.value);
+      const hip = parseFloat(m.hipDrive?.value || 0);
       if (hip < 10) s -= 25; else if (hip < 20) s -= 15; else if (hip < 30) s -= 5;
       
-      const osc = parseFloat(m.vertOscillation.value);
+      const osc = parseFloat(m.vertOscillation?.value || 10);
       if (osc > 12) s -= 25; else if (osc > 10) s -= 15;
       
-      const ratio = parseFloat(m.vertRatio.value);
+      const ratio = parseFloat(m.vertRatio?.value || 8);
       if (ratio > 10) s -= 20; else if (ratio > 8) s -= 10;
 
       return Math.max(0, Math.round(s));
@@ -188,17 +189,22 @@ export default function RunAnalysisView() {
               ctx.shadowColor = "black";
               ctx.shadowBlur = 4;
               ctx.fillStyle = isGood ? '#fbbf24' : '#ef4444'; 
-              ctx.fillText(`${currentAngle}°`, labelX, labelY);
+              ctx.fillText(`Good Drive! ${currentAngle}°`, labelX, labelY);
           }
-      } catch(err) { } finally { ctx.restore(); }
+      } catch(err) {
+      } finally {
+          ctx.restore(); 
+      }
   };
 
   const onPoseResults = (results) => {
-    if (isScanningRef.current && results.poseLandmarks) {
-        fullScanDataRef.current.push({
-            timestamp: videoRef.current ? videoRef.current.currentTime : 0,
-            landmarks: results.poseLandmarks
-        });
+    if (isScanningRef.current) {
+        if (results.poseLandmarks) {
+            fullScanDataRef.current.push({
+                timestamp: videoRef.current ? videoRef.current.currentTime : 0,
+                landmarks: results.poseLandmarks
+            });
+        }
     }
 
     const canvas = canvasRef.current;
@@ -235,12 +241,16 @@ export default function RunAnalysisView() {
             
             const now = Date.now();
             if (now - lastUiUpdateRef.current > 100) { 
-                setHipDriveAngle(Math.round(hipDrive));
+                setHipExtensionAngle(Math.round(hipDrive));
                 setRealtimeAngle(angle);
                 lastUiUpdateRef.current = now;
             }
         }
-    } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
+    } catch(e) {
+        console.error("Canvas error:", e);
+    } finally {
+        ctx.restore(); 
+    }
   };
 
   const poseModel = usePoseDetection(onPoseResults);
@@ -274,21 +284,32 @@ export default function RunAnalysisView() {
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    
     setVideoError(null); 
-    if (file.name.toLowerCase().endsWith('.fit')) { handleFitAnalysis(file); } 
-    else {
-        if (file.type && !file.type.startsWith('video/')) { alert("請上傳有效的影片"); return; }
-        setVideoFile(URL.createObjectURL(file));
+
+    if (file.name.toLowerCase().endsWith('.fit')) {
+        handleFitAnalysis(file);
+    } else {
+        if (file.type && !file.type.startsWith('video/')) {
+            alert("請上傳有效的影片檔案");
+            return;
+        }
+        
+        const url = URL.createObjectURL(file);
+        setVideoFile(url);
         setIsFitMode(false);
         setAnalysisStep('idle');
         fullScanDataRef.current = [];
-        if (file.name.toLowerCase().endsWith('.mov')) alert("注意：MOV 格式可能無法播放，建議使用 MP4。");
+        
+        if (file.name.toLowerCase().endsWith('.mov')) {
+            alert("注意：.mov (HEVC) 格式可能不支援，建議使用 MP4。");
+        }
     }
   };
 
   const handleVideoError = (e) => {
       console.error("Video Error:", e);
-      setVideoError("瀏覽器不支援此影片格式");
+      setVideoError("瀏覽器不支援此影片格式 (建議使用 MP4)");
   };
 
   const startFullVideoScan = async () => {
@@ -296,13 +317,21 @@ export default function RunAnalysisView() {
     if (!video || !poseModel) return;
 
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    // Pose API reset depends on implementation, here we just set options
+    // 這裡我們直接操作 poseModel 實例，因為 Hook 回傳了它
+    // 注意：usePoseDetection 回傳的是 poseModel
+    // 但是 poseModel 可能為 null (尚未載入)
+    
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
     isScanningRef.current = true;
 
-    poseModel.setOptions({ modelComplexity: 1, smoothLandmarks: false }); 
+    poseModel.setOptions({ 
+        modelComplexity: 1, 
+        smoothLandmarks: false, 
+        enableSegmentation: false,
+        smoothSegmentation: false
+    });
 
     video.pause();
     const duration = video.duration;
@@ -310,8 +339,12 @@ export default function RunAnalysisView() {
     for (let t = 0; t <= duration; t += 0.1) {
         if (!isScanningRef.current) break; 
         video.currentTime = t;
+        
         await new Promise(resolve => {
-            const onSeek = () => { video.removeEventListener('seeked', onSeek); setTimeout(resolve, 50); };
+            const onSeek = () => { 
+                video.removeEventListener('seeked', onSeek); 
+                setTimeout(resolve, 50); 
+            };
             video.addEventListener('seeked', onSeek);
             setTimeout(onSeek, 500); 
         });
@@ -337,6 +370,7 @@ export default function RunAnalysisView() {
     
     const hipDrives = data.map(d => calculateRealHipExtension(d.landmarks));
     const maxHipDrive = Math.max(...hipDrives);
+
     const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
     let steps = 0;
     const avgY = hipYs.reduce((a,b)=>a+b,0) / hipYs.length;
@@ -403,7 +437,6 @@ export default function RunAnalysisView() {
     }
   };
 
-  // --- 儲存邏輯 (防重複) ---
   const saveToCalendar = async () => {
     const user = auth.currentUser;
     if (!user) { alert("請先登入"); return; }
@@ -411,54 +444,24 @@ export default function RunAnalysisView() {
     try {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
-        const title = '跑步跑姿分析 (Running AI)';
-
-        // 1. 檢查重複
-        const q = query(
-            collection(db, 'users', user.uid, 'calendar'),
-            where('date', '==', dateStr),
-            where('title', '==', title),
-            where('type', '==', 'analysis')
-        );
-        const snapshot = await getDocs(q);
-        
-        let shouldSave = true;
-        let docId = null;
-
-        if (!snapshot.empty) {
-            if (confirm(`今天已有「${title}」報告。要覆蓋嗎？`)) {
-                docId = snapshot.docs[0].id;
-            } else {
-                shouldSave = false;
-            }
-        }
-
-        if (shouldSave) {
-            const analysisEntry = {
-                date: dateStr,
-                type: 'analysis',
-                subType: 'run_analysis',
-                title: title,
-                feedback: aiFeedback,
-                metrics: metrics,     
-                score: `${score}分`, 
-                status: 'completed',
-                updatedAt: now.toISOString()
-            };
-
-            if (docId) {
-                await updateDoc(doc(db, 'users', user.uid, 'calendar', docId), analysisEntry);
-                alert("報告已更新！");
-            } else {
-                await addDoc(collection(db, 'users', user.uid, 'calendar'), {
-                    ...analysisEntry,
-                    createdAt: now.toISOString()
-                });
-                alert("報告已儲存！");
-            }
-        }
+        const analysisEntry = {
+            id: Date.now().toString(),
+            type: 'analysis',
+            title: '跑步跑姿分析 (Running AI)',
+            feedback: aiFeedback,
+            metrics: metrics,     
+            score: `${score}分`, 
+            status: 'completed',
+            updatedAt: now.toISOString()
+        };
+        const docRef = doc(db, 'users', user.uid, 'calendar', dateStr);
+        const docSnap = await getDoc(docRef);
+        let newData = docSnap.exists() 
+            ? { ...docSnap.data(), exercises: [...(docSnap.data().exercises || []), analysisEntry] }
+            : { date: dateStr, status: 'completed', type: 'strength', title: 'AI 分析日', exercises: [analysisEntry] };
+        await setDoc(docRef, newData);
+        alert("跑姿報告已儲存！");
     } catch (e) {
-        console.error(e);
         alert("儲存失敗");
     } finally {
         setIsSaving(false);
@@ -482,6 +485,8 @@ export default function RunAnalysisView() {
     setVideoFile(null);
     setVideoError(null);
     setIsFitMode(false);
+    setScanProgress(0);
+    if (poseModel) poseModel.setOptions({ smoothLandmarks: true });
     
     const canvas = canvasRef.current;
     if (canvas) {

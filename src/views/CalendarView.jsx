@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 新增 ShoppingBag 圖示
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode, AlertTriangle, Download, ShoppingBag } from 'lucide-react';
-import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where } from 'firebase/firestore';
+// 修正：補上 getDoc 引入
+import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
@@ -22,7 +22,7 @@ export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [workouts, setWorkouts] = useState({});
-  const [gears, setGears] = useState([]); // 新增：儲存裝備列表
+  const [gears, setGears] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalView, setModalView] = useState('list'); 
@@ -47,7 +47,7 @@ export default function CalendarView() {
     runRPE: '',       
     notes: '',
     calories: '',
-    gearId: '' // 新增：裝備 ID
+    gearId: '' 
   });
   
   const [aiPrompt, setAiPrompt] = useState('');
@@ -136,32 +136,30 @@ export default function CalendarView() {
     setIsGenerating(true);
     try {
         const profileRef = doc(db, 'users', user.uid);
+        // 使用 getDoc 讀取個人檔案
         const profileSnap = await getDoc(profileRef);
         const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
+        
         const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
         const targetDateStr = formatDate(selectedDate);
         
         let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
-        // 加強 Prompt 指令，確保回傳 JSON
         prompt += "\n\nIMPORTANT: Output ONLY raw JSON. Do not use Markdown code blocks. Do not add any text before or after the JSON.";
 
         const response = await runGemini(prompt, apiKey);
         
-        // --- 增強版 JSON 解析邏輯 ---
         let cleanJson = response;
-        // 1. 嘗試移除 Markdown 標記
         cleanJson = cleanJson.replace(/```json/g, '').replace(/```/g, '').trim();
         
-        // 2. 尋找 JSON 物件的起止點 (防止 AI 在 JSON 前後講廢話)
         const startIndex = cleanJson.indexOf('{');
         const endIndex = cleanJson.lastIndexOf('}');
         if (startIndex !== -1 && endIndex !== -1) {
             cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         }
         
-        console.log("AI Raw Response:", response); // 除錯用
-        console.log("Cleaned JSON:", cleanJson);   // 除錯用
+        console.log("AI Raw Response:", response);
+        console.log("Cleaned JSON:", cleanJson);
 
         const plan = JSON.parse(cleanJson);
 
@@ -199,7 +197,6 @@ export default function CalendarView() {
     }
   };
 
-  // --- 匯出功能 (包含裝備資訊) ---
   const handleExport = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -221,7 +218,6 @@ export default function CalendarView() {
             totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
         }
 
-        // 查找裝備名稱
         const gearName = gears.find(g => g.id === data.gearId)?.model || '';
 
         const row = [
@@ -271,7 +267,6 @@ export default function CalendarView() {
   const handleImportClick = () => csvInputRef.current?.click();
   
   const handleCSVUpload = async (e) => { 
-      // CSV 匯入邏輯 (保持不變)
       const file = e.target.files?.[0];
       if (!file) return;
       
@@ -473,7 +468,6 @@ export default function CalendarView() {
   };
   
   const handleFitUpload = (file) => {
-      // FIT 匯入邏輯 (保持不變)
       setLoading(true);
       const reader = new FileReader();
       reader.onload = (event) => {

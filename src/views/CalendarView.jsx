@@ -7,7 +7,6 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-// 修正：移除導致錯誤的 formatDate 與 generateCSVData 匯入
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
@@ -192,7 +191,6 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
-        const cleanVal = (val) => (typeof val === 'number' ? val : parseFloat(val?.replace(/[^\d.]/g, '')) || '');
 
         setEditForm(prev => ({
             ...prev,
@@ -201,8 +199,8 @@ export default function CalendarView() {
             title: plan.title,
             notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
             exercises: plan.exercises || [],
-            runDistance: cleanVal(plan.runDistance),
-            runDuration: cleanVal(plan.runDuration),
+            runDistance: cleanNumber(plan.runDistance),
+            runDuration: cleanNumber(plan.runDuration),
             runPace: plan.runPace || '',
             runHeartRate: plan.runHeartRate || '', 
         }));
@@ -637,7 +635,6 @@ export default function CalendarView() {
                     </div>
                     <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
                 </div>
-
                 <div className="p-6 overflow-y-auto flex-1">
                     {modalView === 'list' && (
                         <div className="space-y-4">

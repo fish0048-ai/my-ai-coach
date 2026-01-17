@@ -1,24 +1,28 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers } from 'lucide-react';
+// 修正：補上 Eye, EyeOff 引入
+import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff } from 'lucide-react';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { updateAIContext } from '../utils/contextManager';
 
-// --- 輔助：解析配速字串 ---
+// --- 輔助：解析配速字串為小數分鐘 (例如 "5'30"" -> 5.5) ---
 const parsePaceToDecimal = (paceStr) => {
     if (!paceStr) return 0;
     const match = paceStr.match(/(\d+)'(\d+)"/);
-    if (match) return parseInt(match[1]) + parseInt(match[2]) / 60;
+    if (match) {
+        return parseInt(match[1]) + parseInt(match[2]) / 60;
+    }
     return 0;
 };
 
-// --- 輔助：計算重訓容量 ---
+// --- 輔助：計算重訓容量 (Volume Load) ---
 const calculateVolume = (exercises) => {
     if (!Array.isArray(exercises)) return 0;
     return exercises.reduce((total, ex) => {
         const weight = parseFloat(ex.weight) || 0;
         const sets = parseFloat(ex.sets) || 0;
         const reps = parseFloat(ex.reps) || 0;
+        // 如果是自重訓練(weight=0)，可以給一個基礎值或是忽略容量計算，這裡僅計算有負重的
         return total + (weight * sets * reps);
     }, 0);
 };
@@ -422,31 +426,51 @@ export default function TrendAnalysisView() {
         </div>
       </div>
 
-      {/* 5. 歷史列表 (Body 模式才顯示刪除) */}
-      {category === 'body' && (
-          <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
-            <div className="p-4 bg-gray-900/50 border-b border-gray-700 font-bold text-white flex items-center gap-2">
-               <Activity size={18} className="text-gray-400"/> 詳細紀錄
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-               <table className="w-full text-left text-sm text-gray-400">
-                  <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
-                     <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">體重</th><th className="px-6 py-3">體脂率</th><th className="px-6 py-3 text-right">操作</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-700">
-                     {bodyLogs.slice().reverse().map((log) => (
-                        <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
-                           <td className="px-6 py-3 font-mono text-white">{log.date}</td>
-                           <td className="px-6 py-3 text-blue-300 font-bold">{log.weight} kg</td>
-                           <td className="px-6 py-3 text-green-300 font-bold">{log.bodyFat || '-'} %</td>
-                           <td className="px-6 py-3 text-right"><button onClick={() => handleDelete(log.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={16} /></button></td>
-                        </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-          </div>
-      )}
+      {/* 5. 歷史列表 (只顯示目前的 Category) */}
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+        <div className="p-4 bg-gray-900/50 border-b border-gray-700 font-bold text-white flex items-center gap-2">
+           <Activity size={18} className="text-gray-400"/> 詳細紀錄 ({category === 'body' ? '身體數據' : '運動紀錄'})
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+           {category === 'body' ? (
+             <table className="w-full text-left text-sm text-gray-400">
+                <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
+                   <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">體重</th><th className="px-6 py-3">體脂率</th><th className="px-6 py-3 text-right">操作</th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                   {bodyLogs.slice().reverse().map((log) => (
+                      <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
+                         <td className="px-6 py-3 font-mono text-white">{log.date}</td>
+                         <td className="px-6 py-3 text-blue-300 font-bold">{log.weight} kg</td>
+                         <td className="px-6 py-3 text-green-300 font-bold">{log.bodyFat || '-'} %</td>
+                         <td className="px-6 py-3 text-right"><button onClick={() => handleDelete(log.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={16} /></button></td>
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
+           ) : (
+             <table className="w-full text-left text-sm text-gray-400">
+                <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
+                   <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">項目</th><th className="px-6 py-3">關鍵數據</th><th className="px-6 py-3">狀態</th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                   {workoutLogs.filter(l => (category === 'run' ? l.type === 'run' : l.type === 'strength')).slice().reverse().map((log) => (
+                      <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
+                         <td className="px-6 py-3 font-mono text-white">{log.date}</td>
+                         <td className="px-6 py-3 font-bold text-white">{log.title}</td>
+                         <td className="px-6 py-3 text-gray-300">
+                             {log.type === 'run' 
+                                ? `${log.runDistance}km @ ${log.runPace}` 
+                                : `${log.exercises?.length || 0} 動作, ${calculateVolume(log.exercises)}kg Vol`}
+                         </td>
+                         <td className="px-6 py-3"><span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">完成</span></td>
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
+           )}
+        </div>
+      </div>
     </div>
   );
 }

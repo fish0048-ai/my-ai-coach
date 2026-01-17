@@ -13,7 +13,7 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-// 輔助：檢查重複資料
+// 輔助：取得目前所有資料以便比對 (防重複)
 const fetchCurrentWorkoutsForCheck = async (uid) => {
   const q = query(collection(db, 'users', uid, 'calendar'));
   const sn = await getDocs(q);
@@ -55,7 +55,6 @@ export const parseAndUploadFIT = (file) => {
         const session = sessions[0] || {};
         
         let startTime = session.start_time ? new Date(session.start_time) : new Date();
-        // 如果沒有時間，嘗試從 records 抓
         if (!session.start_time && data.records && data.records.length > 0) {
              startTime = new Date(data.records[0].timestamp);
         }
@@ -88,7 +87,6 @@ export const parseAndUploadFIT = (file) => {
                      name = catMap[set.category] ? `${catMap[set.category]}訓練` : `動作(類別${set.category})`;
                 }
 
-                // 合併邏輯
                 const lastEx = exercises[exercises.length - 1];
                 if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - weight) < 1 && lastEx.reps === reps) {
                     lastEx.sets += 1;
@@ -104,7 +102,6 @@ export const parseAndUploadFIT = (file) => {
             });
         }
 
-        // 兜底摘要
         if (exercises.length === 0 && type === 'strength') {
             exercises.push({
                 name: "匯入訓練 (無詳細動作)",
@@ -132,7 +129,6 @@ export const parseAndUploadFIT = (file) => {
             updatedAt: new Date().toISOString()
         };
 
-        // 配速計算
         if (isRunning && parseFloat(distance) > 0 && parseFloat(duration) > 0) {
             const paceVal = parseFloat(duration) / parseFloat(distance);
             const pm = Math.floor(paceVal);
@@ -159,7 +155,6 @@ export const parseAndUploadCSV = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    // 內部處理函式
     const processContent = async (text) => {
         const lines = text.split(/\r\n|\n/).filter(l => l.trim());
         if (lines.length < 2) return { success: false, message: "檔案無內容" };
@@ -216,7 +211,6 @@ export const parseAndUploadCSV = (file) => {
             const tRaw = getVal(row, cols.type).toLowerCase();
             if (tRaw.includes('run') || tRaw.includes('跑') || tRaw.includes('walk') || tRaw.includes('走')) type = 'run';
 
-            // 時間解析
             const durRaw = getVal(row, cols.time);
             let duration = 0;
             if (durRaw.includes(':')) {
@@ -228,14 +222,18 @@ export const parseAndUploadCSV = (file) => {
             }
             const runDuration = Math.round(duration).toString();
 
-            // 數據欄位
-            const runDistance = type === 'run' ? getVal(row, cols.dist).replace(/,/g, '') : '';
-            const runHeartRate = getVal(row, cols.hr).replace('--', '');
-            const runPower = type === 'run' ? getVal(row, cols.pwr).replace('--', '') : '';
-            const calories = getVal(row, cols.cal).replace(/,/g, '');
+            const distRaw = getVal(row, cols.dist);
+            const runDistance = type === 'run' ? distRaw.replace(/,/g, '') : '';
+            const hrRaw = getVal(row, cols.hr);
+            const runHeartRate = (hrRaw.includes('--') ? '' : hrRaw);
+            const pwrRaw = getVal(row, cols.pwr);
+            const runPower = type === 'run' ? (pwrRaw.includes('--') ? '' : pwrRaw) : '';
+            
+            const calRaw = getVal(row, cols.cal);
+            const calories = calRaw.replace(/,/g, '');
             const setsRaw = getVal(row, cols.sets);
             const repsRaw = getVal(row, cols.reps);
-
+            
             let runPace = '';
             if (type === 'run' && parseFloat(runDistance) > 0 && duration > 0) {
                const dist = parseFloat(runDistance);
@@ -276,7 +274,6 @@ export const parseAndUploadCSV = (file) => {
                 updatedAt: new Date().toISOString()
             };
 
-            // 防重複與更新
             const existingDoc = currentData.find(d => d.date === dateStr && d.title === dataToSave.title && d.type === type);
 
             try {
@@ -295,12 +292,10 @@ export const parseAndUploadCSV = (file) => {
         return { success: true, message: `匯入完成！\n新增：${importCount} 筆\n更新：${updateCount} 筆` };
     };
 
-    // 第一次嘗試 UTF-8
     reader.onload = async (e) => {
         const text = e.target.result;
         const res = await processContent(text);
         if (res.retryBig5) {
-            // 重試 Big5
             const readerBig5 = new FileReader();
             readerBig5.onload = async (e2) => {
                 const resBig5 = await processContent(e2.target.result);

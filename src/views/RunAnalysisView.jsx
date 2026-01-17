@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+// 新增 query, where, getDocs, updateDoc, addDoc, collection
+import { doc, getDoc, setDoc, query, where, getDocs, updateDoc, addDoc, collection } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
 import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
+import { usePoseDetection } from '../hooks/usePoseDetection';
 
-// --- 分數計算組件 ---
+// 分數圈圈組件
 const ScoreGauge = ({ score }) => {
   const radius = 30;
   const circumference = 2 * Math.PI * radius;
@@ -16,7 +18,7 @@ const ScoreGauge = ({ score }) => {
   let color = 'text-red-500';
   if (score >= 70) color = 'text-yellow-500';
   if (score >= 85) color = 'text-green-500';
-  if (score >= 95) color = 'text-blue-500'; // Elite
+  if (score >= 95) color = 'text-blue-500';
 
   return (
     <div className="relative flex items-center justify-center w-24 h-24">
@@ -65,37 +67,30 @@ export default function RunAnalysisView() {
   }, [showSkeleton, showIdealForm]);
   
   const [metrics, setMetrics] = useState(null);
-  const [score, setScore] = useState(0); // 新增：評分狀態
+  const [score, setScore] = useState(0); 
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [poseModel, setPoseModel] = useState(null); 
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
-  const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
+  const [hipDriveAngle, setHipDriveAngle] = useState(0); 
 
-  useEffect(() => {
-    let pose = null;
-    try {
-        pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-        pose.setOptions({
-          modelComplexity: 1, 
-          smoothLandmarks: true, 
-          enableSegmentation: false,
-          smoothSegmentation: false,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-        pose.onResults(onPoseResults);
-        setPoseModel(pose);
-    } catch (err) {
-        console.error("MediaPipe Init Error:", err);
-    }
+  // --- 評分邏輯 ---
+  const calculateRunScore = (m) => {
+      if (!m) return 0;
+      let s = 100;
+      const cad = parseFloat(m.cadence.value);
+      if (cad < 150) s -= 30; else if (cad < 160) s -= 20; else if (cad < 170) s -= 10;
+      
+      const hip = parseFloat(m.hipDrive.value);
+      if (hip < 10) s -= 25; else if (hip < 20) s -= 15; else if (hip < 30) s -= 5;
+      
+      const osc = parseFloat(m.vertOscillation.value);
+      if (osc > 12) s -= 25; else if (osc > 10) s -= 15;
+      
+      const ratio = parseFloat(m.vertRatio.value);
+      if (ratio > 10) s -= 20; else if (ratio > 8) s -= 10;
 
-    return () => { 
-        if (pose) pose.close(); 
-        isScanningRef.current = false; 
-        if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, []);
+      return Math.max(0, Math.round(s));
+  };
 
   const calculateAngle = (a, b, c) => {
     if (!a || !b || !c) return 0;
@@ -123,17 +118,13 @@ export default function RunAnalysisView() {
 
   const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
-      
       const w = ctx.canvas.width;
       const h = ctx.canvas.height;
-      
       if (!Number.isFinite(hip.x) || !Number.isFinite(hip.y)) return;
-
       const hipX = hip.x * w;
       const hipY = hip.y * h;
       const kneeX = knee.x * w;
       const kneeY = knee.y * h;
-      
       const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
       const radius = thighLen * 1.2; 
       if (!Number.isFinite(radius) || radius <= 0) return;
@@ -244,7 +235,7 @@ export default function RunAnalysisView() {
             
             const now = Date.now();
             if (now - lastUiUpdateRef.current > 100) { 
-                setHipExtensionAngle(Math.round(hipDrive));
+                setHipDriveAngle(Math.round(hipDrive));
                 setRealtimeAngle(angle);
                 lastUiUpdateRef.current = now;
             }
@@ -252,13 +243,13 @@ export default function RunAnalysisView() {
     } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
   };
 
+  const poseModel = usePoseDetection(onPoseResults);
+
   const processFrame = async () => {
       const video = videoRef.current;
       if (video && !video.paused && !video.ended && poseModel && !isScanningRef.current) {
-          if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
-              try {
-                  await poseModel.send({image: video});
-              } catch(e) { console.warn("Frame skipped:", e); }
+          if (video.readyState >= 2 && video.videoWidth > 0) {
+              try { await poseModel.send({image: video}); } catch(e) { }
           }
           if (video && !video.paused) {
              requestRef.current = requestAnimationFrame(processFrame);
@@ -276,35 +267,28 @@ export default function RunAnalysisView() {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
   };
 
+  useEffect(() => {
+    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); }
+  }, []);
+
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
     setVideoError(null); 
-
-    if (file.name.toLowerCase().endsWith('.fit')) {
-        handleFitAnalysis(file);
-    } else {
-        if (file.type && !file.type.startsWith('video/')) {
-            alert("請上傳有效的影片檔案");
-            return;
-        }
-        
-        const url = URL.createObjectURL(file);
-        setVideoFile(url);
+    if (file.name.toLowerCase().endsWith('.fit')) { handleFitAnalysis(file); } 
+    else {
+        if (file.type && !file.type.startsWith('video/')) { alert("請上傳有效的影片"); return; }
+        setVideoFile(URL.createObjectURL(file));
         setIsFitMode(false);
         setAnalysisStep('idle');
         fullScanDataRef.current = [];
-        
-        if (file.name.toLowerCase().endsWith('.mov')) {
-            alert("注意：.mov (HEVC) 格式可能不支援，建議使用 MP4。");
-        }
+        if (file.name.toLowerCase().endsWith('.mov')) alert("注意：MOV 格式可能無法播放，建議使用 MP4。");
     }
   };
 
   const handleVideoError = (e) => {
       console.error("Video Error:", e);
-      setVideoError("瀏覽器不支援此影片格式 (建議使用 MP4)");
+      setVideoError("瀏覽器不支援此影片格式");
   };
 
   const startFullVideoScan = async () => {
@@ -312,8 +296,7 @@ export default function RunAnalysisView() {
     if (!video || !poseModel) return;
 
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    await poseModel.reset(); 
-
+    // Pose API reset depends on implementation, here we just set options
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
@@ -327,12 +310,8 @@ export default function RunAnalysisView() {
     for (let t = 0; t <= duration; t += 0.1) {
         if (!isScanningRef.current) break; 
         video.currentTime = t;
-        
         await new Promise(resolve => {
-            const onSeek = () => { 
-                video.removeEventListener('seeked', onSeek); 
-                setTimeout(resolve, 50); 
-            };
+            const onSeek = () => { video.removeEventListener('seeked', onSeek); setTimeout(resolve, 50); };
             video.addEventListener('seeked', onSeek);
             setTimeout(onSeek, 500); 
         });
@@ -348,49 +327,9 @@ export default function RunAnalysisView() {
 
     const computedMetrics = processScanData(fullScanDataRef.current);
     setMetrics(computedMetrics);
-    
-    // --- 這裡加入評分計算 ---
-    const finalScore = calculateRunScore(computedMetrics);
-    setScore(finalScore);
-
+    setScore(calculateRunScore(computedMetrics));
     setAnalysisStep('internal_complete');
     video.currentTime = 0;
-  };
-
-  // --- 評分核心演算法 ---
-  const calculateRunScore = (m) => {
-      if (!m) return 0;
-      let s = 100;
-      
-      // 1. 步頻 (Cadence) [30%]
-      // 標準: 170-190 (最佳), <160 (差)
-      const cad = parseFloat(m.cadence.value);
-      if (cad < 150) s -= 30;
-      else if (cad < 160) s -= 20;
-      else if (cad < 170) s -= 10;
-      else if (cad > 200) s -= 10; // 太快也不正常
-      
-      // 2. 送髖 (Hip Drive) [25%]
-      // 標準: >20度
-      const hip = parseFloat(m.hipDrive.value);
-      if (hip < 10) s -= 25;
-      else if (hip < 20) s -= 15;
-      else if (hip < 30) s -= 5;
-      
-      // 3. 垂直振幅 (Vertical Osc) [25%]
-      // 標準: < 10cm
-      const osc = parseFloat(m.vertOscillation.value);
-      if (osc > 12) s -= 25;
-      else if (osc > 10) s -= 15;
-      else if (osc > 8) s -= 0; // excellent
-      
-      // 4. 移動參數 (Vertical Ratio) [20%]
-      // 標準: < 8%
-      const ratio = parseFloat(m.vertRatio.value);
-      if (ratio > 10) s -= 20;
-      else if (ratio > 8) s -= 10;
-
-      return Math.max(0, Math.round(s));
   };
 
   const processScanData = (data) => {
@@ -398,7 +337,6 @@ export default function RunAnalysisView() {
     
     const hipDrives = data.map(d => calculateRealHipExtension(d.landmarks));
     const maxHipDrive = Math.max(...hipDrives);
-
     const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
     let steps = 0;
     const avgY = hipYs.reduce((a,b)=>a+b,0) / hipYs.length;
@@ -431,11 +369,10 @@ export default function RunAnalysisView() {
             setTimeout(() => {
                 const fitMetrics = { 
                     cadence: { label: 'FIT 步頻', value: '180', unit: 'spm', status: 'good', icon: Activity },
-                    // FIT 通常不含影像角度，這裡僅作示範
                     hipDrive: { label: '送髖 (無影像)', value: '0', unit: '°', status: 'warning', icon: Zap }
                 };
                 setMetrics(fitMetrics);
-                setScore(85); // FIT 預設給個分
+                setScore(85); 
                 setAnalysisStep('internal_complete');
             }, 1000);
         });
@@ -466,6 +403,7 @@ export default function RunAnalysisView() {
     }
   };
 
+  // --- 儲存邏輯 (防重複) ---
   const saveToCalendar = async () => {
     const user = auth.currentUser;
     if (!user) { alert("請先登入"); return; }
@@ -473,23 +411,54 @@ export default function RunAnalysisView() {
     try {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
-        const analysisEntry = {
-            id: Date.now().toString(),
-            type: 'analysis',
-            title: '跑步跑姿分析 (Running AI)',
-            feedback: aiFeedback,
-            metrics: metrics,     
-            score: `${score}分`, 
-            createdAt: now.toISOString()
-        };
-        const docRef = doc(db, 'users', user.uid, 'calendar', dateStr);
-        const docSnap = await getDoc(docRef);
-        let newData = docSnap.exists() 
-            ? { ...docSnap.data(), exercises: [...(docSnap.data().exercises || []), analysisEntry] }
-            : { date: dateStr, status: 'completed', type: 'strength', title: 'AI 分析日', exercises: [analysisEntry] };
-        await setDoc(docRef, newData);
-        alert("跑姿報告已儲存！");
+        const title = '跑步跑姿分析 (Running AI)';
+
+        // 1. 檢查重複
+        const q = query(
+            collection(db, 'users', user.uid, 'calendar'),
+            where('date', '==', dateStr),
+            where('title', '==', title),
+            where('type', '==', 'analysis')
+        );
+        const snapshot = await getDocs(q);
+        
+        let shouldSave = true;
+        let docId = null;
+
+        if (!snapshot.empty) {
+            if (confirm(`今天已有「${title}」報告。要覆蓋嗎？`)) {
+                docId = snapshot.docs[0].id;
+            } else {
+                shouldSave = false;
+            }
+        }
+
+        if (shouldSave) {
+            const analysisEntry = {
+                date: dateStr,
+                type: 'analysis',
+                subType: 'run_analysis',
+                title: title,
+                feedback: aiFeedback,
+                metrics: metrics,     
+                score: `${score}分`, 
+                status: 'completed',
+                updatedAt: now.toISOString()
+            };
+
+            if (docId) {
+                await updateDoc(doc(db, 'users', user.uid, 'calendar', docId), analysisEntry);
+                alert("報告已更新！");
+            } else {
+                await addDoc(collection(db, 'users', user.uid, 'calendar'), {
+                    ...analysisEntry,
+                    createdAt: now.toISOString()
+                });
+                alert("報告已儲存！");
+            }
+        }
     } catch (e) {
+        console.error(e);
         alert("儲存失敗");
     } finally {
         setIsSaving(false);
@@ -499,7 +468,6 @@ export default function RunAnalysisView() {
   const updateMetric = (key, val) => {
       setMetrics(prev => {
           const newMetrics = {...prev, [key]: {...prev[key], value: val}};
-          // 數值修改後重新計算分數
           setScore(calculateRunScore(newMetrics));
           return newMetrics;
       });
@@ -622,7 +590,6 @@ export default function RunAnalysisView() {
         </div>
 
         <div className="space-y-4">
-           {/* 分數顯示區 */}
            {metrics && (
               <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
                   <div>

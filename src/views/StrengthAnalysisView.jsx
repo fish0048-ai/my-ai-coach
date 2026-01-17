@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-// 新增 Trophy
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+// 新增 query, where, getDocs, updateDoc 以實作檢查重複
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
 import { db, auth } from '../firebase';
 import FitParser from 'fit-file-parser';
 import { POSE_CONNECTIONS } from '@mediapipe/pose';
@@ -37,7 +37,7 @@ const calculateStrengthScore = (m, mode) => {
     return Math.max(0, Math.round(s));
 };
 
-// 分數圈圈組件 (與 RunAnalysis 共用樣式)
+// 分數圈圈組件
 const ScoreGauge = ({ score }) => {
   const radius = 30;
   const circumference = 2 * Math.PI * radius;
@@ -80,7 +80,7 @@ export default function StrengthAnalysisView() {
   }, [showSkeleton, mode]);
 
   const [metrics, setMetrics] = useState(null);
-  const [score, setScore] = useState(0); // 新增評分
+  const [score, setScore] = useState(0); 
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
@@ -229,7 +229,7 @@ export default function StrengthAnalysisView() {
       評分：${score} 分。
       數據：${JSON.stringify(metrics)}
       
-      請給出評分理由與優化建議。200字內。
+      請給出評分理由與優化建議。200字內，繁體中文。
     `;
     try {
         const response = await runGemini(prompt, apiKey);
@@ -241,31 +241,66 @@ export default function StrengthAnalysisView() {
     }
   };
 
+  // --- 儲存邏輯 (含防重複檢查) ---
   const saveToCalendar = async () => {
     const user = auth.currentUser;
     if (!user) { alert("請先登入"); return; }
     setIsSaving(true);
+    
     try {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
-        const analysisEntry = {
-            id: Date.now().toString(),
-            type: 'analysis',
-            title: `重訓分析 (${mode === 'bench' ? '臥推' : '深蹲'})`,
-            feedback: aiFeedback,
-            metrics: metrics,     
-            score: `${score}分`, 
-            createdAt: now.toISOString()
-        };
-        const docRef = doc(db, 'users', user.uid, 'calendar', dateStr);
-        const docSnap = await getDoc(docRef);
-        let newData = docSnap.exists() 
-            ? { ...docSnap.data(), exercises: [...(docSnap.data().exercises || []), analysisEntry] }
-            : { date: dateStr, status: 'completed', type: 'strength', title: 'AI 分析日', exercises: [analysisEntry] };
+        const title = `重訓分析 (${mode === 'bench' ? '臥推' : '深蹲'})`;
         
-        await setDoc(docRef, newData);
-        alert("重訓分析已儲存！");
+        // 1. 檢查重複：查詢今天是否已有相同標題的分析報告
+        const q = query(
+            collection(db, 'users', user.uid, 'calendar'),
+            where('date', '==', dateStr),
+            where('title', '==', title),
+            where('type', '==', 'analysis')
+        );
+        const snapshot = await getDocs(q);
+        
+        let shouldSave = true;
+        let docId = null;
+
+        if (!snapshot.empty) {
+            // 已存在，詢問使用者
+            if (confirm(`今天已經有一份「${title}」了。\n要覆蓋舊資料嗎？\n(取消則不儲存)`)) {
+                docId = snapshot.docs[0].id; // 取得舊文件 ID 以便更新
+            } else {
+                shouldSave = false;
+            }
+        }
+
+        if (shouldSave) {
+            const analysisEntry = {
+                date: dateStr,
+                type: 'analysis',
+                subType: 'strength_analysis',
+                title: title,
+                feedback: aiFeedback,
+                metrics: metrics,     
+                score: score, 
+                status: 'completed',
+                updatedAt: now.toISOString()
+            };
+
+            if (docId) {
+                // 更新舊文件
+                await updateDoc(doc(db, 'users', user.uid, 'calendar', docId), analysisEntry);
+                alert("分析報告已更新！");
+            } else {
+                // 新增新文件
+                await addDoc(collection(db, 'users', user.uid, 'calendar'), {
+                    ...analysisEntry,
+                    createdAt: now.toISOString()
+                });
+                alert("分析報告已儲存！");
+            }
+        }
     } catch (e) {
+        console.error("Save error:", e);
         alert("儲存失敗");
     } finally {
         setIsSaving(false);

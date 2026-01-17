@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -7,8 +7,18 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-import { parseAndUploadFIT, parseAndUploadCSV, generateCSVData, formatDate } from '../utils/importHelpers';
+// 修正：移除 formatDate 匯入，改用本地定義以避免 Build Error
+import { parseAndUploadFIT, parseAndUploadCSV, generateCSVData } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
+
+// 本地定義日期格式化工具
+const formatDate = (date) => {
+  if (!date || isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const getWeekDates = (baseDate) => {
   const current = new Date(baseDate);
@@ -135,7 +145,6 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
-
         setEditForm(prev => ({
             ...prev,
             status: 'planned',
@@ -248,40 +257,16 @@ export default function CalendarView() {
     if (!user) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'users', user.uid, 'calendar'));
-      const querySnapshot = await getDocs(q);
-      const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
-      const rows = [headers];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const type = data.type === 'run' ? '跑步' : '肌力訓練';
-        let totalSets = 0;
-        if (data.exercises && Array.isArray(data.exercises)) {
-            totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
-        }
-        const gearName = gears.find(g => g.id === data.gearId)?.model || '';
-        const row = [
-            type, data.date || '', data.title || '', data.runDistance || '', data.runDuration || '',
-            data.runHeartRate || '', data.runPower || '', data.calories || '',
-            totalSets > 0 ? totalSets : '', gearName, data.notes || ''
-        ];
-        const escapedRow = row.map(field => {
-            const str = String(field ?? '');
-            if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str.replace(/"/g, '""')}"`;
-            return str;
-        });
-        rows.push(escapedRow);
-      });
-      const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      const today = formatDate(new Date());
-      link.setAttribute("download", `training_backup_${today}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        const csvContent = await generateCSVData(user.uid, gears);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        const today = formatDate(new Date());
+        link.setAttribute("download", `training_backup_${today}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     } catch (error) { alert("匯出失敗"); } finally { setLoading(false); }
   };
 
@@ -470,7 +455,8 @@ export default function CalendarView() {
             const isSelected = formatDate(selectedDate) === dateStr;
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
-
+            
+            // 修正：明確定義變數
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
@@ -528,7 +514,7 @@ export default function CalendarView() {
           })}
         </div>
       </div>
-
+      {/* ... (Modals remain the same) ... */}
       {showWeeklyModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-gray-900 w-full max-w-3xl rounded-2xl border border-gray-700 shadow-2xl p-6 flex flex-col max-h-[90vh]">
@@ -538,43 +524,28 @@ export default function CalendarView() {
                     </h3>
                     <button onClick={() => setShowWeeklyModal(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
                 </div>
-                
                 <div className="bg-purple-900/20 p-4 rounded-xl border border-purple-500/30 mb-6 text-sm text-purple-200">
                     <p>請設定本週剩餘日期的訓練重點。您可以為同一天選擇多個項目 (例如：重訓 + 輕鬆跑)，AI 將為您生成多筆課表。</p>
                 </div>
-
                 <div className="space-y-4 flex-1 overflow-y-auto pr-2">
                     {weekDateList.map(date => {
                         const dayWorkouts = workouts[date] || [];
                         const hasCompleted = dayWorkouts.some(w => w.status === 'completed');
                         const dayName = new Date(date).toLocaleDateString('zh-TW', { weekday: 'long' });
                         const currentPrefs = weeklyPrefs[date] || [];
-                        
                         return (
                             <div key={date} className={`p-4 rounded-xl border ${hasCompleted ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-800 border-gray-600'}`}>
                                 <div className="flex items-center gap-3 mb-3">
                                     <span className="text-gray-400 font-mono text-sm">{date}</span>
                                     <span className="text-white font-bold">{dayName}</span>
-                                    {hasCompleted ? 
-                                        <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">已完成 (跳過)</span> : 
-                                        <span className="text-xs text-gray-500">請選擇今日訓練 (可複選)</span>
-                                    }
+                                    {hasCompleted ? <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">已完成 (跳過)</span> : <span className="text-xs text-gray-500">請選擇今日訓練 (可複選)</span>}
                                 </div>
-                                
                                 {!hasCompleted && (
                                     <div className="flex flex-wrap gap-2">
                                         {PREF_OPTIONS.map(opt => {
                                             const isSelected = currentPrefs.includes(opt.key);
                                             return (
-                                                <button
-                                                    key={opt.key}
-                                                    onClick={() => toggleWeeklyPref(date, opt.key)}
-                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                                                        isSelected 
-                                                            ? `${opt.color} text-white border-transparent shadow-lg scale-105` 
-                                                            : 'bg-gray-900 text-gray-400 border-gray-600 hover:border-gray-400'
-                                                    }`}
-                                                >
+                                                <button key={opt.key} onClick={() => toggleWeeklyPref(date, opt.key)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${isSelected ? `${opt.color} text-white border-transparent shadow-lg scale-105` : 'bg-gray-900 text-gray-400 border-gray-600 hover:border-gray-400'}`}>
                                                     {opt.label} {isSelected && <CheckCircle2 size={10} className="inline ml-1"/>}
                                                 </button>
                                             );
@@ -585,48 +556,32 @@ export default function CalendarView() {
                         );
                     })}
                 </div>
-
                 <div className="mt-4 pt-4 border-t border-gray-700">
-                    <button 
-                        onClick={handleWeeklyGenerate} 
-                        disabled={loading}
-                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-lg"
-                    >
-                        {loading ? <Loader className="animate-spin" /> : <Sparkles />}
-                        生成本週複合課表
+                    <button onClick={handleWeeklyGenerate} disabled={loading} className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-lg">
+                        {loading ? <Loader className="animate-spin" /> : <Sparkles />} 生成本週複合課表
                     </button>
                 </div>
             </div>
         </div>
       )}
-
-      {/* Detail Modal (保留) */}
       {isModalOpen && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-             {/* ...Modal Content (Reuse existing code)... */}
              <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
-                {/* Header */}
                 <div className="p-6 border-b border-gray-800 flex justify-between items-center">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                        <h2 className="text-xl font-bold text-white">
-                            {selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日
-                        </h2>
+                        <h2 className="text-xl font-bold text-white">{selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日</h2>
                         {modalView === 'list' && <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">當日清單</span>}
                         {modalView === 'form' && <span className="text-xs text-blue-400 bg-blue-900/20 px-2 py-1 rounded">{currentDocId ? '編輯' : '新增'}</span>}
                         </div>
                     </div>
                     <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
                 </div>
-
                 <div className="p-6 overflow-y-auto flex-1">
-                    {/* List View */}
                     {modalView === 'list' && (
                         <div className="space-y-4">
                             {(!workouts[formatDate(selectedDate)] || workouts[formatDate(selectedDate)].length === 0) ? (
-                                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
-                                    <p>當日尚無紀錄</p>
-                                </div>
+                                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl"><p>當日尚無紀錄</p></div>
                             ) : (
                                 workouts[formatDate(selectedDate)].map((workout) => {
                                     const usedGear = gears.find(g => g.id === workout.gearId);
@@ -650,44 +605,25 @@ export default function CalendarView() {
                             <button onClick={() => { setCurrentDocId(null); setModalView('form'); }} className="w-full py-4 rounded-xl border-2 border-dashed border-gray-700 text-gray-400 hover:text-white"><Plus /> 新增運動</button>
                         </div>
                     )}
-
-                    {/* Form View */}
                     {modalView === 'form' && (
-                        <WorkoutForm 
-                            editForm={editForm} 
-                            setEditForm={setEditForm} 
-                            gears={gears} 
-                            handleHeadCoachGenerate={handleHeadCoachGenerate} 
-                            isGenerating={isGenerating} 
-                            handleExerciseNameChange={(idx, val) => {
-                                const newEx = [...editForm.exercises];
-                                newEx[idx].name = val;
-                                const detectedMuscle = detectMuscleGroup(val);
-                                if (detectedMuscle) newEx[idx].targetMuscle = detectedMuscle;
+                        <WorkoutForm editForm={editForm} setEditForm={setEditForm} gears={gears} handleHeadCoachGenerate={handleHeadCoachGenerate} isGenerating={isGenerating} handleExerciseNameChange={(idx, val) => {
+                                const newEx = [...editForm.exercises]; newEx[idx].name = val;
+                                const detectedMuscle = detectMuscleGroup(val); if (detectedMuscle) newEx[idx].targetMuscle = detectedMuscle;
                                 setEditForm({...editForm, exercises: newEx});
-                            }}
-                        />
+                        }} />
                     )}
                 </div>
-
-                {/* Footer */}
                 <div className="p-6 border-t border-gray-800 flex justify-between">
                      {modalView === 'form' && (
                          <>
-                            {currentDocId && (
-                                <button onClick={handleDelete} className="flex items-center gap-2 text-red-400 hover:text-red-300 px-4 py-2">
-                                    <Trash2 size={18} /> 刪除
-                                </button>
-                            )}
+                            {currentDocId && <button onClick={handleDelete} className="flex items-center gap-2 text-red-400 hover:text-red-300 px-4 py-2"><Trash2 size={18} /> 刪除</button>}
                             <div className="flex gap-3 ml-auto">
                                 <button onClick={() => setModalView('list')} className="text-gray-400 hover:text-white px-4">取消</button>
                                 <button onClick={async () => {
                                     const dataToSave = { ...editForm, date: formatDate(selectedDate), updatedAt: new Date().toISOString() };
                                     if (currentDocId) await setDoc(doc(db, 'users', auth.currentUser.uid, 'calendar', currentDocId), dataToSave);
                                     else await addDoc(collection(db, 'users', auth.currentUser.uid, 'calendar'), dataToSave);
-                                    updateAIContext();
-                                    await fetchMonthWorkouts();
-                                    setModalView('list');
+                                    updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
                                 }} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-500 transition-colors">儲存</button>
                             </div>
                          </>

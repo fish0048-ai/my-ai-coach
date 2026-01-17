@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 新增 Download 圖示
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode, AlertTriangle, Download } from 'lucide-react';
-import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc } from 'firebase/firestore';
+// 新增 ShoppingBag 圖示
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode, AlertTriangle, Download, ShoppingBag } from 'lucide-react';
+import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
@@ -22,6 +22,7 @@ export default function CalendarView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
   const [workouts, setWorkouts] = useState({});
+  const [gears, setGears] = useState([]); // 新增：儲存裝備列表
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalView, setModalView] = useState('list'); 
@@ -45,12 +46,31 @@ export default function CalendarView() {
     runHeartRate: '',
     runRPE: '',       
     notes: '',
-    calories: ''
+    calories: '',
+    gearId: '' // 新增：裝備 ID
   });
   
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // 初始化：讀取裝備列表
+  useEffect(() => {
+    const fetchGears = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+            const q = query(collection(db, 'users', user.uid, 'gears'));
+            const snapshot = await getDocs(q);
+            const gearList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setGears(gearList);
+        } catch (error) {
+            console.error("Error fetching gears:", error);
+        }
+    };
+    fetchGears();
+  }, []);
+
+  // 自動計算跑步配速
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {
       const dist = parseFloat(editForm.runDistance);
@@ -117,32 +137,31 @@ export default function CalendarView() {
     fileInputRef.current?.click();
   };
 
-  // --- 匯出 CSV 功能 (新增) ---
+  // --- 匯出 CSV ---
   const handleExport = async () => {
     const user = auth.currentUser;
     if (!user) return;
     
     setLoading(true);
     try {
-      // 1. 抓取所有資料
       const q = query(collection(db, 'users', user.uid, 'calendar'));
       const querySnapshot = await getDocs(q);
       
-      // 2. 定義標題列 (對應 Garmin/App 習慣格式)
-      const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '備註'];
+      const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
       const rows = [headers];
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         const type = data.type === 'run' ? '跑步' : '肌力訓練';
         
-        // 計算總組數 (如果是重訓)
         let totalSets = 0;
         if (data.exercises && Array.isArray(data.exercises)) {
             totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
         }
 
-        // 3. 處理資料欄位
+        // 查找裝備名稱
+        const gearName = gears.find(g => g.id === data.gearId)?.model || '';
+
         const row = [
             type,
             data.date || '',
@@ -153,10 +172,10 @@ export default function CalendarView() {
             data.runPower || '',
             data.calories || '',
             totalSets > 0 ? totalSets : '',
+            gearName,
             data.notes || ''
         ];
 
-        // 4. CSV 轉義 (處理逗號與換行)
         const escapedRow = row.map(field => {
             const str = String(field ?? '');
             if (str.includes(',') || str.includes('\n') || str.includes('"')) {
@@ -168,10 +187,7 @@ export default function CalendarView() {
         rows.push(escapedRow);
       });
 
-      // 5. 組合 CSV 字串 (加入 BOM 以支援 Excel 中文顯示)
       const csvContent = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
-      
-      // 6. 觸發下載
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -183,8 +199,8 @@ export default function CalendarView() {
       document.body.removeChild(link);
 
     } catch (error) {
-      console.error("Export failed:", error);
-      alert("匯出失敗");
+        console.error("Export failed:", error);
+        alert("匯出失敗");
     } finally {
       setLoading(false);
     }
@@ -207,7 +223,7 @@ export default function CalendarView() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- 1. FIT 檔案處理邏輯 ---
+  // --- FIT 處理 ---
   const handleFitUpload = (file) => {
       setLoading(true);
       const reader = new FileReader();
@@ -230,28 +246,14 @@ export default function CalendarView() {
                   return;
               }
 
-              // 容錯機制
-              let session = {};
-              let dateStr = "";
+              let sessions = data.sessions || data.session || [];
+              if (sessions.length === 0 && data.activity && data.activity.sessions) {
+                  sessions = data.activity.sessions;
+              }
               
-              if (data.sessions && data.sessions.length > 0) session = data.sessions[0];
-              else if (data.session && data.session.length > 0) session = data.session[0];
-              else if (data.activity?.sessions && data.activity.sessions.length > 0) session = data.activity.sessions[0];
-
-              if (!session.start_time && data.records && data.records.length > 0) {
-                  session.start_time = data.records[0].timestamp;
-                  // 嘗試補完
-                  const lastRec = data.records[data.records.length-1];
-                  const firstRec = data.records[0];
-                  session.total_elapsed_time = (new Date(lastRec.timestamp) - new Date(firstRec.timestamp)) / 1000;
-                  if (lastRec.distance) session.total_distance = lastRec.distance;
-              }
-
-              if (session.start_time) {
-                  dateStr = formatDate(new Date(session.start_time));
-              } else {
-                  dateStr = formatDate(new Date()); 
-              }
+              const session = sessions.length > 0 ? sessions[0] : {};
+              const startTime = session.start_time ? new Date(session.start_time) : new Date();
+              const dateStr = formatDate(startTime);
 
               const isRunning = session.sport === 'running' || session.sub_sport === 'treadmill';
               const type = isRunning ? 'run' : 'strength';
@@ -264,51 +266,34 @@ export default function CalendarView() {
 
               let exercises = [];
               const rawSets = data.sets || data.set || [];
-
-              // 尋找 sets 遞迴
-              const findSets = (obj) => {
-                  if (!obj || typeof obj !== 'object') return [];
-                  let results = [];
-                  if (obj.repetition_count !== undefined || (obj.wkt_step_label && obj.duration_type === 'repetition')) {
-                      results.push(obj);
-                  }
-                  if (Array.isArray(obj)) {
-                      obj.forEach(item => results = results.concat(findSets(item)));
-                  } else {
-                      Object.values(obj).forEach(val => results = results.concat(findSets(val)));
-                  }
-                  return results;
-              };
               
-              const allSets = rawSets.length > 0 ? rawSets : findSets(data);
-
-              if (type === 'strength' && allSets.length > 0) {
-                  allSets.forEach((set) => {
-                      if ((!set.repetition_count || set.repetition_count === 0) && !set.weight) return;
+              if (type === 'strength' && rawSets.length > 0) {
+                  rawSets.forEach((set, idx) => {
+                      if (!set.repetition_count || set.repetition_count === 0) return;
 
                       let weight = set.weight || 0;
                       if (weight > 1000) weight = weight / 1000;
-                      
-                      const reps = set.repetition_count || 0;
+                      const reps = set.repetition_count;
                       
                       let name = "訓練動作";
-                      if (set.wkt_step_label) name = set.wkt_step_label;
-                      else if (set.category) {
-                          const catMap = { 13: '胸部', 15: '腿部', 3: '腹部', 1: '背部', 2: '手臂', 23: '肩膀' };
-                          name = catMap[set.category] ? `${catMap[set.category]}訓練` : `動作(類別${set.category})`;
-                      } else if (set.message_index !== undefined) {
-                          name = `動作 ${set.message_index + 1}`;
+                      if (set.wkt_step_label) {
+                          name = set.wkt_step_label;
+                      } else if (set.category) {
+                           const catMap = { 
+                               13: '胸部', 15: '腿部', 3: '腹部', 1: '背部', 2: '手臂', 23: '肩膀' 
+                           };
+                           name = catMap[set.category] ? `${catMap[set.category]}訓練` : `動作(類別${set.category})`;
                       }
 
                       const lastEx = exercises[exercises.length - 1];
-                      if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - Math.round(weight)) < 1 && lastEx.reps === reps) {
+                      if (lastEx && lastEx.name === name && Math.abs(lastEx.weight - weight) < 0.1 && lastEx.reps === reps) {
                           lastEx.sets += 1;
                       } else {
                           exercises.push({
                               name: name,
                               sets: 1, 
                               reps: reps,
-                              weight: Math.round(weight),
+                              weight: Math.round(weight), 
                               targetMuscle: detectMuscleGroup(name) || "" 
                           });
                       }
@@ -316,20 +301,25 @@ export default function CalendarView() {
               }
 
               if (exercises.length === 0 && type === 'strength') {
-                  exercises.push({
-                      name: "匯入訓練 (無詳細動作)",
-                      sets: session.total_sets || 1,
-                      reps: session.total_reps || "N/A",
-                      weight: 0,
-                      targetMuscle: ""
-                  });
+                  const totalSets = session.total_sets || session.num_sets || 0;
+                  const totalReps = session.total_reps || session.num_reps || 0;
+                  
+                  if (totalSets > 0) {
+                      exercises.push({
+                          name: "匯入訓練 (無詳細組數)",
+                          sets: totalSets,
+                          reps: totalReps || "N/A",
+                          weight: 0,
+                          targetMuscle: ""
+                      });
+                  }
               }
 
               const dataToSave = {
                   date: dateStr,
                   status: 'completed',
                   type,
-                  title: isRunning ? '跑步訓練 (FIT)' : `重訓 (${exercises.length}項動作)`,
+                  title: isRunning ? '跑步訓練 (FIT)' : '重訓 (FIT匯入)',
                   exercises,
                   runDistance: distance,
                   runDuration: duration,
@@ -368,7 +358,7 @@ export default function CalendarView() {
       reader.readAsArrayBuffer(file);
   };
 
-  // --- 2. CSV 檔案處理邏輯 ---
+  // --- CSV 處理 ---
   const handleCSVUpload = async (file) => {
     setLoading(true);
 
@@ -432,6 +422,7 @@ export default function CalendarView() {
             }
 
             const title = getVal(row, cols.title);
+            
             let type = 'strength';
             const tRaw = activityTypeRaw.toLowerCase();
             if (tRaw.includes('run') || tRaw.includes('跑') || tRaw.includes('walk') || tRaw.includes('走')) {
@@ -576,7 +567,6 @@ export default function CalendarView() {
     };
   };
 
-  // --- Drag and Drop Logic ---
   const handleDragStart = (e, workout) => {
     e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('application/json', JSON.stringify(workout));
@@ -665,7 +655,8 @@ export default function CalendarView() {
       runHeartRate: '',
       runRPE: '',
       notes: '',
-      calories: ''
+      calories: '',
+      gearId: ''
     });
     setCurrentDocId(null); 
     setModalView('form');
@@ -684,7 +675,8 @@ export default function CalendarView() {
       runHeartRate: workout.runHeartRate || '',
       runRPE: workout.runRPE || '',
       notes: workout.notes || '',
-      calories: workout.calories || ''
+      calories: workout.calories || '',
+      gearId: workout.gearId || ''
     });
     setCurrentDocId(workout.id); 
     setModalView('form');
@@ -986,7 +978,11 @@ export default function CalendarView() {
                                 <p className="text-xs">點擊下方按鈕新增第一筆運動</p>
                             </div>
                         ) : (
-                            workouts[formatDate(selectedDate)].map((workout) => (
+                            workouts[formatDate(selectedDate)].map((workout) => {
+                                // 查找對應裝備名稱
+                                const usedGear = gears.find(g => g.id === workout.gearId);
+                                
+                                return (
                                 <div 
                                     key={workout.id} 
                                     onClick={() => handleEdit(workout)}
@@ -1011,13 +1007,18 @@ export default function CalendarView() {
                                                         })()
                                                         : `${workout.exercises?.length || 0} 個動作`}
                                             </p>
+                                            {usedGear && (
+                                                <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300">
+                                                    <ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="text-gray-500 group-hover:text-white">
                                         <Edit3 size={18} />
                                     </div>
                                 </div>
-                            ))
+                            )})
                         )}
                         
                         <button 
@@ -1211,6 +1212,23 @@ export default function CalendarView() {
                                 <label className="text-xs text-gray-500 uppercase font-semibold">平均心率 (bpm)</label>
                                 <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:border-orange-500 outline-none font-mono" />
                             </div>
+                            {/* 新增：裝備選擇 */}
+                            <div className="col-span-2 space-y-1">
+                                <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
+                                    <ShoppingBag size={12} /> 選擇裝備 (跑鞋)
+                                </label>
+                                <select 
+                                    value={editForm.gearId} 
+                                    onChange={e => setEditForm({...editForm, gearId: e.target.value})}
+                                    className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-orange-500 outline-none appearance-none"
+                                >
+                                    <option value="">-- 未指定 --</option>
+                                    {gears.filter(g => g.status === 'active' || g.id === editForm.gearId).map(g => (
+                                        <option key={g.id} value={g.id}>{g.brand} {g.model}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {/* 新增 RPE 欄位 */}
                             <div className="space-y-1">
                                 <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">

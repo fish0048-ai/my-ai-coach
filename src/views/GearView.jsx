@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge } from 'lucide-react';
+import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge, Calculator } from 'lucide-react';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -17,7 +17,7 @@ export default function GearView() {
     type: 'shoes', 
     startDate: new Date().toISOString().split('T')[0],
     maxDistance: 800, 
-    initialDistance: 0, // 新增：初始里程
+    initialDistance: '', // 改為字串以利輸入負號
     status: 'active' 
   });
 
@@ -56,25 +56,29 @@ export default function GearView() {
     }
   };
 
-  // 計算特定裝備的累積里程 (初始 + 紀錄)
-  const calculateUsage = (gear) => {
-    // 找出啟用日期後的所有跑步紀錄
+  // 核心：計算系統抓取到的里程 (不含手動)
+  const getSystemDistance = (startDate, status, retireDate) => {
     const validLogs = runLogs.filter(log => {
-        return log.date >= gear.startDate && (gear.status === 'active' || log.date <= (gear.retireDate || '9999-12-31'));
+        // 如果是現役，只看開始日期後
+        // 如果是退役，看開始日期~退役日期之間
+        const endDate = status === 'retired' ? (retireDate || '9999-12-31') : '9999-12-31';
+        return log.date >= startDate && log.date <= endDate;
     });
+    return validLogs.reduce((sum, log) => sum + log.distance, 0);
+  };
 
-    const loggedDist = validLogs.reduce((sum, log) => sum + log.distance, 0);
-    // 總里程 = 初始里程 (手動輸入) + APP紀錄里程
-    const initialDist = parseFloat(gear.initialDistance) || 0;
-    
-    return (initialDist + loggedDist).toFixed(1);
+  // 計算特定裝備的累積里程 (顯示用)
+  const calculateTotalUsage = (gear) => {
+    const systemDist = getSystemDistance(gear.startDate, gear.status, gear.retireDate);
+    const manualDist = parseFloat(gear.initialDistance) || 0;
+    return (systemDist + manualDist).toFixed(1);
   };
 
   const handleSave = async () => {
     if (!formData.brand || !formData.model) return alert("請輸入品牌與型號");
     const user = auth.currentUser;
     
-    // 確保數值格式正確
+    // 儲存前轉換為數字
     const payload = {
         ...formData,
         maxDistance: Number(formData.maxDistance),
@@ -86,12 +90,16 @@ export default function GearView() {
         // 更新
         await updateDoc(doc(db, 'users', user.uid, 'gears', editingGear.id), {
           ...payload,
-          retireDate: formData.status === 'retired' ? (editingGear.retireDate || new Date().toISOString().split('T')[0]) : null
+          // 如果狀態剛被改成 retired，且原本沒有 retireDate，就補上今天
+          retireDate: (formData.status === 'retired' && !editingGear.retireDate) 
+            ? new Date().toISOString().split('T')[0] 
+            : (formData.status === 'active' ? null : editingGear.retireDate)
         });
       } else {
         // 新增
         await addDoc(collection(db, 'users', user.uid, 'gears'), {
           ...payload,
+          currentDistance: 0, 
           createdAt: serverTimestamp()
         });
       }
@@ -117,7 +125,7 @@ export default function GearView() {
       type: gear.type,
       startDate: gear.startDate,
       maxDistance: gear.maxDistance,
-      initialDistance: gear.initialDistance || 0, // 載入既有初始里程
+      initialDistance: gear.initialDistance || 0,
       status: gear.status
     });
     setShowModal(true);
@@ -130,10 +138,15 @@ export default function GearView() {
       type: 'shoes',
       startDate: new Date().toISOString().split('T')[0],
       maxDistance: 800,
-      initialDistance: 0,
+      initialDistance: '',
       status: 'active'
     });
   };
+
+  // 即時預覽計算
+  const previewSystemDist = getSystemDistance(formData.startDate, formData.status, editingGear?.retireDate);
+  const previewManualDist = parseFloat(formData.initialDistance) || 0;
+  const previewTotal = (previewSystemDist + previewManualDist).toFixed(1);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">
@@ -156,7 +169,7 @@ export default function GearView() {
       {/* 裝備列表 Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {gears.map(gear => {
-          const usage = calculateUsage(gear);
+          const usage = calculateTotalUsage(gear);
           const percent = Math.min(100, (usage / gear.maxDistance) * 100);
           const isRetired = gear.status === 'retired';
           
@@ -224,7 +237,7 @@ export default function GearView() {
         
         {gears.length === 0 && !loading && (
              <div 
-                onClick={() => setShowModal(true)}
+                onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
                 className="bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center p-8 cursor-pointer hover:border-blue-500 hover:bg-gray-800 transition-all group min-h-[200px]"
              >
                 <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-600 text-gray-400 group-hover:text-white transition-colors">
@@ -243,6 +256,23 @@ export default function GearView() {
             </h3>
             
             <div className="space-y-4">
+              {/* 計算預覽區塊 */}
+              <div className="bg-gray-800 p-3 rounded-lg border border-gray-600">
+                  <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-1"><Calculator size={12}/> 里程計算預覽</h4>
+                  <div className="flex justify-between items-center text-sm mb-1">
+                      <span>系統紀錄 (行事曆):</span>
+                      <span className="text-gray-300">{previewSystemDist.toFixed(1)} km</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mb-1">
+                      <span>+ 手動增減 (校正):</span>
+                      <span className="text-blue-400">{previewManualDist > 0 ? '+' : ''}{previewManualDist} km</span>
+                  </div>
+                  <div className="border-t border-gray-600 my-1 pt-1 flex justify-between items-center font-bold">
+                      <span>= 目前總里程:</span>
+                      <span className="text-green-400">{previewTotal} km</span>
+                  </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">品牌</label>
@@ -265,7 +295,7 @@ export default function GearView() {
               </div>
 
               <div>
-                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (從這天開始計算里程)</label>
+                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (從這天開始計算系統里程)</label>
                   <input 
                     type="date"
                     value={formData.startDate} 
@@ -274,7 +304,6 @@ export default function GearView() {
                   />
               </div>
 
-              {/* 新增欄位：初始里程與預期壽命並排 */}
               <div className="grid grid-cols-2 gap-4">
                   <div>
                       <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1"><Gauge size={10}/> 預期壽命 (km)</label>
@@ -286,13 +315,13 @@ export default function GearView() {
                       />
                   </div>
                   <div>
-                      <label className="text-xs text-gray-500 block mb-1 text-blue-300 flex items-center gap-1"><Plus size={10}/> 初始里程 (km)</label>
+                      <label className="text-xs text-gray-500 block mb-1 text-blue-300 flex items-center gap-1"><Plus size={10}/> 手動增減 (km)</label>
                       <input 
                         type="number"
                         value={formData.initialDistance} 
-                        onChange={e => setFormData({...formData, initialDistance: Number(e.target.value)})}
+                        onChange={e => setFormData({...formData, initialDistance: e.target.value})}
                         className="w-full bg-gray-800 border border-blue-500/50 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
-                        placeholder="0"
+                        placeholder="例如: 50 或 -10"
                       />
                   </div>
               </div>

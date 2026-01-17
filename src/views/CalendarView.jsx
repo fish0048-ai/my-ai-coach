@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -7,8 +7,8 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-// 修正：移除 formatDate 匯入，改用本地定義以避免 Build Error
-import { parseAndUploadFIT, parseAndUploadCSV, generateCSVData } from '../utils/importHelpers';
+// 修正：只匯入存在的函式，移除 generateCSVData 的匯入
+import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
 // 本地定義日期格式化工具
@@ -40,6 +40,37 @@ const cleanNumber = (val) => {
     if (typeof val === 'number') return val;
     if (typeof val === 'string') return parseFloat(val.replace(/[^\d.]/g, '')) || '';
     return '';
+};
+
+// 輔助：生成 CSV 資料 (本地定義以避免匯入錯誤)
+const generateCSVData = async (uid, gears) => {
+    const q = query(collection(db, 'users', uid, 'calendar'));
+    const querySnapshot = await getDocs(q);
+    const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
+    const rows = [headers];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const type = data.type === 'run' ? '跑步' : '肌力訓練';
+      let totalSets = 0;
+      if (data.exercises && Array.isArray(data.exercises)) {
+          totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
+      }
+      const gearName = gears.find(g => g.id === data.gearId)?.model || '';
+      const row = [
+          type, data.date || '', data.title || '', data.runDistance || '', data.runDuration || '',
+          data.runHeartRate || '', data.runPower || '', data.calories || '',
+          totalSets > 0 ? totalSets : '', gearName, data.notes || ''
+      ];
+      const escapedRow = row.map(field => {
+          const str = String(field ?? '');
+          if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str.replace(/"/g, '""')}"`;
+          return str;
+      });
+      rows.push(escapedRow);
+    });
+
+    return "\uFEFF" + rows.map(r => r.join(",")).join("\n");
 };
 
 export default function CalendarView() {
@@ -456,7 +487,7 @@ export default function CalendarView() {
             const isToday = formatDate(new Date()) === dateStr;
             const isDragOver = dragOverDate === dateStr;
             
-            // 修正：明確定義變數
+            // 修正：明確定義變數 (預設灰色)
             let bgClass = 'bg-gray-900 border-gray-700';
             let textClass = 'text-gray-300';
             
@@ -479,19 +510,6 @@ export default function CalendarView() {
                   {dayWorkouts.map((workout, wIdx) => {
                     const isRun = workout.type === 'run';
                     const isPlanned = workout.status === 'planned';
-                    let summaryText = workout.title || '訓練';
-                    if (isRun) {
-                    } else {
-                        if (workout.calories) summaryText += ` (${workout.calories}cal)`;
-                        else if (Array.isArray(workout.exercises) && workout.exercises.length > 0) {
-                             const firstEx = workout.exercises[0];
-                             if (firstEx.name && firstEx.name.includes('匯入')) {
-                                 summaryText += ` (${firstEx.sets}組)`;
-                             } else {
-                                 summaryText += ` (${workout.exercises.length}項目)`;
-                             }
-                        }
-                    }
                     return (
                         <div 
                             key={workout.id || wIdx}
@@ -501,10 +519,10 @@ export default function CalendarView() {
                                 isPlanned ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
                             }`}
-                            title={summaryText}
+                            title={workout.title}
                         >
                             {isPlanned && <Clock size={8} />}
-                            {summaryText}
+                            {workout.title || (isRun ? '跑步' : '訓練')}
                         </div>
                     );
                   })}

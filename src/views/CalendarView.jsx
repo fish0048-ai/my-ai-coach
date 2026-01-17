@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
@@ -220,7 +220,7 @@ export default function CalendarView() {
         alert(`成功生成 ${plans.length} 筆訓練計畫！`);
     } catch (error) {
         console.error("Weekly Gen Error:", error);
-        alert("生成失敗: " + error.message);
+        alert("生成失敗");
     } finally { setLoading(false); }
   };
 
@@ -286,7 +286,6 @@ export default function CalendarView() {
   };
 
   const handleImportClick = () => csvInputRef.current?.click();
-  
   const handleCSVUpload = async (e) => { 
       const file = e.target.files?.[0];
       if (!file) return;
@@ -307,7 +306,6 @@ export default function CalendarView() {
           if (csvInputRef.current) csvInputRef.current.value = '';
       }
   };
-  
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -491,8 +489,7 @@ export default function CalendarView() {
             return (
               <div 
                 key={idx}
-                onDragOver={(e) => handleDragOver(e, dateStr)}
-                onDragLeave={() => {}}
+                onDragOver={(e) => { e.preventDefault(); if (dragOverDate !== dateStr) setDragOverDate(dateStr); }}
                 onDrop={(e) => handleDrop(e, dateStr)}
                 onClick={() => handleDateClick(cellDate)}
                 className={`relative p-2 rounded-lg border transition-all cursor-pointer flex flex-col hover:bg-gray-700 aspect-square overflow-hidden ${bgClass} ${isToday ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-900' : ''}`}
@@ -575,7 +572,7 @@ export default function CalendarView() {
                                         <option value="auto">🤖 AI 決定</option>
                                         <option value="rest">😴 休息日</option>
                                         <option value="strength">🏋️ 重訓日</option>
-                                        <option value="run_lsd">🐢 長距離跑 (LSD)</option>
+                                        <option value="run_lsd">🐢 長距離跑</option>
                                         <option value="run_interval">🐇 間歇跑</option>
                                         <option value="run_easy">👟 輕鬆跑</option>
                                         <option value="run_mp">🔥 馬拉松配速</option>
@@ -665,15 +662,22 @@ export default function CalendarView() {
                 <div className="p-6 border-t border-gray-800 flex justify-between">
                      {modalView === 'form' && (
                          <>
-                            <button onClick={() => setModalView('list')} className="text-gray-400">返回</button>
-                            <button onClick={async () => {
-                                const dataToSave = { ...editForm, date: formatDate(selectedDate), updatedAt: new Date().toISOString() };
-                                if (currentDocId) await setDoc(doc(db, 'users', auth.currentUser.uid, 'calendar', currentDocId), dataToSave);
-                                else await addDoc(collection(db, 'users', auth.currentUser.uid, 'calendar'), dataToSave);
-                                updateAIContext();
-                                await fetchMonthWorkouts();
-                                setModalView('list');
-                            }} className="bg-blue-600 text-white px-6 py-2 rounded-lg">儲存</button>
+                            {currentDocId && (
+                                <button onClick={handleDelete} className="flex items-center gap-2 text-red-400 hover:text-red-300 px-4 py-2">
+                                    <Trash2 size={18} /> 刪除
+                                </button>
+                            )}
+                            <div className="flex gap-3 ml-auto">
+                                <button onClick={() => setModalView('list')} className="text-gray-400 px-4 py-2 hover:text-white">取消</button>
+                                <button onClick={async () => {
+                                    const dataToSave = { ...editForm, date: formatDate(selectedDate), updatedAt: new Date().toISOString() };
+                                    if (currentDocId) await setDoc(doc(db, 'users', auth.currentUser.uid, 'calendar', currentDocId), dataToSave);
+                                    else await addDoc(collection(db, 'users', auth.currentUser.uid, 'calendar'), dataToSave);
+                                    updateAIContext();
+                                    await fetchMonthWorkouts();
+                                    setModalView('list');
+                                }} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-500 transition-colors">儲存</button>
+                            </div>
                          </>
                      )}
                 </div>

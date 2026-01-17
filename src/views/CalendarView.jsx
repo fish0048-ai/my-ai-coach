@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
+import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
@@ -30,6 +31,13 @@ const getWeekDates = (baseDate) => {
     weekDates.push(formatDate(d));
   }
   return weekDates;
+};
+
+// 輔助：清理數字格式
+const cleanNumber = (val) => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') return parseFloat(val.replace(/[^\d.]/g, '')) || '';
+    return '';
 };
 
 export default function CalendarView() {
@@ -135,7 +143,6 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
-        const cleanNumber = (val) => (typeof val === 'number' ? val : parseFloat(val?.replace(/[^\d.]/g, '')) || '');
 
         setEditForm(prev => ({
             ...prev,
@@ -198,8 +205,8 @@ export default function CalendarView() {
                 title: plan.title || 'AI 訓練計畫',
                 notes: `[總教練週計畫]\n${plan.advice || ''}`,
                 exercises: plan.exercises || [],
-                runDistance: plan.runDistance || '',
-                runDuration: plan.runDuration || '',
+                runDistance: cleanNumber(plan.runDistance),
+                runDuration: cleanNumber(plan.runDuration),
                 runPace: plan.runPace || '',
                 runHeartRate: plan.runHeartRate || '',
                 updatedAt: new Date().toISOString()
@@ -213,7 +220,7 @@ export default function CalendarView() {
         alert(`成功生成 ${plans.length} 筆訓練計畫！`);
     } catch (error) {
         console.error("Weekly Gen Error:", error);
-        alert("生成失敗");
+        alert("生成失敗: " + error.message);
     } finally { setLoading(false); }
   };
 
@@ -484,7 +491,8 @@ export default function CalendarView() {
             return (
               <div 
                 key={idx}
-                onDragOver={(e) => { e.preventDefault(); if (dragOverDate !== dateStr) setDragOverDate(dateStr); }}
+                onDragOver={(e) => handleDragOver(e, dateStr)}
+                onDragLeave={() => {}}
                 onDrop={(e) => handleDrop(e, dateStr)}
                 onClick={() => handleDateClick(cellDate)}
                 className={`relative p-2 rounded-lg border transition-all cursor-pointer flex flex-col hover:bg-gray-700 aspect-square overflow-hidden ${bgClass} ${isToday ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-900' : ''}`}
@@ -530,6 +538,68 @@ export default function CalendarView() {
         </div>
       </div>
 
+      {showWeeklyModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-gray-900 w-full max-w-2xl rounded-2xl border border-gray-700 shadow-2xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <CalendarDays className="text-purple-500" /> 本週總教練排程
+                    </h3>
+                    <button onClick={() => setShowWeeklyModal(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
+                </div>
+                
+                <div className="bg-purple-900/20 p-4 rounded-xl border border-purple-500/30 mb-6 text-sm text-purple-200">
+                    <p>請設定本週剩餘日期的訓練重點，AI 將根據您的月跑量目標與恢復狀態自動填入課表。</p>
+                </div>
+
+                <div className="space-y-3 max-h-[50vh] overflow-y-auto mb-6">
+                    {weekDateList.map(date => {
+                        const dayWorkouts = workouts[date] || [];
+                        const hasCompleted = dayWorkouts.some(w => w.status === 'completed');
+                        const dayName = new Date(date).toLocaleDateString('zh-TW', { weekday: 'long' });
+                        
+                        return (
+                            <div key={date} className={`flex items-center justify-between p-3 rounded-lg border ${hasCompleted ? 'bg-gray-800 border-gray-700 opacity-60' : 'bg-gray-800 border-gray-600'}`}>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-gray-400 font-mono w-24">{date}</span>
+                                    <span className="text-white font-bold">{dayName}</span>
+                                    {hasCompleted && <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">已完成</span>}
+                                </div>
+                                
+                                {!hasCompleted ? (
+                                    <select 
+                                        value={weeklyPrefs[date] || 'auto'}
+                                        onChange={(e) => setWeeklyPrefs({...weeklyPrefs, [date]: e.target.value})}
+                                        className="bg-gray-700 text-white border border-gray-600 rounded px-3 py-1 outline-none focus:border-purple-500"
+                                    >
+                                        <option value="auto">🤖 AI 決定</option>
+                                        <option value="rest">😴 休息日</option>
+                                        <option value="strength">🏋️ 重訓日</option>
+                                        <option value="run_lsd">🐢 長距離跑 (LSD)</option>
+                                        <option value="run_interval">🐇 間歇跑</option>
+                                        <option value="run_easy">👟 輕鬆跑</option>
+                                        <option value="run_mp">🔥 馬拉松配速</option>
+                                    </select>
+                                ) : (
+                                    <span className="text-xs text-gray-500 italic">無需排程</span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <button 
+                    onClick={handleWeeklyGenerate} 
+                    disabled={loading}
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                >
+                    {loading ? <Loader className="animate-spin" /> : <Sparkles />}
+                    生成本週課表
+                </button>
+            </div>
+        </div>
+      )}
+
       {isModalOpen && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
              <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
@@ -567,6 +637,7 @@ export default function CalendarView() {
                                                 {usedGear && <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300"><ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}</div>}
                                             </div>
                                         </div>
+                                        <div className="text-gray-500 group-hover:text-white"><Edit3 size={18} /></div>
                                     </div>
                                     )
                                 })

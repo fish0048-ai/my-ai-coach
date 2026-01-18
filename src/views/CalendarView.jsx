@@ -11,13 +11,8 @@ import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import { formatDate, getWeekDates } from '../utils/date';
+import { cleanNumber } from '../utils/number';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
-
-const cleanNumber = (val) => {
-    if (typeof val === 'number') return val;
-    if (typeof val === 'string') return parseFloat(val.replace(/[^\d.]/g, '')) || '';
-    return '';
-};
 
 
 // --- 組件主體 ---

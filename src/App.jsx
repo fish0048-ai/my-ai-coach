@@ -5,6 +5,9 @@ import MainLayout from './layouts/MainLayout';
 // import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader, AlertTriangle, MessageSquare } from 'lucide-react';
 import { signInWithGoogle } from './services/authService';
+import ErrorToast from './components/common/ErrorToast';
+import { handleError } from './services/errorService';
+import ErrorToast from './components/common/ErrorToast';
 
 // --- 1. 使用 Lazy Loading 隔離錯誤並優化效能 ---
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));
@@ -60,8 +63,14 @@ class ErrorBoundary extends React.Component {
 // --- 3. 登入畫面 ---
 const LoginView = () => {
     const handleGoogleLogin = async () => {
-        try { await signInWithGoogle(); } 
-        catch (error) { console.error(error); alert("登入失敗: " + error.message); }
+        try { 
+            await signInWithGoogle(); 
+        } catch (error) {
+            handleError(error, { 
+                context: 'LoginView', 
+                operation: 'signInWithGoogle' 
+            });
+        }
     };
 
     return (
@@ -135,6 +144,7 @@ export default function App() {
 
   return (
     <>
+      <ErrorToast />
       <MainLayout 
         user={user} 
         currentView={currentView} 

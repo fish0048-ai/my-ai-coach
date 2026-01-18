@@ -5,41 +5,128 @@ const getCurrentUser = () => {
   return auth.currentUser;
 };
 
+/**
+ * 简单内存缓存实现
+ * 缓存查询结果，减少 Firebase 读取次数
+ */
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 分钟缓存时间
+
+/**
+ * 获取缓存数据
+ * @param {string} key - 缓存键
+ * @returns {any|null} 缓存数据或 null
+ */
+const getCache = (key) => {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  
+  const now = Date.now();
+  if (now - cached.timestamp > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+  
+  return cached.data;
+};
+
+/**
+ * 设置缓存数据
+ * @param {string} key - 缓存键
+ * @param {any} data - 要缓存的数据
+ */
+const setCache = (key, data) => {
+  cache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+};
+
+/**
+ * 清除缓存（在数据更新时调用）
+ * @param {string} pattern - 缓存键模式（可选）
+ */
+const clearCache = (pattern = null) => {
+  if (pattern) {
+    // 清除匹配模式的缓存
+    for (const key of cache.keys()) {
+      if (key.includes(pattern)) {
+        cache.delete(key);
+      }
+    }
+  } else {
+    // 清除所有缓存
+    cache.clear();
+  }
+};
+
 export const listGears = async () => {
   const user = getCurrentUser();
   if (!user) return [];
+  
+  const cacheKey = `gears_${user.uid}`;
+  const cached = getCache(cacheKey);
+  if (cached) return cached;
+  
   const q = query(collection(db, 'users', user.uid, 'gears'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  
+  setCache(cacheKey, data);
+  return data;
 };
 
 export const listCalendarWorkouts = async () => {
   const user = getCurrentUser();
   if (!user) return [];
+  
+  const cacheKey = `calendar_workouts_${user.uid}`;
+  const cached = getCache(cacheKey);
+  if (cached) return cached;
+  
   const q = query(collection(db, 'users', user.uid, 'calendar'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  
+  setCache(cacheKey, data);
+  return data;
 };
 
 export const listCalendarWorkoutsByDateRange = async (startDate, endDate = null) => {
   const user = getCurrentUser();
   if (!user) return [];
+  
+  const cacheKey = `calendar_workouts_range_${user.uid}_${startDate}_${endDate || 'null'}`;
+  const cached = getCache(cacheKey);
+  if (cached) return cached;
+  
   const constraints = [collection(db, 'users', user.uid, 'calendar'), where('date', '>=', startDate)];
   if (endDate) {
     constraints.push(where('date', '<=', endDate));
   }
   const q = query(...constraints);
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  
+  setCache(cacheKey, data);
+  return data;
 };
 
 export const listTodayWorkouts = async () => {
   const user = getCurrentUser();
   if (!user) return [];
+  
   const todayStr = new Date().toISOString().split('T')[0];
+  const cacheKey = `today_workouts_${user.uid}_${todayStr}`;
+  const cached = getCache(cacheKey);
+  if (cached) return cached;
+  
   const q = query(collection(db, 'users', user.uid, 'calendar'), where('date', '==', todayStr));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  
+  setCache(cacheKey, data);
+  return data;
 };
 
 export const listCompletedWorkouts = async () => {
@@ -84,6 +171,9 @@ export const updateCalendarWorkout = async (workoutId, updates) => {
   if (!user) throw new Error('請先登入');
   const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
   await updateDoc(docRef, updates);
+  
+  // 清除相关缓存
+  clearCache(`calendar_${user.uid}`);
 };
 
 export const setCalendarWorkout = async (workoutId, data) => {
@@ -91,6 +181,9 @@ export const setCalendarWorkout = async (workoutId, data) => {
   if (!user) throw new Error('請先登入');
   const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
   await setDoc(docRef, data);
+  
+  // 清除相关缓存
+  clearCache(`calendar_${user.uid}`);
 };
 
 export const createCalendarWorkout = async (data) => {
@@ -98,12 +191,18 @@ export const createCalendarWorkout = async (data) => {
   if (!user) throw new Error('請先登入');
   const collectionRef = collection(db, 'users', user.uid, 'calendar');
   await addDoc(collectionRef, data);
+  
+  // 清除相关缓存
+  clearCache(`calendar_${user.uid}`);
 };
 
 export const deleteCalendarWorkout = async (workoutId) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
   await deleteDoc(doc(db, 'users', user.uid, 'calendar', workoutId));
+  
+  // 清除相关缓存
+  clearCache(`calendar_${user.uid}`);
 };
 
 export const getUserProfile = async () => {
@@ -161,16 +260,25 @@ export const createGear = async (data) => {
     currentDistance: 0,
     createdAt: serverTimestamp()
   });
+  
+  // 清除装备相关缓存
+  clearCache(`gears_${user.uid}`);
 };
 
 export const updateGear = async (gearId, updates) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
   await updateDoc(doc(db, 'users', user.uid, 'gears', gearId), updates);
+  
+  // 清除装备相关缓存
+  clearCache(`gears_${user.uid}`);
 };
 
 export const deleteGear = async (gearId) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
   await deleteDoc(doc(db, 'users', user.uid, 'gears', gearId));
+  
+  // 清除装备相关缓存
+  clearCache(`gears_${user.uid}`);
 };

@@ -12,6 +12,7 @@ import { generateDailyWorkout, generateWeeklyWorkout } from '../services/ai/work
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import { formatDate, getWeekDates } from '../utils/date';
 import { cleanNumber } from '../utils/number';
+import { checkAndUnlockAchievements } from '../services/achievementService';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 import WeeklyModal from '../components/Calendar/WeeklyModal';
 
@@ -99,6 +100,12 @@ export default function CalendarView() {
           });
           await fetchMonthWorkouts();
           await updateAIContext();
+          // 如果標記為完成，檢查成就（非阻塞）
+          if (newStatus === 'completed') {
+            checkAndUnlockAchievements().catch(err => {
+              console.error('檢查成就失敗:', err);
+            });
+          }
       } catch (err) { console.error(err); }
   };
 
@@ -322,6 +329,12 @@ export default function CalendarView() {
       if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
       else await createCalendarWorkout(dataToSave);
       updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
+      // 如果狀態為完成，檢查成就（非阻塞）
+      if (dataToSave.status === 'completed') {
+        checkAndUnlockAchievements().catch(err => {
+          console.error('檢查成就失敗:', err);
+        });
+      }
     } catch (error) { 
       handleError(error, { context: 'CalendarView', operation: 'handleSave' }); 
     }

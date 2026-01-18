@@ -8,6 +8,7 @@ import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/
 import { calculateMuscleFatigue } from '../utils/statsCalculations';
 import StatCard from '../components/Dashboard/StatCard';
 import PRTracker from '../components/Dashboard/PRTracker';
+import AchievementPanel from '../components/Dashboard/AchievementPanel';
 import { useUserStore } from '../store/userStore';
 import { useViewStore } from '../store/viewStore';
 
@@ -294,8 +295,11 @@ export default function DashboardView() {
         />
       </div>
 
-      {/* 第二層：PR 追蹤 */}
-      <PRTracker />
+      {/* 第二層：PR 追蹤與成就 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PRTracker />
+        <AchievementPanel />
+      </div>
 
       {/* 第三層：跑步週統計 */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">

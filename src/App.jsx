@@ -1,12 +1,13 @@
 import React, { useState, Suspense } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
-import CoachChat from './components/AICoach/CoachChat.jsx';
-import { Loader, AlertTriangle } from 'lucide-react';
+// 移除靜態引入，改用 Lazy Load
+// import CoachChat from './components/AICoach/CoachChat.jsx';
+import { Loader, AlertTriangle, MessageSquare } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from './firebase';
 
-// Lazy Load Views
+// --- 1. 使用 Lazy Loading 隔離錯誤並優化效能 ---
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));
 const CalendarView = React.lazy(() => import('./views/CalendarView.jsx'));
 const FeatureViews = React.lazy(() => import('./views/FeatureViews.jsx'));
@@ -14,8 +15,12 @@ const StrengthAnalysisView = React.lazy(() => import('./views/StrengthAnalysisVi
 const RunAnalysisView = React.lazy(() => import('./views/RunAnalysisView.jsx'));
 const TrendAnalysisView = React.lazy(() => import('./views/TrendAnalysisView.jsx'));
 const NutritionView = React.lazy(() => import('./views/NutritionView.jsx'));
-const GearView = React.lazy(() => import('./views/GearView.jsx')); // 確保已引入
+const GearView = React.lazy(() => import('./views/GearView.jsx'));
 
+// 懶載入聊天室元件 (降低初始 Bundle 大小)
+const CoachChat = React.lazy(() => import('./components/AICoach/CoachChat.jsx'));
+
+// --- 2. 錯誤邊界元件 (Error Boundary) ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -53,6 +58,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// --- 3. 登入畫面 ---
 const LoginView = () => {
     const handleGoogleLogin = async () => {
         const provider = new GoogleAuthProvider();
@@ -98,6 +104,7 @@ export default function App() {
   }
 
   const renderContent = () => {
+    // 每個視圖都包在 ErrorBoundary 和 Suspense 中
     return (
       <ErrorBoundary>
         <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader className="animate-spin text-gray-500"/></div>}>
@@ -134,11 +141,23 @@ export default function App() {
         {renderContent()}
       </MainLayout>
 
-      <CoachChat 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-        user={user}
-      />
+      {/* 只有在開啟時才載入並渲染 Chat 元件 */}
+      {isChatOpen && (
+        <Suspense fallback={
+            <div className="fixed bottom-6 right-6 w-80 h-96 bg-gray-900 border border-gray-700 rounded-2xl flex items-center justify-center shadow-2xl z-50">
+               <div className="flex flex-col items-center text-gray-500">
+                  <Loader className="animate-spin mb-2" />
+                  <span className="text-xs">喚醒教練中...</span>
+               </div>
+            </div>
+        }>
+            <CoachChat 
+                isOpen={isChatOpen} 
+                onClose={() => setIsChatOpen(false)} 
+                user={user}
+            />
+        </Suspense>
+      )}
     </>
   );
 }

@@ -164,6 +164,16 @@ export default function TrendAnalysisView() {
       return processTrendData(rawData, metricType, timeScale);
   }, [rawData, metricType, timeScale]);
 
+  // 訓練周期分析
+  const cycleAnalysis = useMemo(() => {
+    if (bodyLogs.length === 0 && workoutLogs.length === 0) return null;
+    return analyzeTrainingCycle({ 
+      bodyLogs, 
+      workouts: workoutLogs.filter(w => w.status === 'completed'),
+      weeks: 12 
+    });
+  }, [bodyLogs, workoutLogs]);
+
   // 修正：將變數名稱統一為 stats，解決 ReferenceError
   const stats = useMemo(() => {
       if (chartData.length < 2) return null;
@@ -286,6 +296,57 @@ export default function TrendAnalysisView() {
           </div>
           <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-gray-400">取消</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold">儲存</button></div>
         </form>
+      )}
+
+      {/* 訓練周期分析卡片 */}
+      {cycleAnalysis && (
+        <div className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border ${getPhaseColor(cycleAnalysis.currentPhase)} p-6 shadow-lg`}>
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Target className="text-purple-400" size={24} />
+              <div>
+                <h3 className="text-xl font-bold text-white">訓練周期分析</h3>
+                <p className="text-sm text-gray-400 mt-1">基於最近 12 週的訓練數據</p>
+              </div>
+            </div>
+            <div className={`px-4 py-2 rounded-lg border ${getPhaseColor(cycleAnalysis.currentPhase)}`}>
+              <span className="text-sm font-bold">{getPhaseName(cycleAnalysis.currentPhase)}</span>
+            </div>
+          </div>
+          
+          <p className="text-gray-300 mb-4">{cycleAnalysis.recommendation.message}</p>
+          
+          <div className="space-y-2">
+            <p className="text-xs text-gray-400 uppercase font-bold">建議行動</p>
+            <ul className="space-y-2">
+              {cycleAnalysis.recommendation.actions.map((action, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                  <span className="text-purple-400 mt-1">•</span>
+                  <span>{action}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-700/50 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+            <div>
+              <p className="text-gray-400 mb-1">訓練頻率</p>
+              <p className="text-white font-bold">{cycleAnalysis.trend.frequency.perWeek.toFixed(1)} 次/週</p>
+            </div>
+            <div>
+              <p className="text-gray-400 mb-1">體重趨勢</p>
+              <p className="text-white font-bold capitalize">{cycleAnalysis.trend.weight.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend.weight.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 mb-1">體脂趨勢</p>
+              <p className="text-white font-bold capitalize">{cycleAnalysis.trend.bodyFat.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend.bodyFat.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 mb-1">訓練強度</p>
+              <p className="text-white font-bold">{cycleAnalysis.trend.intensity.avgIntensity === 'high' ? '高' : cycleAnalysis.trend.intensity.avgIntensity === 'moderate' ? '中' : '低'}</p>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

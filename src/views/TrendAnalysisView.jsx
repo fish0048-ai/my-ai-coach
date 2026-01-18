@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff } from 'lucide-react';
+import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff, Target } from 'lucide-react';
 import { subscribeBodyLogs, createBodyLog, deleteBodyLog } from '../services/bodyService';
 import { subscribeCompletedWorkouts } from '../services/calendarService';
 import { parsePaceToDecimal, calculateVolume } from '../utils/workoutCalculations';
 import { processTrendData } from '../utils/trendCalculations';
 import { handleError } from '../services/errorService';
+import { analyzeTrainingCycle, getPhaseName, getPhaseColor } from '../utils/cycleAnalysis';
 
 // --- 進階圖表組件 ---
 const AdvancedChart = ({ data, color, unit, label, showTrend }) => {

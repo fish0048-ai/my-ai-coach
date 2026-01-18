@@ -7,11 +7,11 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-// 修正：只匯入確定存在的匯入工具，避免 formatDate 錯誤
+// 修正：移除導致錯誤的 formatDate 與 generateCSVData 匯入
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
-// --- 本地定義輔助函式 (防止匯入錯誤) ---
+// --- 本地定義輔助函式 (避免匯入錯誤) ---
 
 const formatDate = (date) => {
   if (!date || isNaN(date.getTime())) return '';
@@ -192,6 +192,7 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
+
         setEditForm(prev => ({
             ...prev,
             status: 'planned',
@@ -635,7 +636,6 @@ export default function CalendarView() {
                     </div>
                     <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
                 </div>
-
                 <div className="p-6 overflow-y-auto flex-1">
                     {modalView === 'list' && (
                         <div className="space-y-4">
@@ -658,15 +658,7 @@ export default function CalendarView() {
                                                 {usedGear && <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300"><ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}</div>}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Edit3 size={18} className="text-gray-600 group-hover:text-white" />
-                                            <button 
-                                                onClick={(e) => handleStatusToggle(e, workout)}
-                                                className={`p-2 rounded-full transition-colors ${workout.status === 'completed' ? 'text-green-500 bg-green-900/20' : 'text-gray-600 hover:text-gray-400'}`}
-                                            >
-                                                <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} />
-                                            </button>
-                                        </div>
+                                        <div className="text-gray-500 group-hover:text-white"><Edit3 size={18} /></div>
                                     </div>
                                     )
                                 })
@@ -692,7 +684,6 @@ export default function CalendarView() {
                         />
                     )}
                 </div>
-
                 <div className="p-6 border-t border-gray-800 flex justify-between">
                      {modalView === 'form' && (
                          <>

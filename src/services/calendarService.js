@@ -296,7 +296,7 @@ export const deleteGear = async (gearId) => {
 const calculate1RM = (weight, reps) => {
   if (!weight || !reps || reps <= 0) return 0;
   if (reps === 1) return weight;
-  // 使用 Epley 公式：1RM = weight × (1 + reps / 30)
+  // 使用 Epley 公式：1RM = weight * (1 + reps / 30)
   return Math.round(weight * (1 + reps / 30) * 10) / 10;
 };
 

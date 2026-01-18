@@ -4,6 +4,7 @@ import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
 import { saveRunAnalysis } from '../services/analysisService';
+import { handleError } from '../services/errorService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
@@ -285,12 +286,17 @@ export default function RunAnalysisView() {
     setVideoError(null); 
     if (file.name.toLowerCase().endsWith('.fit')) { await handleFitAnalysis(file); } 
     else {
-        if (file.type && !file.type.startsWith('video/')) { alert("請上傳有效的影片"); return; }
+        if (file.type && !file.type.startsWith('video/')) { 
+          handleError("請上傳有效的影片", { context: 'RunAnalysisView', operation: 'handleFileChange' }); 
+          return; 
+        }
         setVideoFile(URL.createObjectURL(file));
         setIsFitMode(false);
         setAnalysisStep('idle');
         fullScanDataRef.current = [];
-        if (file.name.toLowerCase().endsWith('.mov')) alert("MOV 格式可能無法播放");
+        if (file.name.toLowerCase().endsWith('.mov')) {
+          handleError("MOV 格式可能無法播放", { context: 'RunAnalysisView', operation: 'handleFileChange' });
+        }
     }
   };
 
@@ -386,7 +392,11 @@ export default function RunAnalysisView() {
       reader.onload = (event) => {
         const fitParser = new FitParser({ force: true, speedUnit: 'km/h', lengthUnit: 'km', temperatureUnit: 'celsius', elapsedRecordField: true });
         fitParser.parse(event.target.result, (error, data) => {
-            if (error || !data) { alert("FIT 解析失敗"); setAnalysisStep('idle'); return; }
+            if (error || !data) { 
+              handleError("FIT 解析失敗", { context: 'RunAnalysisView', operation: 'handleFitAnalysis' }); 
+              setAnalysisStep('idle'); 
+              return; 
+            }
             setTimeout(() => {
                 const fitMetrics = { 
                     cadence: { label: 'FIT 步頻', value: '180', unit: 'spm', status: 'good', icon: Activity },
@@ -403,7 +413,10 @@ export default function RunAnalysisView() {
   
   const performAIAnalysis = async () => {
     const apiKey = getApiKey();
-    if (!apiKey) { alert("請先設定 API Key"); return; }
+    if (!apiKey) { 
+      handleError("請先設定 API Key", { context: 'RunAnalysisView', operation: 'performAIAnalysis' }); 
+      return; 
+    }
     setAnalysisStep('analyzing_ai');
     
     const prompt = `
@@ -426,7 +439,10 @@ export default function RunAnalysisView() {
 
   const saveToCalendar = async () => {
     const user = getCurrentUser();
-    if (!user) { alert("請先登入"); return; }
+    if (!user) { 
+      handleError("請先登入", { context: 'RunAnalysisView', operation: 'saveToCalendar' }); 
+      return; 
+    }
     setIsSaving(true);
     try {
         const now = new Date();
@@ -442,9 +458,9 @@ export default function RunAnalysisView() {
             updatedAt: now.toISOString()
         };
         await saveRunAnalysis(dateStr, analysisEntry);
-        alert("跑姿報告已儲存！");
+        // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
     } catch (e) {
-        alert("儲存失敗");
+        handleError(e, { context: 'RunAnalysisView', operation: 'saveToCalendar' });
     } finally {
         setIsSaving(false);
     }

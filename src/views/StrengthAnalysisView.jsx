@@ -4,6 +4,7 @@ import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
 import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analysisService';
+import { handleError } from '../services/errorService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
@@ -192,7 +193,11 @@ export default function StrengthAnalysisView() {
     reader.onload = (event) => {
         const fitParser = new FitParser({ force: true, speedUnit: 'km/h', lengthUnit: 'km', temperatureUnit: 'celsius', elapsedRecordField: true });
         fitParser.parse(event.target.result, (error, data) => {
-            if (error || !data) { alert("FIT 解析失敗"); setAnalysisStep('idle'); return; }
+            if (error || !data) { 
+              handleError("FIT 解析失敗", { context: 'StrengthAnalysisView', operation: 'handleFitAnalysis' }); 
+              setAnalysisStep('idle'); 
+              return; 
+            }
             setTimeout(() => {
                 const fitM = {
                     reps: { label: 'FIT 總次數', value: '12', unit: 'reps', status: 'good', icon: Activity },
@@ -236,7 +241,10 @@ export default function StrengthAnalysisView() {
 
   const performAIAnalysis = async () => {
     const apiKey = getApiKey();
-    if (!apiKey) { alert("請先設定 API Key"); return; }
+    if (!apiKey) { 
+      handleError("請先設定 API Key", { context: 'StrengthAnalysisView', operation: 'performAIAnalysis' }); 
+      return; 
+    }
     setAnalysisStep('analyzing_ai');
     
     const prompt = `
@@ -259,7 +267,10 @@ export default function StrengthAnalysisView() {
 
   const saveToCalendar = async () => {
     const user = getCurrentUser();
-    if (!user) { alert("請先登入"); return; }
+    if (!user) { 
+      handleError("請先登入", { context: 'StrengthAnalysisView', operation: 'saveToCalendar' }); 
+      return; 
+    }
     setIsSaving(true);
     try {
         const now = new Date();
@@ -292,10 +303,10 @@ export default function StrengthAnalysisView() {
             };
             if (docId) await upsertStrengthAnalysis(docId, analysisEntry);
             else await upsertStrengthAnalysis(null, { ...analysisEntry, createdAt: now.toISOString() });
-            alert("分析報告已儲存！");
+            // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
         }
     } catch (e) {
-        alert("儲存失敗");
+        handleError(e, { context: 'StrengthAnalysisView', operation: 'saveToCalendar' });
     } finally {
         setIsSaving(false);
     }

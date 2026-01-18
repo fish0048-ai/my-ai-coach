@@ -4,6 +4,7 @@ import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, Chef
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
 import { subscribeFoodLogsByDate, createFoodLog, deleteFoodLog } from '../services/nutritionService';
+import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { updateAIContext } from '../utils/contextManager';
 import { useUserStore } from '../store/userStore';
@@ -75,7 +76,10 @@ export default function NutritionView() {
     const file = e.target.files?.[0];
     if (!file) return;
     const apiKey = getApiKey();
-    if (!apiKey) return alert("請先設定 API Key");
+    if (!apiKey) {
+      handleError("請先設定 API Key", { context: 'NutritionView', operation: 'handleImageUpload' });
+      return;
+    }
 
     setAnalyzing(true);
     setShowAddForm(true); 
@@ -106,7 +110,7 @@ export default function NutritionView() {
         
     } catch (error) {
         console.error(error);
-        alert("辨識失敗，請重試或手動輸入。");
+        handleError("辨識失敗，請重試或手動輸入。", { context: 'NutritionView', operation: 'handleImageUpload' });
     } finally {
         setAnalyzing(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -114,7 +118,10 @@ export default function NutritionView() {
   };
 
   const handleAddFood = async () => {
-    if (!foodName) return alert("請輸入食物名稱");
+    if (!foodName) {
+      handleError("請輸入食物名稱", { context: 'NutritionView', operation: 'handleAddFood' });
+      return;
+    }
     const user = getCurrentUser();
     if (!user) return;
 
@@ -139,7 +146,7 @@ export default function NutritionView() {
 
     } catch (error) {
         console.error(error);
-        alert("新增失敗");
+        handleError("新增失敗", { context: 'NutritionView', operation: 'handleAddFood' });
     }
   };
 
@@ -155,7 +162,10 @@ export default function NutritionView() {
 
   const getSuggestion = async () => {
       const apiKey = getApiKey();
-      if (!apiKey) return alert("請先設定 API Key");
+      if (!apiKey) {
+        handleError("請先設定 API Key", { context: 'NutritionView', operation: 'getSuggestion' });
+        return;
+      }
       
       setSuggesting(true);
       try {
@@ -175,7 +185,7 @@ export default function NutritionView() {
           const text = await runGemini(prompt, apiKey);
           setSuggestion(text);
       } catch (e) {
-          alert("無法取得建議");
+          handleError("無法取得建議", { context: 'NutritionView', operation: 'getSuggestion' });
       } finally {
           setSuggesting(false);
       }

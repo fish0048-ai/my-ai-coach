@@ -4,6 +4,7 @@ import { updateUserProfile } from '../services/userService';
 import { syncBodyLogFromProfile } from '../services/bodyService';
 import { getCurrentUser } from '../services/authService';
 import { updateAIContext } from '../utils/contextManager';
+import { handleError } from '../services/errorService';
 import { calculateTDEE } from '../utils/nutritionCalculations';
 import { calculateActiveMaxHR } from '../utils/heartRateCalculations';
 import ProfileHeader from '../components/Profile/ProfileHeader';
@@ -107,7 +108,7 @@ export default function FeatureViews({ view }) {
   const handleSave = async () => {
     const user = getCurrentUser();
     if (!user) {
-      alert("請先登入才能儲存資料！");
+      handleError("請先登入才能儲存資料！", { context: 'FeatureViews', operation: 'handleSave' });
       return;
     }
 
@@ -136,10 +137,9 @@ export default function FeatureViews({ view }) {
       await updateUserData();
 
       setIsEditing(false);
-      alert("個人資料已更新！並已同步至數據趨勢紀錄。");
+      // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
     } catch (error) {
-      console.error("儲存失敗:", error);
-      alert("儲存失敗，請檢查網路連線。");
+      handleError(error, { context: 'FeatureViews', operation: 'handleSave' });
     } finally {
       setIsSaving(false);
     }

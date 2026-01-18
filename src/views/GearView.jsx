@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge, Calculator } from 'lucide-react';
 import { subscribeGears, createGear, updateGear, deleteGear, listRunLogs } from '../services/calendarService';
+import { getCurrentUser } from '../services/authService';
+import { handleError } from '../services/errorService';
 
 export default function GearView() {
   const [gears, setGears] = useState([]);
@@ -65,7 +67,10 @@ export default function GearView() {
   };
 
   const handleSave = async () => {
-    if (!formData.brand || !formData.model) return alert("請輸入品牌與型號");
+    if (!formData.brand || !formData.model) {
+      handleError("請輸入品牌與型號", { context: 'GearView', operation: 'handleSave' });
+      return;
+    }
     
     // 儲存前轉換為數字
     const payload = {
@@ -93,8 +98,7 @@ export default function GearView() {
       setEditingGear(null);
       resetForm();
     } catch (e) {
-      console.error(e);
-      alert("儲存失敗: " + (e.message || '未知錯誤'));
+      handleError(e, { context: 'GearView', operation: 'handleSave' });
     }
   };
 
@@ -103,8 +107,7 @@ export default function GearView() {
     try {
       await deleteGear(id);
     } catch (e) {
-      console.error('刪除失敗:', e);
-      alert("刪除失敗");
+      handleError(e, { context: 'GearView', operation: 'handleDelete' });
     }
   };
 

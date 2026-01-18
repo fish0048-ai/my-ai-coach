@@ -4,6 +4,7 @@ import { subscribeBodyLogs, createBodyLog, deleteBodyLog } from '../services/bod
 import { subscribeCompletedWorkouts } from '../services/calendarService';
 import { parsePaceToDecimal, calculateVolume } from '../utils/workoutCalculations';
 import { processTrendData } from '../utils/trendCalculations';
+import { handleError } from '../services/errorService';
 
 // --- 進階圖表組件 ---
 const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
@@ -217,9 +218,9 @@ export default function TrendAnalysisView() {
       setInputWeight('');
       setInputFat('');
       setShowAddForm(false);
-      alert("新增成功");
+      // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
     } catch (e) {
-      alert("失敗: " + (e.message || '未知錯誤'));
+      handleError(e, { context: 'TrendAnalysisView', operation: 'handleAddLog' });
     }
   };
 
@@ -247,10 +248,12 @@ export default function TrendAnalysisView() {
       a.click();
       document.body.removeChild(a);
     } catch (e) {
-      alert("失敗");
+      handleError(e, { context: 'TrendAnalysisView', operation: 'handleExport' });
     }
   };
-  const handleCSVUpload = async (e) => { alert("目前僅支援匯入體重資料，請至行事曆匯入運動資料"); };
+  const handleCSVUpload = async (e) => { 
+    handleError("目前僅支援匯入體重資料，請至行事曆匯入運動資料", { context: 'TrendAnalysisView', operation: 'handleCSVUpload' }); 
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn p-4 md:p-0">

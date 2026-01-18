@@ -7,7 +7,6 @@ import { Loader, AlertTriangle, MessageSquare } from 'lucide-react';
 import { signInWithGoogle } from './services/authService';
 import ErrorToast from './components/common/ErrorToast';
 import { handleError } from './services/errorService';
-import ErrorToast from './components/common/ErrorToast';
 
 // --- 1. 使用 Lazy Loading 隔離錯誤並優化效能 ---
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));

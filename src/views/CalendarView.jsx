@@ -6,6 +6,7 @@ import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
+// 確保這裡正確匯入兩個函式
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
@@ -167,69 +168,50 @@ export default function CalendarView() {
       } catch (err) { console.error(err); }
   };
 
-  // --- AI 總教練生成邏輯 (修復版) ---
   const handleHeadCoachGenerate = async () => {
     const user = auth.currentUser;
     if (!user) return alert("請先登入");
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) return alert("請先設定 API Key");
-
     setIsGenerating(true);
     try {
         const profileRef = doc(db, 'users', user.uid);
         const profileSnap = await getDoc(profileRef);
         const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
-        
-        let recentLogs = "無近期紀錄";
-        try { recentLogs = await getAIContext(); } catch(e){}
-
+        const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
         const targetDateStr = formatDate(selectedDate);
         
         let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
-        prompt += "\n\nIMPORTANT: Output ONLY raw JSON. Do not use Markdown code blocks. Ensure all keys are quoted.";
-
+        prompt += "\n\nIMPORTANT: Output ONLY raw JSON.";
         const response = await runGemini(prompt, apiKey);
-        console.log("AI Response:", response); // Debug output
-
-        // 強化版 JSON 提取：使用 Regex 抓取 { ... }
-        let cleanJson = response;
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            cleanJson = jsonMatch[0];
-        }
         
-        let plan;
-        try {
-            plan = JSON.parse(cleanJson);
-        } catch (e) {
-            console.error("JSON Parse Error:", e, cleanJson);
-            throw new Error("AI 回傳格式錯誤 (JSON Parse Failed)");
-        }
+        let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
+        const startIndex = cleanJson.indexOf('{');
+        const endIndex = cleanJson.lastIndexOf('}');
+        if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
+        
+        const plan = JSON.parse(cleanJson);
 
         setEditForm(prev => ({
             ...prev,
             status: 'planned',
             type: plan.type === 'run' ? 'run' : 'strength',
-            title: plan.title || 'AI 訓練',
-            notes: `[總教練建議]\n${plan.advice || '無建議'}\n\n${prev.notes || ''}`,
-            exercises: Array.isArray(plan.exercises) ? plan.exercises : [],
+            title: plan.title,
+            notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
+            exercises: plan.exercises || [],
             runDistance: cleanNumber(plan.runDistance),
             runDuration: cleanNumber(plan.runDuration),
             runPace: plan.runPace || '',
             runHeartRate: plan.runHeartRate || '', 
         }));
         alert("總教練已生成課表！");
-
     } catch (error) {
         console.error("AI Gen Error:", error);
-        alert(`總教練思考中斷: ${error.message}\n(請按 F12 查看詳細錯誤)`);
-    } finally {
-        setIsGenerating(false);
-    }
+        alert("總教練思考中斷，請重試");
+    } finally { setIsGenerating(false); }
   };
 
-  // --- AI 週排程邏輯 ---
   const handleWeeklyGenerate = async () => {
     const user = auth.currentUser;
     const apiKey = localStorage.getItem('gemini_api_key');
@@ -238,32 +220,29 @@ export default function CalendarView() {
     try {
         const weekDates = getWeekDates(currentDate);
         const planningDates = weekDates.filter(d => {
-            const hasCompleted = (workouts[d] || []).some(w => w.status === 'completed');
-            return !hasCompleted && weeklyPrefs[d] && !weeklyPrefs[d].includes('rest');
+            // 注意：複選模式下，只要有選擇類型且不是 'rest' 就納入
+            return weeklyPrefs[d] && weeklyPrefs[d].length > 0 && !weeklyPrefs[d].includes('rest');
         });
 
         if (planningDates.length === 0) {
             setLoading(false);
-            return alert("本週無需規劃 (皆設為休息或已完成)。");
+            return alert("本週無需規劃 (未選擇任何訓練)。");
         }
 
         const profileRef = doc(db, 'users', user.uid);
         const profileSnap = await getDoc(profileRef);
         const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
-        let recentLogs = "無";
-        try { recentLogs = await getAIContext(); } catch(e){}
+        const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
 
         let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats);
         prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
         const response = await runGemini(prompt, apiKey);
         
-        // 強化版 Array JSON 提取
-        let cleanJson = response;
-        const arrayMatch = response.match(/\[[\s\S]*\]/);
-        if (arrayMatch) {
-            cleanJson = arrayMatch[0];
-        }
+        let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
+        const startIndex = cleanJson.indexOf('[');
+        const endIndex = cleanJson.lastIndexOf(']');
+        if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
 
         const plans = JSON.parse(cleanJson);
         const batchPromises = plans.map(async (plan) => {
@@ -713,6 +692,7 @@ export default function CalendarView() {
                         />
                     )}
                 </div>
+
                 <div className="p-6 border-t border-gray-800 flex justify-between">
                      {modalView === 'form' && (
                          <>

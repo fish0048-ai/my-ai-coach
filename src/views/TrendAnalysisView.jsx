@@ -172,9 +172,6 @@ export default function TrendAnalysisView() {
       workouts: workoutLogs.filter(w => w.status === 'completed'),
       weeks: 12 
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TrendAnalysisView.jsx:175',message:'cycleAnalysis after calculation',data:{hasResult:!!result,hasTrend:!!result?.trend,hasWeight:!!result?.trend?.weight,hasWeightDirection:!!result?.trend?.weight?.direction,hasBodyFat:!!result?.trend?.bodyFat,hasBodyFatDirection:!!result?.trend?.bodyFat?.direction,bodyLogsCount:bodyLogs.length,workoutLogsCount:workoutLogs.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C,E'})}).catch(()=>{});
-    // #endregion
     return result;
   }, [bodyLogs, workoutLogs]);
 
@@ -305,12 +302,6 @@ export default function TrendAnalysisView() {
       {/* 訓練周期分析卡片 */}
       {cycleAnalysis && (
         <div className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border ${getPhaseColor(cycleAnalysis.currentPhase)} p-6 shadow-lg`}>
-          {/* #region agent log */}
-          {(() => {
-            fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TrendAnalysisView.jsx:303',message:'Rendering cycleAnalysis card',data:{hasCycleAnalysis:!!cycleAnalysis,hasTrend:!!cycleAnalysis.trend,hasWeight:!!cycleAnalysis.trend?.weight,hasWeightDirection:!!cycleAnalysis.trend?.weight?.direction,hasBodyFat:!!cycleAnalysis.trend?.bodyFat,hasBodyFatDirection:!!cycleAnalysis.trend?.bodyFat?.direction},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C,E'})}).catch(()=>{});
-            return null;
-          })()}
-          {/* #endregion */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <Target className="text-purple-400" size={24} />

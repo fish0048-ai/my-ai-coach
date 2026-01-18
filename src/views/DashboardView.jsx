@@ -6,6 +6,7 @@ import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarCha
 import { getCurrentUser } from '../services/authService';
 import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
 import { calculateMuscleFatigue } from '../utils/statsCalculations';
+import StatCard from '../components/Dashboard/StatCard';
 
 // 安全的日期解析函數
 const safeTimestamp = (dateStr) => {
@@ -17,18 +18,6 @@ const safeTimestamp = (dateStr) => {
         return 0;
     }
 };
-
-const StatCard = ({ icon: Icon, label, value, color }) => (
-  <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center space-x-4">
-    <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
-      <Icon className={color.replace('bg-', 'text-')} size={24} />
-    </div>
-    <div>
-      <p className="text-gray-400 text-sm">{label}</p>
-      <h3 className="text-2xl font-bold text-white">{value}</h3>
-    </div>
-  </div>
-);
 
 export default function DashboardView({ userData }) {
   const [stats, setStats] = useState({

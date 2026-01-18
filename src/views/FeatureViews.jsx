@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer, Heart } from 'lucide-react';
+import { User, Settings, Save, Loader, Pill, Calculator, Calendar as CalendarIcon, Clock, Timer } from 'lucide-react';
 import { updateUserProfile } from '../services/userService';
 import { syncBodyLogFromProfile } from '../services/bodyService';
 import { getCurrentUser } from '../services/authService';
 import { updateAIContext } from '../utils/contextManager';
-import { calculateTDEE, getTargetCalories } from '../utils/nutritionCalculations';
+import { calculateTDEE } from '../utils/nutritionCalculations';
+import { calculateActiveMaxHR } from '../utils/heartRateCalculations';
+import ProfileHeader from '../components/Profile/ProfileHeader';
+import HeartRateZones from '../components/Profile/HeartRateZones';
 
 export default function FeatureViews({ view, userData }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -33,21 +36,7 @@ export default function FeatureViews({ view, userData }) {
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
 
   // 計算實際使用的最大心率 (手動優先，否則用年齡估算)
-  const activeMaxHR = parseInt(profile.maxHeartRate) || (profile.age ? 220 - parseInt(profile.age) : 0);
-
-  // 心率區間計算
-  const heartRateZones = (() => {
-    if (!activeMaxHR) return [];
-    const maxHR = activeMaxHR;
-    
-    return [
-      { label: 'Z1 恢復跑 (Recovery)', range: `${Math.round(maxHR * 0.5)} - ${Math.round(maxHR * 0.6)}`, color: 'text-gray-400', bg: 'bg-gray-700/30' },
-      { label: 'Z2 有氧耐力 (Aerobic)', range: `${Math.round(maxHR * 0.6)} - ${Math.round(maxHR * 0.7)}`, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-      { label: 'Z3 節奏跑 (Tempo)', range: `${Math.round(maxHR * 0.7)} - ${Math.round(maxHR * 0.8)}`, color: 'text-green-400', bg: 'bg-green-500/10' },
-      { label: 'Z4 乳酸閾值 (Threshold)', range: `${Math.round(maxHR * 0.8)} - ${Math.round(maxHR * 0.9)}`, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-      { label: 'Z5 最大攝氧 (VO2 Max)', range: `${Math.round(maxHR * 0.9)} - ${maxHR}`, color: 'text-red-400', bg: 'bg-red-500/10' },
-    ];
-  })();
+  const activeMaxHR = calculateActiveMaxHR(profile.maxHeartRate, profile.age);
 
   useEffect(() => {
     if (userData) {
@@ -498,26 +487,11 @@ export default function FeatureViews({ view, userData }) {
                     </div>
 
                     {/* 心率區間自動計算 */}
-                    <div className="mt-6 pt-6 border-t border-gray-700">
-                      <div className="flex items-center justify-between mb-4">
-                         <label className="text-xs text-gray-500 uppercase font-semibold flex items-center gap-1">
-                           <Heart size={12} className="text-red-500" /> 心率區間 (最大心率: {activeMaxHR || '--'} bpm {profile.maxHeartRate ? '(自訂)' : '(估算)'})
-                         </label>
-                      </div>
-                      
-                      {!activeMaxHR ? (
-                          <div className="text-sm text-gray-500 text-center py-2">請輸入「年齡」或「最大心率」以計算區間</div>
-                      ) : (
-                          <div className="space-y-2">
-                              {heartRateZones.map((z, idx) => (
-                                  <div key={idx} className={`flex justify-between items-center p-2 rounded ${z.bg}`}>
-                                      <span className={`text-xs font-bold ${z.color}`}>{z.label}</span>
-                                      <span className="text-xs text-white font-mono">{z.range} bpm</span>
-                                  </div>
-                              ))}
-                          </div>
-                      )}
-                    </div>
+                    <HeartRateZones 
+                      activeMaxHR={activeMaxHR}
+                      hasManualMaxHR={!!profile.maxHeartRate}
+                      age={profile.age}
+                    />
                 </div>
             </div>
 

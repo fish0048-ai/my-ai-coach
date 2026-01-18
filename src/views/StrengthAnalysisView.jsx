@@ -4,9 +4,6 @@ import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
 import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analysisService';
-import FitParser from 'fit-file-parser';
-import { POSE_CONNECTIONS } from '@mediapipe/pose';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
@@ -90,10 +87,10 @@ export default function StrengthAnalysisView() {
     try {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        if (results.poseLandmarks) {
+        if (results.poseLandmarks && drawingUtils && poseConnections) {
             if (showSkeletonRef.current) {
-                drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 3 }); 
-                drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 2, radius: 4 }); 
+                drawingUtils.drawConnectors(ctx, results.poseLandmarks, poseConnections, { color: '#00FF00', lineWidth: 3 }); 
+                drawingUtils.drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 2, radius: 4 }); 
             }
 
             let angle = 0;
@@ -131,8 +128,25 @@ export default function StrengthAnalysisView() {
     }
   };
 
-  // 使用 Hook
-  const poseModel = usePoseDetection(onPoseResults);
+  // 使用 Hook（延遲加載 MediaPipe）
+  const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
+
+  // 延遲加載 MediaPipe 繪圖工具
+  const [drawingUtils, setDrawingUtils] = useState(null);
+  const [poseConnections, setPoseConnections] = useState(null);
+
+  useEffect(() => {
+    if (poseModel && !drawingUtils) {
+      // 動態導入 MediaPipe 繪圖工具
+      Promise.all([
+        import('@mediapipe/drawing_utils').then(m => m),
+        import('@mediapipe/pose').then(m => m.POSE_CONNECTIONS)
+      ]).then(([drawing, connections]) => {
+        setDrawingUtils(drawing);
+        setPoseConnections(connections);
+      }).catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
+    }
+  }, [poseModel, drawingUtils]);
 
   const onVideoPlay = () => {
       const video = videoRef.current;
@@ -155,7 +169,7 @@ export default function StrengthAnalysisView() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.name.toLowerCase().endsWith('.fit')) {
-        handleFitAnalysis(file);
+        await handleFitAnalysis(file);
     } else {
         setVideoFile(URL.createObjectURL(file));
         setIsFitMode(false);
@@ -166,10 +180,14 @@ export default function StrengthAnalysisView() {
     }
   };
 
-  const handleFitAnalysis = (file) => {
+  const handleFitAnalysis = async (file) => {
     setAnalysisStep('analyzing_internal');
     setIsFitMode(true);
     setVideoFile(null);
+    
+    // 動態導入 FitParser，延遲加載
+    const FitParser = (await import('fit-file-parser')).default;
+    
     const reader = new FileReader();
     reader.onload = (event) => {
         const fitParser = new FitParser({ force: true, speedUnit: 'km/h', lengthUnit: 'km', temperatureUnit: 'celsius', elapsedRecordField: true });

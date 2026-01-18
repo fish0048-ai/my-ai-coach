@@ -4,9 +4,6 @@ import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
 import { saveRunAnalysis } from '../services/analysisService';
-import FitParser from 'fit-file-parser';
-import { POSE_CONNECTIONS } from '@mediapipe/pose';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
@@ -204,10 +201,10 @@ export default function RunAnalysisView() {
     try {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        if (results.poseLandmarks) {
+        if (results.poseLandmarks && drawingUtils && poseConnections) {
             if (showSkeletonRef.current) {
-                drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 2 }); 
-                drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
+                drawingUtils.drawConnectors(ctx, results.poseLandmarks, poseConnections, { color: '#00FF00', lineWidth: 2 }); 
+                drawingUtils.drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
             }
 
             let angle = 0;
@@ -239,8 +236,25 @@ export default function RunAnalysisView() {
     } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
   };
 
-  // 使用 Custom Hook
-  const poseModel = usePoseDetection(onPoseResults);
+  // 使用 Custom Hook（延遲加載 MediaPipe）
+  const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
+
+  // 延遲加載 MediaPipe 繪圖工具
+  const [drawingUtils, setDrawingUtils] = useState(null);
+  const [poseConnections, setPoseConnections] = useState(null);
+
+  useEffect(() => {
+    if (poseModel && !drawingUtils) {
+      // 動態導入 MediaPipe 繪圖工具
+      Promise.all([
+        import('@mediapipe/drawing_utils').then(m => m),
+        import('@mediapipe/pose').then(m => m.POSE_CONNECTIONS)
+      ]).then(([drawing, connections]) => {
+        setDrawingUtils(drawing);
+        setPoseConnections(connections);
+      }).catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
+    }
+  }, [poseModel, drawingUtils]);
 
   // --- Video Loop & Scan Logic ---
   const processFrame = async () => {
@@ -269,7 +283,7 @@ export default function RunAnalysisView() {
     const file = event.target.files?.[0];
     if (!file) return;
     setVideoError(null); 
-    if (file.name.toLowerCase().endsWith('.fit')) { handleFitAnalysis(file); } 
+    if (file.name.toLowerCase().endsWith('.fit')) { await handleFitAnalysis(file); } 
     else {
         if (file.type && !file.type.startsWith('video/')) { alert("請上傳有效的影片"); return; }
         setVideoFile(URL.createObjectURL(file));
@@ -360,10 +374,14 @@ export default function RunAnalysisView() {
   };
 
   const handleUploadClick = () => fileInputRef.current?.click();
-  const handleFitAnalysis = (file) => {
+  const handleFitAnalysis = async (file) => {
       setAnalysisStep('analyzing_internal');
       setIsFitMode(true);
       setVideoFile(null);
+      
+      // 動態導入 FitParser，延遲加載
+      const FitParser = (await import('fit-file-parser')).default;
+      
       const reader = new FileReader();
       reader.onload = (event) => {
         const fitParser = new FitParser({ force: true, speedUnit: 'km/h', lengthUnit: 'km', temperatureUnit: 'celsius', elapsedRecordField: true });

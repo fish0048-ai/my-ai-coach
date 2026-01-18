@@ -3,16 +3,7 @@ import { db, auth } from '../firebase';
 import { updateAIContext } from './contextManager';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import FitParser from 'fit-file-parser';
-
-// --- 通用工具 ---
-
-export const formatDate = (date) => {
-  if (!date || isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { formatDate } from './date';
 
 export const cleanNumber = (val) => {
     if (typeof val === 'number') return val;

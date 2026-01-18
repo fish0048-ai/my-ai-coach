@@ -9,32 +9,8 @@ import FitParser from 'fit-file-parser';
 // 確保這裡正確匯入兩個函式
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
+import { formatDate, getWeekDates } from '../utils/date';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
-
-// --- 本地定義輔助函式 ---
-
-const formatDate = (date) => {
-  if (!date || isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getWeekDates = (baseDate) => {
-  const current = new Date(baseDate);
-  const day = current.getDay(); 
-  const diff = current.getDate() - day + (day === 0 ? -6 : 1); 
-  const monday = new Date(current.setDate(diff));
-  
-  const weekDates = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    weekDates.push(formatDate(d));
-  }
-  return weekDates;
-};
 
 const cleanNumber = (val) => {
     if (typeof val === 'number') return val;

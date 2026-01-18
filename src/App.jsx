@@ -101,7 +101,7 @@ export default function App() {
         <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader className="animate-spin text-gray-500"/></div>}>
           {(() => {
             switch (currentView) {
-              case 'dashboard': return <DashboardView userData={userData} />;
+              case 'dashboard': return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
               case 'calendar': return <CalendarView />;
               case 'trend': return <TrendAnalysisView />;
               case 'nutrition': return <NutritionView userData={userData} />;
@@ -111,9 +111,9 @@ export default function App() {
               case 'profile': return <FeatureViews view="profile" userData={userData} />;
               case 'training': 
               case 'analysis':
-                return <DashboardView userData={userData} />; 
+                return <DashboardView userData={userData} setCurrentView={setCurrentView} />; 
               default:
-                return <DashboardView userData={userData} />;
+                return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
             }
           })()}
         </Suspense>

@@ -19,7 +19,7 @@ const safeTimestamp = (dateStr) => {
     }
 };
 
-export default function DashboardView({ userData }) {
+export default function DashboardView({ userData, setCurrentView }) {
   const [stats, setStats] = useState({
     totalWorkouts: 0,
     caloriesBurned: 0,
@@ -237,9 +237,24 @@ export default function DashboardView({ userData }) {
                     {/* 引導到行事曆按鈕 */}
                     {todayWorkouts.some(w => w.status !== 'completed') && (
                         <div className="text-right mt-2">
-                            <p className="text-xs text-blue-300 flex items-center justify-end gap-1">
+                            {/* #region agent log */}
+                            {typeof window !== 'undefined' && fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DashboardView.jsx:239',message:'Navigate to calendar clicked - checking if setCurrentView is available',data:{hasSetCurrentView:typeof setCurrentView!=='undefined',hasOnNavigate:typeof onNavigate!=='undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{})}
+                            {/* #endregion */}
+                            <button 
+                                onClick={() => {
+                                    // #region agent log
+                                    if (typeof window !== 'undefined') fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DashboardView.jsx:246',message:'onClick handler executed',data:{hasSetCurrentView:typeof setCurrentView!=='undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+                                    // #endregion
+                                    if (setCurrentView) {
+                                        setCurrentView('calendar');
+                                    } else {
+                                        console.warn('Navigation function not available');
+                                    }
+                                }}
+                                className="text-xs text-blue-300 hover:text-blue-200 flex items-center justify-end gap-1 cursor-pointer hover:underline transition-colors"
+                            >
                                 前往行事曆打卡 <ArrowRight size={12}/>
-                            </p>
+                            </button>
                         </div>
                     )}
                 </div>

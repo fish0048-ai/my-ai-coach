@@ -404,7 +404,10 @@ export const extractPRs = (workouts) => {
       // 解析配速（格式：5'30" 或 5:30）
       let paceMinutes = 0;
       if (paceStr) {
-        const match = paceStr.match(/(\d+)[\':](\d+)/);
+        // 匹配 5'30" 或 5:30 格式
+        const matchSingleQuote = paceStr.match(/(\d+)['](\d+)/);
+        const matchColon = paceStr.match(/(\d+):(\d+)/);
+        const match = matchSingleQuote || matchColon;
         if (match) {
           paceMinutes = parseFloat(match[1]) + parseFloat(match[2]) / 60;
         }

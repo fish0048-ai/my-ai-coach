@@ -1,4 +1,4 @@
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useMemo, useCallback } from 'react';
 import { useUserData } from './hooks/useUserData';
 import MainLayout from './layouts/MainLayout';
 // 移除靜態引入，改用 Lazy Load
@@ -91,20 +91,13 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="h-screen w-full bg-gray-900 flex items-center justify-center">
-        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
-      </div>
-    );
-  }
+  // 優化：使用 useCallback 穩定 callback 參考
+  const handleCloseChat = useCallback(() => {
+    setIsChatOpen(false);
+  }, []);
 
-  if (!user) {
-    return <LoginView />; 
-  }
-
-  const renderContent = () => {
-    // 每個視圖都包在 ErrorBoundary 和 Suspense 中
+  // 優化：使用 useMemo 快取視圖渲染結果，避免不必要的重新渲染
+  const content = useMemo(() => {
     return (
       <ErrorBoundary>
         <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader className="animate-spin text-gray-500"/></div>}>
@@ -128,7 +121,19 @@ export default function App() {
         </Suspense>
       </ErrorBoundary>
     );
-  };
+  }, [currentView, userData]);
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full bg-gray-900 flex items-center justify-center">
+        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginView />; 
+  }
 
   return (
     <>
@@ -138,7 +143,7 @@ export default function App() {
         setCurrentView={setCurrentView}
         setIsChatOpen={setIsChatOpen}
       >
-        {renderContent()}
+        {content}
       </MainLayout>
 
       {/* 只有在開啟時才載入並渲染 Chat 元件 */}
@@ -153,7 +158,7 @@ export default function App() {
         }>
             <CoachChat 
                 isOpen={isChatOpen} 
-                onClose={() => setIsChatOpen(false)} 
+                onClose={handleCloseChat} 
                 user={user}
             />
         </Suspense>

@@ -181,7 +181,15 @@ export default function CalendarView() {
     const user = getCurrentUser();
     if (!user) return;
     setLoading(true);
-    try { await updateAIContext(); await fetchMonthWorkouts(); alert("同步完成！"); } catch (error) { console.error("Sync failed:", error); } finally { setLoading(false); }
+    try { 
+      await updateAIContext(); 
+      await fetchMonthWorkouts(); 
+      // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
+    } catch (error) { 
+      handleError(error, { context: 'CalendarView', operation: 'handleSync' }); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleExport = async () => {
@@ -199,7 +207,11 @@ export default function CalendarView() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    } catch (error) { alert("匯出失敗"); } finally { setLoading(false); }
+    } catch (error) { 
+      handleError(error, { context: 'CalendarView', operation: 'handleExport' }); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleImportClick = () => csvInputRef.current?.click();
@@ -211,11 +223,16 @@ export default function CalendarView() {
           const result = await parseAndUploadCSV(file);
           if (result.success) {
                await fetchMonthWorkouts();
-               alert(result.message);
+               // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
           } else {
-               alert(result.message || "匯入失敗");
+               handleError(result.message || "匯入失敗", { context: 'CalendarView', operation: 'handleCSVUpload' });
           }
-      } catch (err) { console.error(err); alert("匯入發生錯誤"); } finally { setLoading(false); if (csvInputRef.current) csvInputRef.current.value = ''; }
+      } catch (err) { 
+        handleError(err, { context: 'CalendarView', operation: 'handleCSVUpload' }); 
+      } finally { 
+        setLoading(false); 
+        if (csvInputRef.current) csvInputRef.current.value = ''; 
+      }
   };
   const handleFileUpload = async (e) => { 
       const file = e.target.files?.[0];
@@ -227,13 +244,22 @@ export default function CalendarView() {
           let result;
           if (fileName.endsWith('.fit')) result = await parseAndUploadFIT(file);
           else if (fileName.endsWith('.csv')) result = await parseAndUploadCSV(file);
-          else { alert("僅支援 .fit 或 .csv 檔案"); setLoading(false); return; }
+          else { 
+            handleError("僅支援 .fit 或 .csv 檔案", { context: 'CalendarView', operation: 'handleFileUpload' }); 
+            setLoading(false); 
+            return; 
+          }
           
           if (result.success) {
             await fetchMonthWorkouts();
-            alert(result.message);
+            // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
           }
-      } catch (err) { alert(err); } finally { setLoading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+      } catch (err) { 
+        handleError(err, { context: 'CalendarView', operation: 'handleFileUpload' }); 
+      } finally { 
+        setLoading(false); 
+        if (fileInputRef.current) fileInputRef.current.value = ''; 
+      }
   };
   
   const handleDragStart = (e, workout) => { e.dataTransfer.setData('application/json', JSON.stringify(workout)); setDraggedWorkout(workout); };
@@ -287,7 +313,7 @@ export default function CalendarView() {
     const isStrengthEmpty = editForm.type === 'strength' && editForm.exercises.length === 0 && !editForm.title;
     const isRunEmpty = editForm.type === 'run' && !editForm.runDistance && !editForm.title;
     if (isStrengthEmpty || isRunEmpty) {
-      alert("請輸入標題或內容");
+      handleError("請輸入標題或內容", { context: 'CalendarView', operation: 'handleSave' });
       return;
     }
     const dateStr = formatDate(selectedDate);
@@ -296,7 +322,9 @@ export default function CalendarView() {
       if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
       else await createCalendarWorkout(dataToSave);
       updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
-    } catch (error) { alert("儲存失敗"); }
+    } catch (error) { 
+      handleError(error, { context: 'CalendarView', operation: 'handleSave' }); 
+    }
   };
   const handleDelete = async () => {
     if (!currentDocId) return;
@@ -304,7 +332,9 @@ export default function CalendarView() {
     try {
       await deleteCalendarWorkout(currentDocId);
       updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
-    } catch (error) { alert("刪除失敗"); }
+    } catch (error) { 
+      handleError(error, { context: 'CalendarView', operation: 'handleDelete' }); 
+    }
   };
   const handleExerciseNameChange = (idx, value) => {
     const newEx = [...editForm.exercises];

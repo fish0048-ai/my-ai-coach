@@ -46,8 +46,8 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
   const trainingFrequency = calculateTrainingFrequency(recentWorkouts, weeks);
   const trainingIntensity = calculateTrainingIntensity(recentWorkouts);
 
-  // 3.3 熱量攝入估算（如果有營養數據）
-  // 這裡簡化處理，實際應該從營養數據計算
+  // 3.3 熱量攝入估算（如果有營養資料）
+  // 這裡簡化處理，實際應該從營養資料計算
   const avgCalorieBurn = calculateAvgCalorieBurn(recentWorkouts);
 
   // 4. 判斷當前周期階段
@@ -87,7 +87,7 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
 
 /**
  * 計算趨勢（簡單線性回歸斜率）
- * @param {Array} data - 數據陣列 [{date, value}, ...]
+ * @param {Array} data - 資料陣列 [{date, value}, ...]
  * @returns {Object} 趨勢結果 {slope, direction, strength}
  */
 const calculateTrend = (data) => {
@@ -132,7 +132,7 @@ const calculateTrend = (data) => {
 
     return { slope: isNaN(slope) ? 0 : slope, direction, strength, relativeSlope: isNaN(relativeSlope) ? 0 : relativeSlope };
   } catch (error) {
-    // 如果計算出錯，返回默認值
+    // 如果計算出錯，返回預設值
     return { slope: 0, direction: 'stable', strength: 'weak', relativeSlope: 0 };
   }
 };
@@ -221,7 +221,7 @@ const calculateTrainingIntensity = (workouts) => {
         // 跑步：距離 × 時間
         const distance = parseFloat(workout.runDistance) || 0;
         const duration = parseFloat(workout.runDuration) || 0;
-        totalVolume += distance * duration; // 簡化計算
+        totalVolume += distance * duration; // 簡化計算（距離 × 時間）
         runCount++;
       }
     });

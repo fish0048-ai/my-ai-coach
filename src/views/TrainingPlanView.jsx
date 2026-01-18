@@ -6,7 +6,7 @@ import { useViewStore } from '../store/viewStore';
 import { createCalendarWorkout } from '../services/calendarService';
 
 /**
- * 训练计划推荐页面
+ * 訓練計劃推薦頁面
  */
 export default function TrainingPlanView() {
   const setCurrentView = useViewStore((state) => state.setCurrentView);
@@ -29,7 +29,7 @@ export default function TrainingPlanView() {
       });
       setGeneratedPlan(plan);
     } catch (error) {
-      // 错误已在 workoutGenerator 中处理
+      // 錯誤已在 workoutGenerator 中處理
     } finally {
       setLoading(false);
     }
@@ -40,9 +40,9 @@ export default function TrainingPlanView() {
 
     setLoading(true);
     try {
-      // 将计划应用到日历
+      // 將計劃應用到行事曆
       const promises = generatedPlan.workouts.map(async (workout) => {
-        // 计算实际日期（简化版：从下周一开始）
+        // 計算實際日期（簡化版：從下週一開始）
         const today = new Date();
         const dayOfWeek = today.getDay();
         const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
@@ -60,7 +60,7 @@ export default function TrainingPlanView() {
           date: dateStr,
           status: 'planned',
           type: workout.type || 'strength',
-          title: workout.title || '训练计划',
+          title: workout.title || '訓練計劃',
           exercises: workout.exercises || [],
           notes: workout.notes || '',
           updatedAt: new Date().toISOString()
@@ -68,7 +68,7 @@ export default function TrainingPlanView() {
       });
 
       await Promise.all(promises);
-      handleError('训练计划已成功添加到日历！', { context: 'TrainingPlanView', operation: 'handleApplyToCalendar' });
+      handleError('訓練計劃已成功新增到行事曆！', { context: 'TrainingPlanView', operation: 'handleApplyToCalendar' });
       setCurrentView('calendar');
     } catch (error) {
       handleError(error, { context: 'TrainingPlanView', operation: 'handleApplyToCalendar' });
@@ -88,8 +88,8 @@ export default function TrainingPlanView() {
           <ArrowLeft className="text-gray-400" size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-white">训练计划推荐</h1>
-          <p className="text-gray-400 text-sm">选择适合你的训练计划，AI 将为你生成个性化方案</p>
+          <h1 className="text-2xl font-bold text-white">訓練計劃推薦</h1>
+          <p className="text-gray-400 text-sm">選擇適合你的訓練計劃，AI 將為你生成個人化方案</p>
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export default function TrainingPlanView() {
         <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Sparkles className="text-yellow-400" size={20} />
-            选择训练计划类型
+            選擇訓練計劃類型
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -138,7 +138,7 @@ export default function TrainingPlanView() {
           {/* 周数选择 */}
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-300 mb-2">
-              计划周数
+              計劃週數
             </label>
             <select
               value={weeks}
@@ -166,7 +166,7 @@ export default function TrainingPlanView() {
             ) : (
               <>
                 <Sparkles size={20} />
-                <span>生成训练计划</span>
+                <span>生成訓練計劃</span>
               </>
             )}
           </button>
@@ -187,13 +187,13 @@ export default function TrainingPlanView() {
                 onClick={() => setGeneratedPlan(null)}
                 className="text-gray-400 hover:text-white transition-colors"
               >
-                重新选择
+                重新選擇
               </button>
             </div>
 
             {generatedPlan.tips && generatedPlan.tips.length > 0 && (
               <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-                <h3 className="text-sm font-semibold text-blue-400 mb-2">训练建议</h3>
+                <h3 className="text-sm font-semibold text-blue-400 mb-2">訓練建議</h3>
                 <ul className="space-y-1">
                   {generatedPlan.tips.map((tip, idx) => (
                     <li key={idx} className="text-sm text-gray-300 flex items-start gap-2">
@@ -209,13 +209,13 @@ export default function TrainingPlanView() {
           {/* 训练安排 */}
           {generatedPlan.workouts && generatedPlan.workouts.length > 0 && (
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-              <h3 className="text-lg font-bold text-white mb-4">训练安排</h3>
+              <h3 className="text-lg font-bold text-white mb-4">訓練安排</h3>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {generatedPlan.workouts.map((workout, idx) => (
                   <div key={idx} className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-semibold text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                        第 {workout.week} 周 · 第 {workout.day} 天
+                        第 {workout.week} 週 · 第 {workout.day} 天
                       </span>
                       <span className="text-sm font-bold text-white">{workout.title}</span>
                     </div>
@@ -248,12 +248,12 @@ export default function TrainingPlanView() {
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>添加中...</span>
+                <span>新增中...</span>
               </>
             ) : (
               <>
                 <Calendar size={20} />
-                <span>应用到日历</span>
+                <span>應用到行事曆</span>
               </>
             )}
           </button>

@@ -4,8 +4,8 @@ import { getAllPRs } from '../../services/calendarService';
 import { handleError } from '../../services/errorService';
 
 /**
- * PR (Personal Record) 追踪组件
- * 显示用户的最佳训练记录
+ * PR (Personal Record) 追蹤組件
+ * 顯示用戶的最佳訓練記錄
  */
 export default function PRTracker() {
   const [prs, setPRs] = useState({ strengthPRs: {}, runPRs: {} });
@@ -27,11 +27,11 @@ export default function PRTracker() {
     }
   };
 
-  // 获取最近更新的 PR（按日期排序）
+  // 獲取最近更新的 PR（按日期排序）
   const getRecentPRs = () => {
     const recent = [];
     
-    // 力量训练 PR
+    // 力量訓練 PR
     Object.entries(prs.strengthPRs || {}).forEach(([exerciseName, pr]) => {
       if (pr.max1RMDate) {
         recent.push({
@@ -48,7 +48,7 @@ export default function PRTracker() {
         recent.push({
           type: 'strength',
           name: exerciseName,
-          label: `最大训练量`,
+          label: `最大訓練量`,
           value: `${Math.round(pr.maxVolume)} kg`,
           date: pr.maxVolumeDate,
           icon: TrendingUp,
@@ -62,7 +62,7 @@ export default function PRTracker() {
       recent.push({
         type: 'run',
         name: '跑步',
-        label: '最长距离',
+        label: '最長距離',
         value: `${prs.runPRs.maxDistance.toFixed(1)} km`,
         date: prs.runPRs.maxDistanceDate,
         icon: Activity,
@@ -88,7 +88,7 @@ export default function PRTracker() {
       const dateA = new Date(a.date);
       const dateB = new Date(b.date);
       return dateB - dateA;
-    }).slice(0, 6); // 最多显示 6 个
+    }).slice(0, 6); // 最多顯示 6 個
   };
 
   const recentPRs = getRecentPRs();
@@ -115,7 +115,7 @@ export default function PRTracker() {
           <h3 className="text-xl font-bold text-white">PR 追踪</h3>
         </div>
         <p className="text-gray-400 text-sm">
-          还没有记录任何 PR。完成训练后，系统会自动识别并记录你的最佳表现！
+          還沒有記錄任何 PR。完成訓練後，系統會自動識別並記錄你的最佳表現！
         </p>
       </div>
     );
@@ -129,9 +129,9 @@ export default function PRTracker() {
           <div>
             <h3 className="text-xl font-bold text-white">PR 追踪</h3>
             <p className="text-sm text-gray-400">
-              {strengthPRCount > 0 && `${strengthPRCount} 个动作`}
+              {strengthPRCount > 0 && `${strengthPRCount} 個動作`}
               {strengthPRCount > 0 && hasRunPR && ' · '}
-              {hasRunPR && '跑步记录'}
+              {hasRunPR && '跑步記錄'}
             </p>
           </div>
         </div>
@@ -175,7 +175,7 @@ export default function PRTracker() {
 
       {recentPRs.length >= 6 && (
         <p className="text-xs text-gray-500 mt-4 text-center">
-          显示最近 6 个 PR，查看更多请前往训练仪表板
+          顯示最近 6 個 PR，查看更多請前往訓練儀表板
         </p>
       )}
     </div>

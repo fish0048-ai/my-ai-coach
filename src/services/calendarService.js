@@ -6,16 +6,16 @@ const getCurrentUser = () => {
 };
 
 /**
- * 简单内存缓存实现
- * 缓存查询结果，减少 Firebase 读取次数
+ * 簡單記憶體快取實作
+ * 快取查詢結果，減少 Firebase 讀取次數
  */
 const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 分钟缓存时间
+const CACHE_TTL = 5 * 60 * 1000; // 5 分鐘快取時間
 
 /**
- * 获取缓存数据
- * @param {string} key - 缓存键
- * @returns {any|null} 缓存数据或 null
+ * 獲取快取資料
+ * @param {string} key - 快取鍵
+ * @returns {any|null} 快取資料或 null
  */
 const getCache = (key) => {
   const cached = cache.get(key);
@@ -31,9 +31,9 @@ const getCache = (key) => {
 };
 
 /**
- * 设置缓存数据
- * @param {string} key - 缓存键
- * @param {any} data - 要缓存的数据
+ * 設定快取資料
+ * @param {string} key - 快取鍵
+ * @param {any} data - 要快取的資料
  */
 const setCache = (key, data) => {
   cache.set(key, {
@@ -43,19 +43,19 @@ const setCache = (key, data) => {
 };
 
 /**
- * 清除缓存（在数据更新时调用）
- * @param {string} pattern - 缓存键模式（可选）
+ * 清除快取（在資料更新時呼叫）
+ * @param {string} pattern - 快取鍵模式（可選）
  */
 const clearCache = (pattern = null) => {
   if (pattern) {
-    // 清除匹配模式的缓存
+    // 清除匹配模式的快取
     for (const key of cache.keys()) {
       if (key.includes(pattern)) {
         cache.delete(key);
       }
     }
   } else {
-    // 清除所有缓存
+    // 清除所有快取
     cache.clear();
   }
 };
@@ -172,7 +172,7 @@ export const updateCalendarWorkout = async (workoutId, updates) => {
   const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
   await updateDoc(docRef, updates);
   
-  // 清除相关缓存
+  // 清除相關快取
   clearCache(`calendar_${user.uid}`);
 };
 
@@ -182,7 +182,7 @@ export const setCalendarWorkout = async (workoutId, data) => {
   const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
   await setDoc(docRef, data);
   
-  // 清除相关缓存
+  // 清除相關快取
   clearCache(`calendar_${user.uid}`);
 };
 
@@ -192,7 +192,7 @@ export const createCalendarWorkout = async (data) => {
   const collectionRef = collection(db, 'users', user.uid, 'calendar');
   await addDoc(collectionRef, data);
   
-  // 清除相关缓存
+  // 清除相關快取
   clearCache(`calendar_${user.uid}`);
 };
 
@@ -201,7 +201,7 @@ export const deleteCalendarWorkout = async (workoutId) => {
   if (!user) throw new Error('請先登入');
   await deleteDoc(doc(db, 'users', user.uid, 'calendar', workoutId));
   
-  // 清除相关缓存
+  // 清除相關快取
   clearCache(`calendar_${user.uid}`);
 };
 
@@ -261,7 +261,7 @@ export const createGear = async (data) => {
     createdAt: serverTimestamp()
   });
   
-  // 清除装备相关缓存
+  // 清除裝備相關快取
   clearCache(`gears_${user.uid}`);
 };
 
@@ -270,7 +270,7 @@ export const updateGear = async (gearId, updates) => {
   if (!user) throw new Error('請先登入');
   await updateDoc(doc(db, 'users', user.uid, 'gears', gearId), updates);
   
-  // 清除装备相关缓存
+  // 清除裝備相關快取
   clearCache(`gears_${user.uid}`);
 };
 
@@ -279,19 +279,19 @@ export const deleteGear = async (gearId) => {
   if (!user) throw new Error('請先登入');
   await deleteDoc(doc(db, 'users', user.uid, 'gears', gearId));
   
-  // 清除装备相关缓存
+  // 清除裝備相關快取
   clearCache(`gears_${user.uid}`);
 };
 
 /**
- * PR (Personal Record) 追踪相关函数
+ * PR (Personal Record) 追蹤相關函數
  */
 
 /**
- * 计算 1RM (One Rep Max)
+ * 計算 1RM (One Rep Max)
  * @param {number} weight - 重量 (kg)
- * @param {number} reps - 次数
- * @returns {number} 预估 1RM
+ * @param {number} reps - 次數
+ * @returns {number} 預估 1RM
  */
 const calculate1RM = (weight, reps) => {
   if (!weight || !reps || reps <= 0) return 0;
@@ -301,9 +301,9 @@ const calculate1RM = (weight, reps) => {
 };
 
 /**
- * 识别并提取 PR 数据
- * @param {Array} workouts - 训练记录数组
- * @returns {Object} PR 数据对象
+ * 識別並提取 PR 資料
+ * @param {Array} workouts - 訓練記錄陣列
+ * @returns {Object} PR 資料物件
  */
 export const extractPRs = (workouts) => {
   if (!Array.isArray(workouts)) return { strengthPRs: {}, runPRs: {} };
@@ -321,7 +321,7 @@ export const extractPRs = (workouts) => {
   workouts.forEach((workout) => {
     if (!workout || workout.status !== 'completed') return;
 
-    // 处理力量训练 PR
+    // 處理力量訓練 PR
     if (workout.type === 'strength' && Array.isArray(workout.exercises)) {
       workout.exercises.forEach((exercise) => {
         if (!exercise || !exercise.name) return;
@@ -333,8 +333,8 @@ export const extractPRs = (workouts) => {
 
         if (sets === 0 || reps === 0 || weight === 0) return;
 
-        const volume = sets * reps * weight; // 总训练量
-        const max1RM = calculate1RM(weight, reps); // 预估 1RM
+        const volume = sets * reps * weight; // 總訓練量
+        const max1RM = calculate1RM(weight, reps); // 預估 1RM
         const maxWeight = weight; // 最大重量
 
         // 初始化或更新 PR
@@ -361,7 +361,7 @@ export const extractPRs = (workouts) => {
           pr.max1RMReps = reps;
         }
 
-        // 更新最大总训练量
+        // 更新最大總訓練量
         if (volume > pr.maxVolume) {
           pr.maxVolume = volume;
           pr.maxVolumeDate = workout.date;
@@ -373,19 +373,19 @@ export const extractPRs = (workouts) => {
           pr.maxWeightDate = workout.date;
         }
 
-        // 更新最大组数
+        // 更新最大組數
         if (sets > pr.maxSets) {
           pr.maxSets = sets;
           pr.maxSetsDate = workout.date;
         }
 
-        // 更新最大次数
+        // 更新最大次數
         if (reps > pr.maxReps) {
           pr.maxReps = reps;
           pr.maxRepsDate = workout.date;
         }
 
-        // 更新日期范围
+        // 更新日期範圍
         if (workout.date < pr.firstDate) {
           pr.firstDate = workout.date;
         }
@@ -395,10 +395,10 @@ export const extractPRs = (workouts) => {
       });
     }
 
-    // 处理跑步 PR
+    // 處理跑步 PR
     if (workout.type === 'run') {
       const distance = parseFloat(workout.runDistance) || 0;
-      const duration = parseFloat(workout.runDuration) || 0; // 分钟
+      const duration = parseFloat(workout.runDuration) || 0; // 分鐘
       const paceStr = workout.runPace || '';
 
       // 解析配速（格式：5'30" 或 5:30）
@@ -412,11 +412,11 @@ export const extractPRs = (workouts) => {
           paceMinutes = parseFloat(match[1]) + parseFloat(match[2]) / 60;
         }
       } else if (distance > 0 && duration > 0) {
-        // 如果没有配速，从距离和时间计算
+        // 如果沒有配速，從距離和時間計算
         paceMinutes = duration / distance;
       }
 
-      // 更新最大距离
+      // 更新最大距離
       if (distance > 0 && (!runPRs.maxDistance || distance > runPRs.maxDistance)) {
         runPRs.maxDistance = distance;
         runPRs.maxDistanceDate = workout.date;
@@ -428,7 +428,7 @@ export const extractPRs = (workouts) => {
         runPRs.fastestPaceDate = workout.date;
       }
 
-      // 更新最长时长
+      // 更新最長時長
       if (duration > 0 && (!runPRs.longestDuration || duration > runPRs.longestDuration)) {
         runPRs.longestDuration = duration;
         runPRs.longestDurationDate = workout.date;
@@ -440,8 +440,8 @@ export const extractPRs = (workouts) => {
 };
 
 /**
- * 获取用户所有 PR 数据
- * @returns {Promise<Object>} PR 数据对象
+ * 獲取用戶所有 PR 資料
+ * @returns {Promise<Object>} PR 資料物件
  */
 export const getAllPRs = async () => {
   const user = getCurrentUser();

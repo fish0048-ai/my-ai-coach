@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff } from 'lucide-react';
-import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where, getDocs, setDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import { updateAIContext } from '../utils/contextManager';
+import { subscribeBodyLogs, createBodyLog, deleteBodyLog } from '../services/bodyService';
+import { subscribeCompletedWorkouts } from '../services/calendarService';
 
 // --- 輔助：解析配速字串為小數分鐘 (例如 "5'30"" -> 5.5) ---
 const parsePaceToDecimal = (paceStr) => {
@@ -192,22 +191,21 @@ export default function TrendAnalysisView() {
   const [inputFat, setInputFat] = useState('');
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
-    const qBody = query(collection(db, 'users', auth.currentUser.uid, 'body_logs'), orderBy('date', 'asc'));
-    const unsubBody = onSnapshot(qBody, (snapshot) => {
-      setBodyLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const unsubBody = subscribeBodyLogs((logs) => {
+      setBodyLogs(logs);
     });
 
-    const qCalSafe = query(collection(db, 'users', auth.currentUser.uid, 'calendar'), where('status', '==', 'completed'));
-    const unsubCalendar = onSnapshot(qCalSafe, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        data.sort((a, b) => new Date(a.date) - new Date(b.date));
-        setWorkoutLogs(data);
-        setLoading(false);
+    const unsubCalendar = subscribeCompletedWorkouts((workouts) => {
+      const data = [...workouts];
+      data.sort((a, b) => new Date(a.date) - new Date(b.date));
+      setWorkoutLogs(data);
+      setLoading(false);
     });
 
-    return () => { unsubBody(); unsubCalendar(); };
+    return () => { 
+      if (unsubBody) unsubBody();
+      if (unsubCalendar) unsubCalendar();
+    };
   }, []);
 
   const rawData = useMemo(() => {
@@ -280,9 +278,48 @@ export default function TrendAnalysisView() {
       setMetricType(Object.keys(configs[cat])[0]);
   };
 
-  const handleAddLog = async (e) => { e.preventDefault(); const user = auth.currentUser; if (!user) return alert('請先登入'); const w=parseFloat(inputWeight)||0; const f=parseFloat(inputFat)||0; try { await addDoc(collection(db,'users',user.uid,'body_logs'),{date:inputDate,weight:w,bodyFat:f,createdAt:serverTimestamp()}); if(w>0||f>0){ const ref=doc(db,'users',user.uid); const up={lastUpdated:new Date()}; if(w>0)up.weight=w; if(f>0)up.bodyFat=f; await setDoc(ref,up,{merge:true}); } await updateAIContext(); setInputWeight(''); setInputFat(''); setShowAddForm(false); alert("新增成功"); } catch(e){alert("失敗");} };
-  const handleDelete = async (id) => { if(!confirm('刪除?'))return; try{await deleteDoc(doc(db,'users',auth.currentUser.uid,'body_logs',id)); await updateAIContext();}catch(e){} };
-  const handleExport = async () => { const user=auth.currentUser; if(!user)return; try{ const head=['日期','數值']; const rows=[head]; chartData.forEach(d=>rows.push([d.date,d.value])); const csv="\uFEFF"+rows.map(r=>r.join(",")).join("\n"); const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`trend_export.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }catch(e){alert("失敗");} };
+  const handleAddLog = async (e) => {
+    e.preventDefault();
+    const w = parseFloat(inputWeight) || 0;
+    const f = parseFloat(inputFat) || 0;
+    try {
+      await createBodyLog(inputDate, w, f);
+      setInputWeight('');
+      setInputFat('');
+      setShowAddForm(false);
+      alert("新增成功");
+    } catch (e) {
+      alert("失敗: " + (e.message || '未知錯誤'));
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('刪除?')) return;
+    try {
+      await deleteBodyLog(id);
+    } catch (e) {
+      console.error('刪除失敗:', e);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const head = ['日期', '數值'];
+      const rows = [head];
+      chartData.forEach(d => rows.push([d.date, d.value]));
+      const csv = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `trend_export.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      alert("失敗");
+    }
+  };
   const handleCSVUpload = async (e) => { alert("目前僅支援匯入體重資料，請至行事曆匯入運動資料"); };
 
   return (

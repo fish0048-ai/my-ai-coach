@@ -1,4 +1,4 @@
-import { collection, addDoc, query, getDocs, updateDoc, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, getDocs, updateDoc, doc, setDoc, deleteDoc, getDoc, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
 const getCurrentUser = () => {
@@ -19,6 +19,64 @@ export const listCalendarWorkouts = async () => {
   const q = query(collection(db, 'users', user.uid, 'calendar'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+};
+
+export const listCalendarWorkoutsByDateRange = async (startDate, endDate = null) => {
+  const user = getCurrentUser();
+  if (!user) return [];
+  const constraints = [collection(db, 'users', user.uid, 'calendar'), where('date', '>=', startDate)];
+  if (endDate) {
+    constraints.push(where('date', '<=', endDate));
+  }
+  const q = query(...constraints);
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+};
+
+export const listTodayWorkouts = async () => {
+  const user = getCurrentUser();
+  if (!user) return [];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const q = query(collection(db, 'users', user.uid, 'calendar'), where('date', '==', todayStr));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+};
+
+export const listCompletedWorkouts = async () => {
+  const user = getCurrentUser();
+  if (!user) return [];
+  const q = query(collection(db, 'users', user.uid, 'calendar'), where('status', '==', 'completed'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+};
+
+export const subscribeCompletedWorkouts = (callback) => {
+  const user = getCurrentUser();
+  if (!user) return () => {};
+  const q = query(collection(db, 'users', user.uid, 'calendar'), where('status', '==', 'completed'));
+  return onSnapshot(q, (snapshot) => {
+    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    callback(data);
+  });
+};
+
+export const listRunLogs = async () => {
+  const user = getCurrentUser();
+  if (!user) return [];
+  const q = query(
+    collection(db, 'users', user.uid, 'calendar'),
+    where('type', '==', 'run'),
+    where('status', '==', 'completed')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      date: data.date,
+      distance: parseFloat(data.runDistance || 0)
+    };
+  });
 };
 
 export const updateCalendarWorkout = async (workoutId, updates) => {
@@ -82,4 +140,37 @@ export const generateCalendarCSVData = async (gears = []) => {
   });
 
   return "\uFEFF" + rows.map((r) => r.join(",")).join("\n");
+};
+
+// Gear 相關操作
+export const subscribeGears = (callback) => {
+  const user = getCurrentUser();
+  if (!user) return () => {};
+  const q = query(collection(db, 'users', user.uid, 'gears'), orderBy('startDate', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const gearData = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    callback(gearData);
+  });
+};
+
+export const createGear = async (data) => {
+  const user = getCurrentUser();
+  if (!user) throw new Error('請先登入');
+  await addDoc(collection(db, 'users', user.uid, 'gears'), {
+    ...data,
+    currentDistance: 0,
+    createdAt: serverTimestamp()
+  });
+};
+
+export const updateGear = async (gearId, updates) => {
+  const user = getCurrentUser();
+  if (!user) throw new Error('請先登入');
+  await updateDoc(doc(db, 'users', user.uid, 'gears', gearId), updates);
+};
+
+export const deleteGear = async (gearId) => {
+  const user = getCurrentUser();
+  if (!user) throw new Error('請先登入');
+  await deleteDoc(doc(db, 'users', user.uid, 'gears', gearId));
 };

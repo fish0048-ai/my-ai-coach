@@ -3,8 +3,8 @@ import BodyHeatmap from '../components/BodyHeatmap.jsx';
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
 // 新增 CalendarClock, CheckCircle2, Circle
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { getCurrentUser } from '../services/authService';
+import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
 
 // 安全的日期解析函數
 const safeTimestamp = (dateStr) => {
@@ -58,18 +58,8 @@ export default function DashboardView({ userData }) {
 
   // 新增：讀取今日課表邏輯
   const fetchTodaySchedule = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      
-      const todayStr = new Date().toISOString().split('T')[0];
-      
       try {
-          const q = query(
-              collection(db, 'users', user.uid, 'calendar'),
-              where('date', '==', todayStr)
-          );
-          const snapshot = await getDocs(q);
-          const todays = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const todays = await listTodayWorkouts();
           setTodayWorkouts(todays);
       } catch (e) {
           console.error("Fetch today schedule failed:", e);
@@ -77,9 +67,6 @@ export default function DashboardView({ userData }) {
   };
 
   const fetchWorkoutStats = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
     setLoading(true);
     try {
       // 1. 計算日期範圍 (過去 30 天)
@@ -87,13 +74,8 @@ export default function DashboardView({ userData }) {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-      // 2. 建立查詢 (只抓取 completed)
-      const q = query(
-          collection(db, 'users', user.uid, 'calendar'),
-          where('date', '>=', startDateStr)
-      );
-      
-      const querySnapshot = await getDocs(q);
+      // 2. 使用 service 獲取數據
+      const workouts = await listCalendarWorkoutsByDateRange(startDateStr);
 
       let totalSets = 0;
       let muscleScore = {}; 
@@ -118,8 +100,8 @@ export default function DashboardView({ userData }) {
       const zone2LowerLimit = maxHR * 0.6;
       const zone2UpperLimit = maxHR * 0.7;
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      workouts.forEach((workout) => {
+        const data = workout;
         if (!data) return;
 
         // 統計邏輯只看已完成

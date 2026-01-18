@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge, Calculator } from 'lucide-react';
-import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { subscribeGears, createGear, updateGear, deleteGear, listRunLogs } from '../services/calendarService';
 
 export default function GearView() {
   const [gears, setGears] = useState([]);
@@ -23,34 +22,25 @@ export default function GearView() {
 
   // 1. 讀取裝備列表
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const q = query(collection(db, 'users', user.uid, 'gears'), orderBy('startDate', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const gearData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const unsubscribeGears = subscribeGears((gearData) => {
       setGears(gearData);
       setLoading(false);
     });
 
-    fetchRunLogs(user.uid);
+    fetchRunLogs();
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeGears) unsubscribeGears();
+    };
   }, []);
 
-  const fetchRunLogs = async (uid) => {
+  const fetchRunLogs = async () => {
     try {
-      const q = query(
-        collection(db, 'users', uid, 'calendar'),
-        where('type', '==', 'run'),
-        where('status', '==', 'completed')
-      );
-      const snapshot = await getDocs(q);
-      const logs = snapshot.docs.map(doc => ({
-        date: doc.data().date,
-        distance: parseFloat(doc.data().runDistance || 0)
-      }));
-      setRunLogs(logs);
+      const logs = await listRunLogs();
+      setRunLogs(logs.map(log => ({
+        date: log.date,
+        distance: log.distance
+      })));
     } catch (err) {
       console.error("Failed to fetch run logs", err);
     }
@@ -76,7 +66,6 @@ export default function GearView() {
 
   const handleSave = async () => {
     if (!formData.brand || !formData.model) return alert("請輸入品牌與型號");
-    const user = auth.currentUser;
     
     // 儲存前轉換為數字
     const payload = {
@@ -88,33 +77,35 @@ export default function GearView() {
     try {
       if (editingGear) {
         // 更新
-        await updateDoc(doc(db, 'users', user.uid, 'gears', editingGear.id), {
+        const updates = {
           ...payload,
           // 如果狀態剛被改成 retired，且原本沒有 retireDate，就補上今天
           retireDate: (formData.status === 'retired' && !editingGear.retireDate) 
             ? new Date().toISOString().split('T')[0] 
             : (formData.status === 'active' ? null : editingGear.retireDate)
-        });
+        };
+        await updateGear(editingGear.id, updates);
       } else {
         // 新增
-        await addDoc(collection(db, 'users', user.uid, 'gears'), {
-          ...payload,
-          currentDistance: 0, 
-          createdAt: serverTimestamp()
-        });
+        await createGear(payload);
       }
       setShowModal(false);
       setEditingGear(null);
       resetForm();
     } catch (e) {
       console.error(e);
-      alert("儲存失敗");
+      alert("儲存失敗: " + (e.message || '未知錯誤'));
     }
   };
 
   const handleDelete = async (id) => {
-    if(!confirm("確定刪除此裝備？")) return;
-    await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'gears', id));
+    if (!confirm("確定刪除此裝備？")) return;
+    try {
+      await deleteGear(id);
+    } catch (e) {
+      console.error('刪除失敗:', e);
+      alert("刪除失敗");
+    }
   };
 
   const handleEditClick = (gear) => {

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore'; 
-import { db, auth } from '../firebase';
+import { getCurrentUser } from '../services/authService';
+import { getApiKey } from '../services/apiKeyService';
+import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analysisService';
 import FitParser from 'fit-file-parser';
 import { POSE_CONNECTIONS } from '@mediapipe/pose';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
@@ -216,7 +217,7 @@ export default function StrengthAnalysisView() {
   };
 
   const performAIAnalysis = async () => {
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = getApiKey();
     if (!apiKey) { alert("請先設定 API Key"); return; }
     setAnalysisStep('analyzing_ai');
     
@@ -239,27 +240,21 @@ export default function StrengthAnalysisView() {
   };
 
   const saveToCalendar = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) { alert("請先登入"); return; }
     setIsSaving(true);
     try {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
         const title = `重訓分析 (${mode === 'bench' ? '臥推' : '深蹲'})`;
-        
-        const q = query(
-            collection(db, 'users', user.uid, 'calendar'),
-            where('date', '==', dateStr),
-            where('title', '==', title),
-            where('type', '==', 'analysis')
-        );
-        const snapshot = await getDocs(q);
+
+        const existing = await findStrengthAnalysis(dateStr, title);
         let shouldSave = true;
         let docId = null;
 
-        if (!snapshot.empty) {
+        if (existing) {
             if (confirm(`今天已有「${title}」。要覆蓋嗎？`)) {
-                docId = snapshot.docs[0].id;
+                docId = existing.id;
             } else {
                 shouldSave = false;
             }
@@ -277,8 +272,8 @@ export default function StrengthAnalysisView() {
                 status: 'completed',
                 updatedAt: now.toISOString()
             };
-            if (docId) await updateDoc(doc(db, 'users', user.uid, 'calendar', docId), analysisEntry);
-            else await addDoc(collection(db, 'users', user.uid, 'calendar'), { ...analysisEntry, createdAt: now.toISOString() });
+            if (docId) await upsertStrengthAnalysis(docId, analysisEntry);
+            else await upsertStrengthAnalysis(null, { ...analysisEntry, createdAt: now.toISOString() });
             alert("分析報告已儲存！");
         }
     } catch (e) {

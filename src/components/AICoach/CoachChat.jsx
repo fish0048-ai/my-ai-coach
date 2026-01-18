@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2, RefreshCw } from 'lucide-react';
 import { runGemini } from '../../utils/gemini';
 import { getAIContext, updateAIContext } from '../../utils/contextManager';
+import { getApiKey, setApiKey as persistApiKey } from '../../services/apiKeyService';
 
 export default function CoachChat({ isOpen, onClose, user }) {
   const [messages, setMessages] = useState([
@@ -11,7 +12,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); // 同步狀態
   
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [apiKey, setApiKey] = useState(() => getApiKey());
   const [showSettings, setShowSettings] = useState(false);
   const [tempKey, setTempKey] = useState('');
 
@@ -32,7 +33,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
   }, [showSettings, apiKey]);
 
   const handleSaveKey = () => {
-    localStorage.setItem('gemini_api_key', tempKey);
+    persistApiKey(tempKey);
     setApiKey(tempKey);
     setShowSettings(false);
     if (messages.length === 1) {

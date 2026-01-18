@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
-import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { getCurrentUser } from '../services/authService';
+import { getApiKey } from '../services/apiKeyService';
+import { listGears, listCalendarWorkouts, updateCalendarWorkout, setCalendarWorkout, createCalendarWorkout, deleteCalendarWorkout, getUserProfile, generateCalendarCSVData } from '../services/calendarService';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../utils/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
@@ -18,36 +19,6 @@ const cleanNumber = (val) => {
     return '';
 };
 
-// 本地定義 CSV 生成邏輯
-const generateCSVData = async (uid, gears) => {
-    const q = query(collection(db, 'users', uid, 'calendar'));
-    const querySnapshot = await getDocs(q);
-    const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
-    const rows = [headers];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      const type = data.type === 'run' ? '跑步' : '肌力訓練';
-      let totalSets = 0;
-      if (data.exercises && Array.isArray(data.exercises)) {
-          totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
-      }
-      const gearName = gears.find(g => g.id === data.gearId)?.model || '';
-      const row = [
-          type, data.date || '', data.title || '', data.runDistance || '', data.runDuration || '',
-          data.runHeartRate || '', data.runPower || '', data.calories || '',
-          totalSets > 0 ? totalSets : '', gearName, data.notes || ''
-      ];
-      const escapedRow = row.map(field => {
-          const str = String(field ?? '');
-          if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str.replace(/"/g, '""')}"`;
-          return str;
-      });
-      rows.push(escapedRow);
-    });
-
-    return "\uFEFF" + rows.map(r => r.join(",")).join("\n");
-};
 
 // --- 組件主體 ---
 export default function CalendarView() {
@@ -78,12 +49,9 @@ export default function CalendarView() {
 
   useEffect(() => {
     const fetchGears = async () => {
-        const user = auth.currentUser;
-        if (!user) return;
         try {
-            const q = query(collection(db, 'users', user.uid, 'gears'));
-            const snapshot = await getDocs(q);
-            setGears(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const gearList = await listGears();
+            setGears(gearList);
         } catch (error) { console.error(error); }
     };
     fetchGears();
@@ -105,20 +73,16 @@ export default function CalendarView() {
   useEffect(() => { fetchMonthWorkouts(); }, [currentDate]);
 
   const fetchMonthWorkouts = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'users', user.uid, 'calendar')); 
-      const querySnapshot = await getDocs(q);
+      const allWorkouts = await listCalendarWorkouts();
       const groupedWorkouts = {};
       let totalDist = 0;
       const currentMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}`;
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      allWorkouts.forEach((data) => {
         if (data.date) {
           if (!groupedWorkouts[data.date]) groupedWorkouts[data.date] = [];
-          groupedWorkouts[data.date].push({ id: doc.id, ...data });
+          groupedWorkouts[data.date].push({ ...data });
           if (data.type === 'run' && data.status === 'completed' && data.date.startsWith(currentMonthStr)) {
               totalDist += parseFloat(data.runDistance || 0);
           }
@@ -131,11 +95,9 @@ export default function CalendarView() {
 
   const handleStatusToggle = async (e, workout) => {
       e.stopPropagation();
-      const user = auth.currentUser;
-      if (!user) return;
       const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
       try {
-          await updateDoc(doc(db, 'users', user.uid, 'calendar', workout.id), {
+          await updateCalendarWorkout(workout.id, {
               status: newStatus,
               updatedAt: new Date().toISOString()
           });
@@ -145,15 +107,13 @@ export default function CalendarView() {
   };
 
   const handleHeadCoachGenerate = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return alert("請先登入");
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = getApiKey();
     if (!apiKey) return alert("請先設定 API Key");
     setIsGenerating(true);
     try {
-        const profileRef = doc(db, 'users', user.uid);
-        const profileSnap = await getDoc(profileRef);
-        const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
+        const userProfile = (await getUserProfile()) || { goal: '健康' };
         const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
         const targetDateStr = formatDate(selectedDate);
@@ -189,8 +149,8 @@ export default function CalendarView() {
   };
 
   const handleWeeklyGenerate = async () => {
-    const user = auth.currentUser;
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const user = getCurrentUser();
+    const apiKey = getApiKey();
     if (!user || !apiKey) return alert("請先登入並設定 API Key");
     setLoading(true);
     try {
@@ -205,9 +165,7 @@ export default function CalendarView() {
             return alert("本週無需規劃 (未選擇任何訓練)。");
         }
 
-        const profileRef = doc(db, 'users', user.uid);
-        const profileSnap = await getDoc(profileRef);
-        const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
+        const userProfile = (await getUserProfile()) || { goal: '健康' };
         const recentLogs = await getAIContext();
         const monthlyStats = { currentDist: monthlyMileage };
 
@@ -236,7 +194,7 @@ export default function CalendarView() {
                 runHeartRate: plan.runHeartRate || '',
                 updatedAt: new Date().toISOString()
             };
-            await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+            await createCalendarWorkout(dataToSave);
         });
 
         await Promise.all(batchPromises);
@@ -270,18 +228,18 @@ export default function CalendarView() {
   };
 
   const handleSync = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
     setLoading(true);
     try { await updateAIContext(); await fetchMonthWorkouts(); alert("同步完成！"); } catch (error) { console.error("Sync failed:", error); } finally { setLoading(false); }
   };
 
   const handleExport = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
     setLoading(true);
     try {
-        const csvContent = await generateCSVData(user.uid, gears);
+        const csvContent = await generateCalendarCSVData(gears);
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -332,7 +290,7 @@ export default function CalendarView() {
   const handleDragOver = (e, dateStr) => { e.preventDefault(); if (dragOverDate !== dateStr) setDragOverDate(dateStr); };
   const handleDrop = async (e, targetDateStr) => {
       e.preventDefault(); setDragOverDate(null);
-      const user = auth.currentUser;
+      const user = getCurrentUser();
       if (!user || !draggedWorkout) return;
       const isCopy = e.ctrlKey || e.metaKey; 
       const sourceDateStr = draggedWorkout.date;
@@ -348,8 +306,8 @@ export default function CalendarView() {
           updatedAt: new Date().toISOString()
         };
         const { id, ...dataToSave } = newData;
-        if (isCopy) await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
-        else await updateDoc(doc(db, 'users', user.uid, 'calendar', draggedWorkout.id), { date: targetDateStr, status: dataToSave.status, updatedAt: new Date().toISOString() });
+        if (isCopy) await createCalendarWorkout(dataToSave);
+        else await updateCalendarWorkout(draggedWorkout.id, { date: targetDateStr, status: dataToSave.status, updatedAt: new Date().toISOString() });
         updateAIContext(); await fetchMonthWorkouts(); 
       } catch (error) {} finally { setLoading(false); setDraggedWorkout(null); }
   };
@@ -374,7 +332,7 @@ export default function CalendarView() {
     setCurrentDocId(workout.id); setModalView('form');
   };
   const handleSave = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
     const isStrengthEmpty = editForm.type === 'strength' && editForm.exercises.length === 0 && !editForm.title;
     const isRunEmpty = editForm.type === 'run' && !editForm.runDistance && !editForm.title;
@@ -385,8 +343,8 @@ export default function CalendarView() {
     const dateStr = formatDate(selectedDate);
     const dataToSave = { ...editForm, date: dateStr, updatedAt: new Date().toISOString() };
     try {
-      if (currentDocId) await setDoc(doc(db, 'users', user.uid, 'calendar', currentDocId), dataToSave);
-      else await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+      if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
+      else await createCalendarWorkout(dataToSave);
       updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
     } catch (error) { alert("儲存失敗"); }
   };
@@ -394,7 +352,7 @@ export default function CalendarView() {
     if (!currentDocId) return;
     if(!window.confirm("確定刪除？")) return;
     try {
-      await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'calendar', currentDocId));
+      await deleteCalendarWorkout(currentDocId);
       updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
     } catch (error) { alert("刪除失敗"); }
   };
@@ -680,9 +638,11 @@ export default function CalendarView() {
                             <div className="flex gap-3 ml-auto">
                                 <button onClick={() => setModalView('list')} className="text-gray-400 hover:text-white px-4">取消</button>
                                 <button onClick={async () => {
+                                    const user = getCurrentUser();
+                                    if (!user) return;
                                     const dataToSave = { ...editForm, date: formatDate(selectedDate), updatedAt: new Date().toISOString() };
-                                    if (currentDocId) await setDoc(doc(db, 'users', auth.currentUser.uid, 'calendar', currentDocId), dataToSave);
-                                    else await addDoc(collection(db, 'users', auth.currentUser.uid, 'calendar'), dataToSave);
+                                    if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
+                                    else await createCalendarWorkout(dataToSave);
                                     updateAIContext();
                                     await fetchMonthWorkouts();
                                     setModalView('list');

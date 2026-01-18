@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 // 修正：補上 Sparkles 引入
 import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, ChefHat, Loader, Search, Sparkles } from 'lucide-react';
-import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, where } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { getCurrentUser } from '../services/authService';
+import { getApiKey } from '../services/apiKeyService';
+import { subscribeFoodLogsByDate, createFoodLog, deleteFoodLog } from '../services/nutritionService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { updateAIContext } from '../utils/contextManager';
 
@@ -34,7 +35,7 @@ export default function NutritionView({ userData }) {
   const [suggesting, setSuggesting] = useState(false);
 
   useEffect(() => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) {
         setLoading(false);
         return;
@@ -42,28 +43,22 @@ export default function NutritionView({ userData }) {
     
     try {
         const today = new Date().toISOString().split('T')[0];
-        const q = query(
-          collection(db, 'users', user.uid, 'food_logs'),
-          where('date', '==', today)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const unsubscribe = subscribeFoodLogsByDate(today, (data) => {
           data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
           setLogs(data);
-          
+
           const sum = data.reduce((acc, curr) => ({
             cal: acc.cal + (parseFloat(curr.calories) || 0),
             protein: acc.protein + (parseFloat(curr.protein) || 0),
             carbs: acc.carbs + (parseFloat(curr.carbs) || 0),
             fat: acc.fat + (parseFloat(curr.fat) || 0),
           }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
-          
+
           setSummary(sum);
           setLoading(false);
         }, (error) => {
-            console.error("Firestore read error:", error);
-            setLoading(false);
+          console.error("Firestore read error:", error);
+          setLoading(false);
         });
 
         return () => unsubscribe();
@@ -76,7 +71,7 @@ export default function NutritionView({ userData }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = getApiKey();
     if (!apiKey) return alert("請先設定 API Key");
 
     setAnalyzing(true);
@@ -117,18 +112,17 @@ export default function NutritionView({ userData }) {
 
   const handleAddFood = async () => {
     if (!foodName) return alert("請輸入食物名稱");
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
 
     try {
-        await addDoc(collection(db, 'users', user.uid, 'food_logs'), {
+        await createFoodLog({
             date: new Date().toISOString().split('T')[0],
             name: foodName,
             calories: parseFloat(foodCal) || 0,
             protein: parseFloat(foodProtein) || 0,
             carbs: parseFloat(foodCarbs) || 0,
-            fat: parseFloat(foodFat) || 0,
-            createdAt: serverTimestamp()
+            fat: parseFloat(foodFat) || 0
         });
 
         setFoodName('');
@@ -149,7 +143,7 @@ export default function NutritionView({ userData }) {
   const handleDelete = async (id) => {
       if(!confirm("刪除此筆紀錄？")) return;
       try {
-        await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'food_logs', id));
+        await deleteFoodLog(id);
         updateAIContext();
       } catch (err) {
           console.error(err);
@@ -157,7 +151,7 @@ export default function NutritionView({ userData }) {
   };
 
   const getSuggestion = async () => {
-      const apiKey = localStorage.getItem('gemini_api_key');
+      const apiKey = getApiKey();
       if (!apiKey) return alert("請先設定 API Key");
       
       setSuggesting(true);

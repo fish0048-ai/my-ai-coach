@@ -7,6 +7,7 @@ import { getCurrentUser } from '../services/authService';
 import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
 import { calculateMuscleFatigue } from '../utils/statsCalculations';
 import StatCard from '../components/Dashboard/StatCard';
+import PRTracker from '../components/Dashboard/PRTracker';
 import { useUserStore } from '../store/userStore';
 import { useViewStore } from '../store/viewStore';
 
@@ -293,7 +294,10 @@ export default function DashboardView() {
         />
       </div>
 
-      {/* 第二層：跑步週統計 */}
+      {/* 第二層：PR 追踪 */}
+      <PRTracker />
+
+      {/* 第三層：跑步週統計 */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
         <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="text-green-400" />

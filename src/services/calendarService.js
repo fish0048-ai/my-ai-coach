@@ -282,3 +282,173 @@ export const deleteGear = async (gearId) => {
   // 清除装备相关缓存
   clearCache(`gears_${user.uid}`);
 };
+
+/**
+ * PR (Personal Record) 追踪相关函数
+ */
+
+/**
+ * 计算 1RM (One Rep Max)
+ * @param {number} weight - 重量 (kg)
+ * @param {number} reps - 次数
+ * @returns {number} 预估 1RM
+ */
+const calculate1RM = (weight, reps) => {
+  if (!weight || !reps || reps <= 0) return 0;
+  if (reps === 1) return weight;
+  // 使用 Epley 公式：1RM = weight × (1 + reps / 30)
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+};
+
+/**
+ * 识别并提取 PR 数据
+ * @param {Array} workouts - 训练记录数组
+ * @returns {Object} PR 数据对象
+ */
+export const extractPRs = (workouts) => {
+  if (!Array.isArray(workouts)) return { strengthPRs: {}, runPRs: {} };
+
+  const strengthPRs = {}; // { exerciseName: { max1RM, maxVolume, maxWeight, date, ... } }
+  const runPRs = {
+    maxDistance: null,
+    fastestPace: null,
+    longestDuration: null,
+    fastestPaceDate: null,
+    maxDistanceDate: null,
+    longestDurationDate: null
+  };
+
+  workouts.forEach((workout) => {
+    if (!workout || workout.status !== 'completed') return;
+
+    // 处理力量训练 PR
+    if (workout.type === 'strength' && Array.isArray(workout.exercises)) {
+      workout.exercises.forEach((exercise) => {
+        if (!exercise || !exercise.name) return;
+
+        const exerciseName = exercise.name.trim();
+        const sets = parseInt(exercise.sets) || 0;
+        const reps = parseInt(exercise.reps) || 0;
+        const weight = parseFloat(exercise.weight) || 0;
+
+        if (sets === 0 || reps === 0 || weight === 0) return;
+
+        const volume = sets * reps * weight; // 总训练量
+        const max1RM = calculate1RM(weight, reps); // 预估 1RM
+        const maxWeight = weight; // 最大重量
+
+        // 初始化或更新 PR
+        if (!strengthPRs[exerciseName]) {
+          strengthPRs[exerciseName] = {
+            max1RM: 0,
+            maxVolume: 0,
+            maxWeight: 0,
+            maxSets: 0,
+            maxReps: 0,
+            firstDate: workout.date,
+            lastDate: workout.date,
+            prDates: {}
+          };
+        }
+
+        const pr = strengthPRs[exerciseName];
+
+        // 更新最大 1RM
+        if (max1RM > pr.max1RM) {
+          pr.max1RM = max1RM;
+          pr.max1RMDate = workout.date;
+          pr.max1RMWeight = weight;
+          pr.max1RMReps = reps;
+        }
+
+        // 更新最大总训练量
+        if (volume > pr.maxVolume) {
+          pr.maxVolume = volume;
+          pr.maxVolumeDate = workout.date;
+        }
+
+        // 更新最大重量
+        if (maxWeight > pr.maxWeight) {
+          pr.maxWeight = maxWeight;
+          pr.maxWeightDate = workout.date;
+        }
+
+        // 更新最大组数
+        if (sets > pr.maxSets) {
+          pr.maxSets = sets;
+          pr.maxSetsDate = workout.date;
+        }
+
+        // 更新最大次数
+        if (reps > pr.maxReps) {
+          pr.maxReps = reps;
+          pr.maxRepsDate = workout.date;
+        }
+
+        // 更新日期范围
+        if (workout.date < pr.firstDate) {
+          pr.firstDate = workout.date;
+        }
+        if (workout.date > pr.lastDate) {
+          pr.lastDate = workout.date;
+        }
+      });
+    }
+
+    // 处理跑步 PR
+    if (workout.type === 'run') {
+      const distance = parseFloat(workout.runDistance) || 0;
+      const duration = parseFloat(workout.runDuration) || 0; // 分钟
+      const paceStr = workout.runPace || '';
+
+      // 解析配速（格式：5'30" 或 5:30）
+      let paceMinutes = 0;
+      if (paceStr) {
+        const match = paceStr.match(/(\d+)[':](\d+)/);
+        if (match) {
+          paceMinutes = parseFloat(match[1]) + parseFloat(match[2]) / 60;
+        }
+      } else if (distance > 0 && duration > 0) {
+        // 如果没有配速，从距离和时间计算
+        paceMinutes = duration / distance;
+      }
+
+      // 更新最大距离
+      if (distance > 0 && (!runPRs.maxDistance || distance > runPRs.maxDistance)) {
+        runPRs.maxDistance = distance;
+        runPRs.maxDistanceDate = workout.date;
+      }
+
+      // 更新最快配速（配速越小越快）
+      if (paceMinutes > 0 && (!runPRs.fastestPace || paceMinutes < runPRs.fastestPace)) {
+        runPRs.fastestPace = paceMinutes;
+        runPRs.fastestPaceDate = workout.date;
+      }
+
+      // 更新最长时长
+      if (duration > 0 && (!runPRs.longestDuration || duration > runPRs.longestDuration) {
+        runPRs.longestDuration = duration;
+        runPRs.longestDurationDate = workout.date;
+      }
+    }
+  });
+
+  return { strengthPRs, runPRs };
+};
+
+/**
+ * 获取用户所有 PR 数据
+ * @returns {Promise<Object>} PR 数据对象
+ */
+export const getAllPRs = async () => {
+  const user = getCurrentUser();
+  if (!user) return { strengthPRs: {}, runPRs: {} };
+
+  try {
+    const workouts = await listCalendarWorkouts();
+    return extractPRs(workouts);
+  } catch (error) {
+    console.error('Error fetching PRs:', error);
+    return { strengthPRs: {}, runPRs: {} };
+  }
+};

@@ -405,7 +405,7 @@ export const extractPRs = (workouts) => {
       let paceMinutes = 0;
       if (paceStr) {
         // 匹配 5'30" 或 5:30 格式
-        const matchSingleQuote = paceStr.match(/(\d+)['](\d+)/);
+        const matchSingleQuote = paceStr.match(/(\d+)[\x27](\d+)/);
         const matchColon = paceStr.match(/(\d+):(\d+)/);
         const match = matchSingleQuote || matchColon;
         if (match) {
@@ -429,7 +429,7 @@ export const extractPRs = (workouts) => {
       }
 
       // 更新最长时长
-      if (duration > 0 && (!runPRs.longestDuration || duration > runPRs.longestDuration) {
+      if (duration > 0 && (!runPRs.longestDuration || duration > runPRs.longestDuration)) {
         runPRs.longestDuration = duration;
         runPRs.longestDurationDate = workout.date;
       }

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
-import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart } from 'lucide-react';
-// 確保引入 where
+// 新增 CalendarClock, CheckCircle2, Circle
+import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -42,6 +42,7 @@ export default function DashboardView({ userData }) {
     longestRun: 0,
     zone2Percent: 0
   });
+  const [todayWorkouts, setTodayWorkouts] = useState([]); // 新增：今日課表狀態
   const [loading, setLoading] = useState(false);
 
   // 計算 Zone 2 範圍
@@ -52,7 +53,28 @@ export default function DashboardView({ userData }) {
 
   useEffect(() => {
     fetchWorkoutStats();
+    fetchTodaySchedule(); // 新增：讀取今日課表
   }, [userData]);
+
+  // 新增：讀取今日課表邏輯
+  const fetchTodaySchedule = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      try {
+          const q = query(
+              collection(db, 'users', user.uid, 'calendar'),
+              where('date', '==', todayStr)
+          );
+          const snapshot = await getDocs(q);
+          const todays = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setTodayWorkouts(todays);
+      } catch (e) {
+          console.error("Fetch today schedule failed:", e);
+      }
+  };
 
   const fetchWorkoutStats = async () => {
     const user = auth.currentUser;
@@ -65,13 +87,10 @@ export default function DashboardView({ userData }) {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-      // 2. 建立優化後的查詢 (只抓取日期 >= 30天前的資料)
-      // 注意：這會顯著減少讀取量，提升效能
+      // 2. 建立查詢 (只抓取 completed)
       const q = query(
           collection(db, 'users', user.uid, 'calendar'),
           where('date', '>=', startDateStr)
-          // 若要排序可加 orderBy('date', 'desc')，但需建立複合索引
-          // 這裡先不加 orderBy，直接在前端處理，避免需手動設定索引的麻煩
       );
       
       const querySnapshot = await getDocs(q);
@@ -103,7 +122,7 @@ export default function DashboardView({ userData }) {
         const data = doc.data();
         if (!data) return;
 
-        // 因為已經用 where 篩選過日期，這裡只需判斷狀態
+        // 統計邏輯只看已完成
         if (data.status === 'completed') {
           if (data.type !== 'analysis') {
              totalWorkouts++;
@@ -117,13 +136,21 @@ export default function DashboardView({ userData }) {
                 muscleScore[ex.targetMuscle] = (muscleScore[ex.targetMuscle] || 0) + sets;
                 totalSets += sets;
               }
-              if (ex.type === 'analysis') {
+              if (data.type === 'analysis') { // 注意：analysis 可能是 data.type
                 analysisReports.push({
-                    title: ex.title,
-                    feedback: ex.feedback,
-                    createdAt: ex.createdAt || data.date 
+                    title: data.title,
+                    feedback: data.feedback,
+                    createdAt: data.createdAt || data.date 
                 });
               }
+            });
+          }
+          // 修正：analysis 也可能直接是 type
+          if (data.type === 'analysis') {
+             analysisReports.push({
+                title: data.title,
+                feedback: data.feedback,
+                createdAt: data.createdAt || data.date 
             });
           }
 
@@ -189,15 +216,73 @@ export default function DashboardView({ userData }) {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* 頂部歡迎區與天氣 */}
+      {/* 頂部歡迎區 */}
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white">
               歡迎回來，{userData?.name || '健身夥伴'}
             </h1>
-            <p className="text-gray-400">這是您過去 30 天的訓練概況</p>
+            <p className="text-gray-400">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
           </div>
+        </div>
+
+        {/* 新增：今日課表提醒區塊 */}
+        <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 p-5 rounded-xl border border-blue-500/30">
+            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+               <CalendarClock className="text-blue-400" /> 
+               今日訓練課表
+            </h3>
+            
+            {todayWorkouts.length > 0 ? (
+                <div className="space-y-3">
+                    {todayWorkouts.map(workout => (
+                        <div key={workout.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${workout.status === 'completed' ? 'bg-green-900/20 border-green-500/30' : 'bg-gray-800/80 border-gray-600'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`p-2 rounded-lg ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                    {workout.type === 'run' ? <TrendingUp size={20}/> : <Dumbbell size={20}/>}
+                                </div>
+                                <div>
+                                    <h4 className={`font-bold ${workout.status === 'completed' ? 'text-gray-400 line-through' : 'text-white'}`}>
+                                        {workout.title}
+                                    </h4>
+                                    <p className="text-xs text-gray-400">
+                                        {workout.type === 'run' 
+                                            ? `目標: ${workout.runDistance || '?'} km / ${workout.runDuration || '?'} min` 
+                                            : `目標: ${workout.exercises?.length || 0} 組動作`
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                                {workout.status === 'completed' ? (
+                                    <div className="flex items-center gap-1 text-green-400 text-xs font-bold bg-green-900/30 px-3 py-1.5 rounded-full">
+                                        <CheckCircle2 size={14} /> 已完成
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-1 text-gray-400 text-xs bg-gray-700/50 px-3 py-1.5 rounded-full border border-gray-600">
+                                        <Circle size={14} /> 待執行
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {/* 引導到行事曆按鈕 */}
+                    {todayWorkouts.some(w => w.status !== 'completed') && (
+                        <div className="text-right mt-2">
+                            <p className="text-xs text-blue-300 flex items-center justify-end gap-1">
+                                前往行事曆打卡 <ArrowRight size={12}/>
+                            </p>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div className="text-center py-6">
+                    <p className="text-gray-400 mb-2">今天尚無安排訓練計畫。</p>
+                    <p className="text-xs text-gray-500">休息是為了走更長遠的路，或是前往行事曆安排自主訓練？</p>
+                </div>
+            )}
         </div>
 
         {/* 天氣小工具 */}

@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, Timer, Zap, Heart, CheckCircle2, Clock, Tag, ArrowLeft, Edit3, Copy, Move, AlignLeft, BarChart2, Upload, Flame, RefreshCw, FileCode, AlertTriangle, Download, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
 import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
-import { getHeadCoachPrompt } from '../utils/aiPrompts';
-// 修正：只匯入需要的函式，移除 formatDate 等未匯出的項目
+import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
+// 修正：只匯入確定存在的匯入工具，避免 formatDate 錯誤
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
-// --- 本地定義輔助函式 (避免匯入錯誤) ---
+// --- 本地定義輔助函式 (防止匯入錯誤) ---
 
 const formatDate = (date) => {
   if (!date || isNaN(date.getTime())) return '';
@@ -84,6 +84,9 @@ export default function CalendarView() {
   const [modalView, setModalView] = useState('list'); 
   const [currentDocId, setCurrentDocId] = useState(null); 
   
+  const [showWeeklyModal, setShowWeeklyModal] = useState(false);
+  const [weeklyPrefs, setWeeklyPrefs] = useState({});
+
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
   const fileInputRef = useRef(null);
@@ -189,8 +192,6 @@ export default function CalendarView() {
         if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         
         const plan = JSON.parse(cleanJson);
-        const cleanVal = (val) => (typeof val === 'number' ? val : parseFloat(val?.replace(/[^\d.]/g, '')) || '');
-
         setEditForm(prev => ({
             ...prev,
             status: 'planned',
@@ -198,8 +199,8 @@ export default function CalendarView() {
             title: plan.title,
             notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
             exercises: plan.exercises || [],
-            runDistance: cleanVal(plan.runDistance),
-            runDuration: cleanVal(plan.runDuration),
+            runDistance: cleanNumber(plan.runDistance),
+            runDuration: cleanNumber(plan.runDuration),
             runPace: plan.runPace || '',
             runHeartRate: plan.runHeartRate || '', 
         }));
@@ -208,6 +209,87 @@ export default function CalendarView() {
         console.error("AI Gen Error:", error);
         alert("總教練思考中斷，請重試");
     } finally { setIsGenerating(false); }
+  };
+
+  const handleWeeklyGenerate = async () => {
+    const user = auth.currentUser;
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!user || !apiKey) return alert("請先登入並設定 API Key");
+    setLoading(true);
+    try {
+        const weekDates = getWeekDates(currentDate);
+        const planningDates = weekDates.filter(d => {
+            const hasCompleted = (workouts[d] || []).some(w => w.status === 'completed');
+            return !hasCompleted && weeklyPrefs[d] && !weeklyPrefs[d].includes('rest');
+        });
+
+        if (planningDates.length === 0) {
+            setLoading(false);
+            return alert("本週無需規劃。");
+        }
+
+        const profileRef = doc(db, 'users', user.uid);
+        const profileSnap = await getDoc(profileRef);
+        const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
+        const recentLogs = await getAIContext();
+        const monthlyStats = { currentDist: monthlyMileage };
+
+        let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats);
+        prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
+        const response = await runGemini(prompt, apiKey);
+        
+        let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
+        const startIndex = cleanJson.indexOf('[');
+        const endIndex = cleanJson.lastIndexOf(']');
+        if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
+
+        const plans = JSON.parse(cleanJson);
+        const batchPromises = plans.map(async (plan) => {
+            if (plan.type === 'rest') return;
+            const dataToSave = {
+                date: plan.date,
+                status: 'planned',
+                type: plan.type === 'run' ? 'run' : 'strength',
+                title: plan.title || 'AI 訓練計畫',
+                notes: `[總教練週計畫]\n${plan.advice || ''}`,
+                exercises: plan.exercises || [],
+                runDistance: cleanNumber(plan.runDistance),
+                runDuration: cleanNumber(plan.runDuration),
+                runPace: plan.runPace || '',
+                runHeartRate: plan.runHeartRate || '',
+                updatedAt: new Date().toISOString()
+            };
+            await addDoc(collection(db, 'users', user.uid, 'calendar'), dataToSave);
+        });
+
+        await Promise.all(batchPromises);
+        await fetchMonthWorkouts();
+        setShowWeeklyModal(false);
+        alert(`成功生成 ${plans.length} 筆訓練計畫！`);
+    } catch (error) {
+        console.error("Weekly Gen Error:", error);
+        alert("生成失敗: " + error.message);
+    } finally { setLoading(false); }
+  };
+
+  const toggleWeeklyPref = (date, type) => {
+    setWeeklyPrefs(prev => {
+        const current = prev[date] || [];
+        if (type === 'rest') return { ...prev, [date]: ['rest'] };
+        let newTypes = current.filter(t => t !== 'rest' && t !== 'auto');
+        if (newTypes.includes(type)) newTypes = newTypes.filter(t => t !== type);
+        else newTypes.push(type);
+        if (newTypes.length === 0) newTypes = ['auto'];
+        return { ...prev, [date]: newTypes };
+    });
+  };
+
+  const openWeeklyModal = () => {
+      const weekDates = getWeekDates(currentDate);
+      const initialPrefs = {};
+      weekDates.forEach(date => initialPrefs[date] = ['auto']);
+      setWeeklyPrefs(initialPrefs);
+      setShowWeeklyModal(true);
   };
 
   const handleSync = async () => {
@@ -351,6 +433,17 @@ export default function CalendarView() {
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const days = []; for (let i = 0; i < firstDayOfMonth; i++) days.push(null); for (let i = 1; i <= daysInMonth; i++) days.push(i);
   const changeMonth = (offset) => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+  const weekDateList = getWeekDates(currentDate);
+
+  // 選項定義
+  const PREF_OPTIONS = [
+    { key: 'strength', label: '🏋️ 重訓', color: 'bg-blue-600' },
+    { key: 'run_lsd', label: '🐢 LSD', color: 'bg-orange-600' },
+    { key: 'run_interval', label: '🐇 間歇', color: 'bg-red-600' },
+    { key: 'run_easy', label: '👟 輕鬆', color: 'bg-green-600' },
+    { key: 'run_mp', label: '🔥 MP', color: 'bg-yellow-600' },
+    { key: 'rest', label: '😴 休息', color: 'bg-gray-600' }
+  ];
 
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
@@ -363,6 +456,14 @@ export default function CalendarView() {
             <CalendarIcon className="text-blue-500" />
             運動行事曆
             </h1>
+            <button onClick={() => { 
+                const initialPrefs = {}; 
+                weekDateList.forEach(d => initialPrefs[d] = ['auto']); 
+                setWeeklyPrefs(initialPrefs); 
+                setShowWeeklyModal(true); 
+            }} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-purple-900/30 transition-all">
+                <CalendarDays size={18} /> 本週總教練排程
+            </button>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
           <button onClick={handleSync} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50">
@@ -447,6 +548,77 @@ export default function CalendarView() {
           })}
         </div>
       </div>
+      {/* ... (Modals remain the same) ... */}
+      {showWeeklyModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-gray-900 w-full max-w-3xl rounded-2xl border border-gray-700 shadow-2xl p-6 flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <CalendarDays className="text-purple-500" /> 本週總教練排程 (多選模式)
+                    </h3>
+                    <button onClick={() => setShowWeeklyModal(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
+                </div>
+                
+                <div className="bg-purple-900/20 p-4 rounded-xl border border-purple-500/30 mb-6 text-sm text-purple-200">
+                    <p>請設定本週剩餘日期的訓練重點。您可以為同一天選擇多個項目 (例如：重訓 + 輕鬆跑)，AI 將為您生成多筆課表。</p>
+                </div>
+
+                <div className="space-y-4 flex-1 overflow-y-auto pr-2">
+                    {weekDateList.map(date => {
+                        const dayWorkouts = workouts[date] || [];
+                        const hasCompleted = dayWorkouts.some(w => w.status === 'completed');
+                        const dayName = new Date(date).toLocaleDateString('zh-TW', { weekday: 'long' });
+                        const currentPrefs = weeklyPrefs[date] || [];
+                        
+                        return (
+                            <div key={date} className={`p-4 rounded-xl border ${hasCompleted ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-800 border-gray-600'}`}>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <span className="text-gray-400 font-mono text-sm">{date}</span>
+                                    <span className="text-white font-bold">{dayName}</span>
+                                    {hasCompleted ? 
+                                        <span className="text-xs bg-green-900 text-green-400 px-2 py-0.5 rounded">已完成 (跳過)</span> : 
+                                        <span className="text-xs text-gray-500">請選擇今日訓練 (可複選)</span>
+                                    }
+                                </div>
+                                
+                                {!hasCompleted && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {PREF_OPTIONS.map(opt => {
+                                            const isSelected = currentPrefs.includes(opt.key);
+                                            return (
+                                                <button
+                                                    key={opt.key}
+                                                    onClick={() => toggleWeeklyPref(date, opt.key)}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                                        isSelected 
+                                                            ? `${opt.color} text-white border-transparent shadow-lg scale-105` 
+                                                            : 'bg-gray-900 text-gray-400 border-gray-600 hover:border-gray-400'
+                                                    }`}
+                                                >
+                                                    {opt.label} {isSelected && <CheckCircle2 size={10} className="inline ml-1"/>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                    <button 
+                        onClick={handleWeeklyGenerate} 
+                        disabled={loading}
+                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-lg"
+                    >
+                        {loading ? <Loader className="animate-spin" /> : <Sparkles />}
+                        生成本週複合課表
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {isModalOpen && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -463,6 +635,7 @@ export default function CalendarView() {
                     </div>
                     <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
                 </div>
+
                 <div className="p-6 overflow-y-auto flex-1">
                     {modalView === 'list' && (
                         <div className="space-y-4">

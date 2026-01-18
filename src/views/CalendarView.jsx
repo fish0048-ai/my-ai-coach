@@ -7,11 +7,10 @@ import { detectMuscleGroup } from '../assets/data/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../utils/aiPrompts';
-// 修正：移除導致錯誤的 formatDate 與 generateCSVData 匯入
 import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 
-// --- 本地定義輔助函式 (避免匯入錯誤) ---
+// --- 本地定義輔助函式 ---
 
 const formatDate = (date) => {
   if (!date || isNaN(date.getTime())) return '';
@@ -168,50 +167,69 @@ export default function CalendarView() {
       } catch (err) { console.error(err); }
   };
 
+  // --- AI 總教練生成邏輯 (修復版) ---
   const handleHeadCoachGenerate = async () => {
     const user = auth.currentUser;
     if (!user) return alert("請先登入");
     const apiKey = localStorage.getItem('gemini_api_key');
     if (!apiKey) return alert("請先設定 API Key");
+
     setIsGenerating(true);
     try {
         const profileRef = doc(db, 'users', user.uid);
         const profileSnap = await getDoc(profileRef);
         const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
-        const recentLogs = await getAIContext();
+        
+        let recentLogs = "無近期紀錄";
+        try { recentLogs = await getAIContext(); } catch(e){}
+
         const monthlyStats = { currentDist: monthlyMileage };
         const targetDateStr = formatDate(selectedDate);
         
         let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
-        prompt += "\n\nIMPORTANT: Output ONLY raw JSON.";
+        prompt += "\n\nIMPORTANT: Output ONLY raw JSON. Do not use Markdown code blocks. Ensure all keys are quoted.";
+
         const response = await runGemini(prompt, apiKey);
+        console.log("AI Response:", response); // Debug output
+
+        // 強化版 JSON 提取：使用 Regex 抓取 { ... }
+        let cleanJson = response;
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            cleanJson = jsonMatch[0];
+        }
         
-        let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        const startIndex = cleanJson.indexOf('{');
-        const endIndex = cleanJson.lastIndexOf('}');
-        if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-        
-        const plan = JSON.parse(cleanJson);
+        let plan;
+        try {
+            plan = JSON.parse(cleanJson);
+        } catch (e) {
+            console.error("JSON Parse Error:", e, cleanJson);
+            throw new Error("AI 回傳格式錯誤 (JSON Parse Failed)");
+        }
 
         setEditForm(prev => ({
             ...prev,
             status: 'planned',
             type: plan.type === 'run' ? 'run' : 'strength',
-            title: plan.title,
-            notes: `[總教練建議]\n${plan.advice}\n\n${prev.notes || ''}`,
-            exercises: plan.exercises || [],
+            title: plan.title || 'AI 訓練',
+            notes: `[總教練建議]\n${plan.advice || '無建議'}\n\n${prev.notes || ''}`,
+            exercises: Array.isArray(plan.exercises) ? plan.exercises : [],
             runDistance: cleanNumber(plan.runDistance),
             runDuration: cleanNumber(plan.runDuration),
             runPace: plan.runPace || '',
             runHeartRate: plan.runHeartRate || '', 
         }));
         alert("總教練已生成課表！");
+
     } catch (error) {
         console.error("AI Gen Error:", error);
-        alert("總教練思考中斷，請重試");
-    } finally { setIsGenerating(false); }
+        alert(`總教練思考中斷: ${error.message}\n(請按 F12 查看詳細錯誤)`);
+    } finally {
+        setIsGenerating(false);
+    }
   };
 
+  // --- AI 週排程邏輯 ---
   const handleWeeklyGenerate = async () => {
     const user = auth.currentUser;
     const apiKey = localStorage.getItem('gemini_api_key');
@@ -226,23 +244,26 @@ export default function CalendarView() {
 
         if (planningDates.length === 0) {
             setLoading(false);
-            return alert("本週無需規劃。");
+            return alert("本週無需規劃 (皆設為休息或已完成)。");
         }
 
         const profileRef = doc(db, 'users', user.uid);
         const profileSnap = await getDoc(profileRef);
         const userProfile = profileSnap.exists() ? profileSnap.data() : { goal: '健康' };
-        const recentLogs = await getAIContext();
+        let recentLogs = "無";
+        try { recentLogs = await getAIContext(); } catch(e){}
         const monthlyStats = { currentDist: monthlyMileage };
 
         let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats);
         prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
         const response = await runGemini(prompt, apiKey);
         
-        let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        const startIndex = cleanJson.indexOf('[');
-        const endIndex = cleanJson.lastIndexOf(']');
-        if (startIndex !== -1 && endIndex !== -1) cleanJson = cleanJson.substring(startIndex, endIndex + 1);
+        // 強化版 Array JSON 提取
+        let cleanJson = response;
+        const arrayMatch = response.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+            cleanJson = arrayMatch[0];
+        }
 
         const plans = JSON.parse(cleanJson);
         const batchPromises = plans.map(async (plan) => {
@@ -658,7 +679,15 @@ export default function CalendarView() {
                                                 {usedGear && <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300"><ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}</div>}
                                             </div>
                                         </div>
-                                        <div className="text-gray-500 group-hover:text-white"><Edit3 size={18} /></div>
+                                        <div className="flex items-center gap-2">
+                                            <Edit3 size={18} className="text-gray-600 group-hover:text-white" />
+                                            <button 
+                                                onClick={(e) => handleStatusToggle(e, workout)}
+                                                className={`p-2 rounded-full transition-colors ${workout.status === 'completed' ? 'text-green-500 bg-green-900/20' : 'text-gray-600 hover:text-gray-400'}`}
+                                            >
+                                                <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} />
+                                            </button>
+                                        </div>
                                     </div>
                                     )
                                 })

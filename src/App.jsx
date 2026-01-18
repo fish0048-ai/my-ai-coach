@@ -4,8 +4,7 @@ import MainLayout from './layouts/MainLayout';
 // 移除靜態引入，改用 Lazy Load
 // import CoachChat from './components/AICoach/CoachChat.jsx';
 import { Loader, AlertTriangle, MessageSquare } from 'lucide-react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from './firebase';
+import { signInWithGoogle } from './services/authService';
 
 // --- 1. 使用 Lazy Loading 隔離錯誤並優化效能 ---
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));
@@ -61,8 +60,7 @@ class ErrorBoundary extends React.Component {
 // --- 3. 登入畫面 ---
 const LoginView = () => {
     const handleGoogleLogin = async () => {
-        const provider = new GoogleAuthProvider();
-        try { await signInWithPopup(auth, provider); } 
+        try { await signInWithGoogle(); } 
         catch (error) { console.error(error); alert("登入失敗: " + error.message); }
     };
 

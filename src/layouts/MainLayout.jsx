@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 // 新增 ShoppingBag, Utensils, LineChart
 import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag } from 'lucide-react';
-import { auth } from '../firebase'; 
+import { signOut } from '../services/authService'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
   <button
@@ -20,7 +20,7 @@ const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
 export default function MainLayout({ children, currentView, setCurrentView, user, setIsChatOpen }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const handleSignOut = () => auth.signOut();
+  const handleSignOut = () => signOut();
 
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden font-sans">

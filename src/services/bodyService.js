@@ -1,4 +1,4 @@
-import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, setDoc, updateDoc, getDocs, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCurrentUser } from './authService';
 import { updateAIContext } from '../utils/contextManager';
@@ -58,4 +58,44 @@ export const deleteBodyLog = async (logId) => {
   if (!user) throw new Error('請先登入');
   await deleteDoc(doc(db, 'users', user.uid, 'body_logs', logId));
   await updateAIContext();
+};
+
+/**
+ * 從 Profile 同步身體數據到 body_logs（如果今天已有記錄則更新，否則創建）
+ * @param {string} date - 日期 YYYY-MM-DD
+ * @param {number} weight - 體重 (kg)
+ * @param {number} bodyFat - 體脂率 (%)
+ */
+export const syncBodyLogFromProfile = async (date, weight, bodyFat) => {
+  const user = getCurrentUser();
+  if (!user) throw new Error('請先登入');
+  
+  const w = parseFloat(weight) || 0;
+  const f = parseFloat(bodyFat) || 0;
+  
+  if (!w && !f) return; // 沒有數據就不需要同步
+  
+  const logsRef = collection(db, 'users', user.uid, 'body_logs');
+  const q = query(logsRef, where('date', '==', date));
+  const querySnapshot = await getDocs(q);
+  
+  const logData = {
+    date,
+    weight: w,
+    bodyFat: f,
+    source: 'profile_sync',
+    updatedAt: serverTimestamp()
+  };
+  
+  if (!querySnapshot.empty) {
+    // 如果今天已有記錄，更新它（避免重複）
+    const logDoc = querySnapshot.docs[0];
+    await updateDoc(doc(db, 'users', user.uid, 'body_logs', logDoc.id), logData);
+  } else {
+    // 如果今天沒有記錄，新增一筆
+    await addDoc(logsRef, {
+      ...logData,
+      createdAt: serverTimestamp()
+    });
+  }
 };

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Calendar, Trophy, Zap, Timer, Dumbbell, TrendingUp } from 'lucide-react';
-import { collection, getDocs, query } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { listCalendarWorkouts } from '../services/calendarService';
 
 // 輔助函式：取得本地 YYYY-MM-DD 字串
 const getLocalDateStr = (d) => {
@@ -28,19 +27,11 @@ export default function TrainingDashboardView() {
   }, [period]);
 
   const fetchData = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
     setLoading(true);
     try {
-      // 1. 從 Firebase 抓取所有資料
-      const q = query(collection(db, 'users', user.uid, 'calendar'));
-      const querySnapshot = await getDocs(q);
-      
-      const rawDocs = [];
-      querySnapshot.forEach((doc) => {
-        rawDocs.push(doc.data());
-      });
+      // 1. 從 Service 抓取所有資料
+      const workouts = await listCalendarWorkouts();
+      const rawDocs = workouts.map(w => ({ ...w, id: undefined })); // 移除 id 以保持相容性
 
       // 2. 處理統計 (交由前端運算)
       processStats(rawDocs, period);

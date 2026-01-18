@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Settings, Save, Loader, Flame, Pill, Calculator, Activity, Percent, Calendar as CalendarIcon, Clock, Timer, Heart } from 'lucide-react';
-// 新增 collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp 用於同步數據
-import { doc, setDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'; 
-import { db, auth } from '../firebase'; 
+import { updateUserProfile } from '../services/userService';
+import { syncBodyLogFromProfile } from '../services/bodyService';
+import { getCurrentUser } from '../services/authService';
 import { updateAIContext } from '../utils/contextManager';
 
 export default function FeatureViews({ view, userData }) {
@@ -131,7 +131,7 @@ export default function FeatureViews({ view, userData }) {
   };
 
   const handleSave = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) {
       alert("請先登入才能儲存資料！");
       return;
@@ -140,41 +140,19 @@ export default function FeatureViews({ view, userData }) {
     setIsSaving(true);
     try {
       // 1. 儲存個人檔案 (Profile)
-      await setDoc(doc(db, "users", user.uid), {
+      await updateUserProfile({
         ...profile, 
-        tdee: calculatedTDEE, 
-        email: user.email,
-        name: user.displayName || 'User',
-        lastUpdated: new Date()
-      }, { merge: true });
+        tdee: calculatedTDEE
+      });
 
       // 2. 同步數據至「數據趨勢 (body_logs)」集合
       if (profile.weight || profile.bodyFat) {
-          const todayStr = new Date().toISOString().split('T')[0];
-          const logsRef = collection(db, 'users', user.uid, 'body_logs');
-          // 檢查今天是否已經有紀錄
-          const q = query(logsRef, where('date', '==', todayStr));
-          const querySnapshot = await getDocs(q);
-          
-          const logData = {
-              date: todayStr,
-              weight: parseFloat(profile.weight) || 0,
-              bodyFat: parseFloat(profile.bodyFat) || 0,
-              source: 'profile_sync', // 標記來源
-              updatedAt: serverTimestamp()
-          };
-
-          if (!querySnapshot.empty) {
-              // 如果今天已有紀錄，更新它 (避免重複)
-              const logDoc = querySnapshot.docs[0];
-              await updateDoc(doc(db, 'users', user.uid, 'body_logs', logDoc.id), logData);
-          } else {
-              // 如果今天沒有紀錄，新增一筆
-              await addDoc(logsRef, {
-                  ...logData,
-                  createdAt: serverTimestamp()
-              });
-          }
+        const todayStr = new Date().toISOString().split('T')[0];
+        await syncBodyLogFromProfile(
+          todayStr,
+          parseFloat(profile.weight) || 0,
+          parseFloat(profile.bodyFat) || 0
+        );
       }
 
       // 3. 更新 AI 記憶上下文

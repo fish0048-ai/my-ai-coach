@@ -239,9 +239,6 @@ export default function DashboardView({ userData, setCurrentView }) {
                         <div className="text-right mt-2">
                             <button 
                                 onClick={() => {
-                                    // #region agent log
-                                    if (typeof window !== 'undefined') fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DashboardView.jsx:246',message:'onClick handler executed',data:{hasSetCurrentView:typeof setCurrentView!=='undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
-                                    // #endregion
                                     if (setCurrentView) {
                                         setCurrentView('calendar');
                                     } else {

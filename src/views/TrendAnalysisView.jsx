@@ -159,9 +159,6 @@ export default function TrendAnalysisView() {
   }, [category, bodyLogs, workoutLogs]);
 
   const chartData = useMemo(() => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TrendAnalysisView.jsx:161',message:'chartData useMemo - checking processData/processTrendData',data:{hasProcessData:typeof processData!=='undefined',hasProcessTrendData:typeof processTrendData!=='undefined',rawDataLength:rawData?.length,metricType,timeScale},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       return processTrendData(rawData, metricType, timeScale);
   }, [rawData, metricType, timeScale]);
 

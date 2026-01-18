@@ -10,7 +10,7 @@ export default function ProfileHeader({ userData, profile, calculatedTDEE }) {
   const targetCalories = getTargetCalories(calculatedTDEE, profile.goal);
 
   return (
-    <div className="col-span-1 space-y-6">
+    <div>
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col items-center text-center">
         <div className="relative">
           <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 ring-4 ring-gray-800 shadow-xl overflow-hidden">

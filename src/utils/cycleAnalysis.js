@@ -19,12 +19,12 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
   const startDateStr = weeksAgo.toISOString().split('T')[0];
 
   // 2. 過濾數據（只取最近 N 週）
-  const recentBodyLogs = bodyLogs
-    .filter(log => log.date >= startDateStr)
+  const recentBodyLogs = (Array.isArray(bodyLogs) ? bodyLogs : [])
+    .filter(log => log && log.date && log.date >= startDateStr)
     .sort((a, b) => a.date.localeCompare(b.date));
   
-  const recentWorkouts = workouts
-    .filter(workout => workout.date >= startDateStr && workout.status === 'completed')
+  const recentWorkouts = (Array.isArray(workouts) ? workouts : [])
+    .filter(workout => workout && workout.date && workout.date >= startDateStr && workout.status === 'completed')
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // 3. 計算關鍵指標
@@ -100,39 +100,50 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
  * @returns {Object} 趨勢結果 {slope, direction, strength}
  */
 const calculateTrend = (data) => {
-  if (data.length < 2) {
-    return { slope: 0, direction: 'stable', strength: 'weak' };
+  // 防禦性檢查：確保 data 是陣列且有效
+  if (!Array.isArray(data) || data.length < 2) {
+    return { slope: 0, direction: 'stable', strength: 'weak', relativeSlope: 0 };
   }
 
-  // 簡單線性回歸
-  const n = data.length;
-  const xValues = data.map((_, i) => i);
-  const yValues = data.map(d => d.value);
-  
-  const sumX = xValues.reduce((a, b) => a + b, 0);
-  const sumY = yValues.reduce((a, b) => a + b, 0);
-  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
-  const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
-  
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const avgValue = sumY / n;
-  const relativeSlope = slope / (avgValue || 1); // 相對斜率
+  try {
+    // 簡單線性回歸
+    const n = data.length;
+    const xValues = data.map((_, i) => i);
+    const yValues = data.map(d => (d && typeof d.value !== 'undefined') ? parseFloat(d.value) || 0 : 0);
+    
+    const sumX = xValues.reduce((a, b) => a + b, 0);
+    const sumY = yValues.reduce((a, b) => a + b, 0);
+    const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
+    const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
+    
+    const denominator = (n * sumXX - sumX * sumX);
+    if (denominator === 0 || isNaN(denominator)) {
+      return { slope: 0, direction: 'stable', strength: 'weak', relativeSlope: 0 };
+    }
+    
+    const slope = (n * sumXY - sumX * sumY) / denominator;
+    const avgValue = sumY / n;
+    const relativeSlope = (avgValue !== 0 && !isNaN(avgValue)) ? slope / avgValue : 0; // 相對斜率
 
-  let direction = 'stable';
-  let strength = 'weak';
-  
-  if (Math.abs(relativeSlope) < 0.01) {
-    direction = 'stable';
-    strength = 'weak';
-  } else if (relativeSlope > 0) {
-    direction = 'increasing';
-    strength = Math.abs(relativeSlope) > 0.05 ? 'strong' : 'moderate';
-  } else {
-    direction = 'decreasing';
-    strength = Math.abs(relativeSlope) > 0.05 ? 'strong' : 'moderate';
+    let direction = 'stable';
+    let strength = 'weak';
+    
+    if (Math.abs(relativeSlope) < 0.01 || isNaN(relativeSlope)) {
+      direction = 'stable';
+      strength = 'weak';
+    } else if (relativeSlope > 0) {
+      direction = 'increasing';
+      strength = Math.abs(relativeSlope) > 0.05 ? 'strong' : 'moderate';
+    } else {
+      direction = 'decreasing';
+      strength = Math.abs(relativeSlope) > 0.05 ? 'strong' : 'moderate';
+    }
+
+    return { slope: isNaN(slope) ? 0 : slope, direction, strength, relativeSlope: isNaN(relativeSlope) ? 0 : relativeSlope };
+  } catch (error) {
+    // 如果計算出錯，返回默認值
+    return { slope: 0, direction: 'stable', strength: 'weak', relativeSlope: 0 };
   }
-
-  return { slope, direction, strength, relativeSlope };
 };
 
 /**
@@ -142,29 +153,47 @@ const calculateTrend = (data) => {
  * @returns {Object} 頻率統計 {perWeek, consistency}
  */
 const calculateTrainingFrequency = (workouts, weeks) => {
-  if (workouts.length === 0 || weeks === 0) {
-    return { perWeek: 0, consistency: 'low' };
+  if (!Array.isArray(workouts) || workouts.length === 0 || !weeks || weeks === 0) {
+    return { perWeek: 0, consistency: 'low', weeklyCounts: {} };
   }
 
-  // 按日期分組
-  const dates = new Set(workouts.map(w => w.date));
-  const perWeek = dates.size / weeks;
+  try {
+    // 按日期分組
+    const dates = new Set(workouts.filter(w => w && w.date).map(w => w.date));
+    const perWeek = dates.size / weeks;
 
-  // 一致性（標準差）
-  const weeklyCounts = {};
-  workouts.forEach(w => {
-    const weekNum = getWeekNumber(w.date);
-    weeklyCounts[weekNum] = (weeklyCounts[weekNum] || 0) + 1;
-  });
+    // 一致性（標準差）
+    const weeklyCounts = {};
+    workouts.forEach(w => {
+      if (w && w.date) {
+        try {
+          const weekNum = getWeekNumber(w.date);
+          weeklyCounts[weekNum] = (weeklyCounts[weekNum] || 0) + 1;
+        } catch (e) {
+          // 忽略無效日期
+        }
+      }
+    });
 
-  const counts = Object.values(weeklyCounts);
-  const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
-  const variance = counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
-  const stdDev = Math.sqrt(variance);
-  
-  const consistency = stdDev / avg < 0.3 ? 'high' : (stdDev / avg < 0.6 ? 'moderate' : 'low');
+    const counts = Object.values(weeklyCounts);
+    if (counts.length === 0) {
+      return { perWeek: 0, consistency: 'low', weeklyCounts: {} };
+    }
+    
+    const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+    if (avg === 0 || isNaN(avg)) {
+      return { perWeek: 0, consistency: 'low', weeklyCounts: {} };
+    }
+    
+    const variance = counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
+    const stdDev = Math.sqrt(variance);
+    
+    const consistency = stdDev / avg < 0.3 ? 'high' : (stdDev / avg < 0.6 ? 'moderate' : 'low');
 
-  return { perWeek, consistency, weeklyCounts };
+    return { perWeek: isNaN(perWeek) ? 0 : perWeek, consistency, weeklyCounts };
+  } catch (error) {
+    return { perWeek: 0, consistency: 'low', weeklyCounts: {} };
+  }
 };
 
 /**
@@ -173,43 +202,50 @@ const calculateTrainingFrequency = (workouts, weeks) => {
  * @returns {Object} 強度統計 {avgVolume, avgIntensity, trend}
  */
 const calculateTrainingIntensity = (workouts) => {
-  if (workouts.length === 0) {
-    return { avgVolume: 0, avgIntensity: 'low', trend: 'stable' };
+  if (!Array.isArray(workouts) || workouts.length === 0) {
+    return { avgVolume: 0, avgIntensity: 'low', strengthCount: 0, runCount: 0 };
   }
 
-  // 計算總訓練量
-  let totalVolume = 0;
-  let strengthCount = 0;
-  let runCount = 0;
+  try {
+    // 計算總訓練量
+    let totalVolume = 0;
+    let strengthCount = 0;
+    let runCount = 0;
 
-  workouts.forEach(workout => {
-    if (workout.type === 'strength' && Array.isArray(workout.exercises)) {
-      // 力量訓練：組數 × 次數 × 重量
-      const volume = workout.exercises.reduce((sum, ex) => {
-        const sets = parseInt(ex.sets) || 0;
-        const reps = parseInt(ex.reps) || 0;
-        const weight = parseFloat(ex.weight) || 0;
-        return sum + (sets * reps * weight);
-      }, 0);
-      totalVolume += volume;
-      strengthCount++;
-    } else if (workout.type === 'run') {
-      // 跑步：距離 × 時間
-      const distance = parseFloat(workout.runDistance) || 0;
-      const duration = parseFloat(workout.runDuration) || 0;
-      totalVolume += distance * duration; // 簡化計算
-      runCount++;
-    }
-  });
+    workouts.forEach(workout => {
+      if (!workout) return;
+      
+      if (workout.type === 'strength' && Array.isArray(workout.exercises)) {
+        // 力量訓練：組數 × 次數 × 重量
+        const volume = workout.exercises.reduce((sum, ex) => {
+          if (!ex) return sum;
+          const sets = parseInt(ex.sets) || 0;
+          const reps = parseInt(ex.reps) || 0;
+          const weight = parseFloat(ex.weight) || 0;
+          return sum + (sets * reps * weight);
+        }, 0);
+        totalVolume += volume;
+        strengthCount++;
+      } else if (workout.type === 'run') {
+        // 跑步：距離 × 時間
+        const distance = parseFloat(workout.runDistance) || 0;
+        const duration = parseFloat(workout.runDuration) || 0;
+        totalVolume += distance * duration; // 簡化計算
+        runCount++;
+      }
+    });
 
-  const avgVolume = workouts.length > 0 ? totalVolume / workouts.length : 0;
+    const avgVolume = workouts.length > 0 ? totalVolume / workouts.length : 0;
 
-  // 強度分級
-  let avgIntensity = 'low';
-  if (avgVolume > 5000) avgIntensity = 'high';
-  else if (avgVolume > 2000) avgIntensity = 'moderate';
+    // 強度分級
+    let avgIntensity = 'low';
+    if (avgVolume > 5000) avgIntensity = 'high';
+    else if (avgVolume > 2000) avgIntensity = 'moderate';
 
-  return { avgVolume, avgIntensity, strengthCount, runCount };
+    return { avgVolume: isNaN(avgVolume) ? 0 : avgVolume, avgIntensity, strengthCount, runCount };
+  } catch (error) {
+    return { avgVolume: 0, avgIntensity: 'low', strengthCount: 0, runCount: 0 };
+  }
 };
 
 /**
@@ -239,6 +275,11 @@ const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, training
   // 3. 維持期（maintenance）：體重穩定 + 體脂率穩定 + 中等訓練頻率
   // 4. 恢復期（recovery）：低訓練頻率或強度
 
+  // 防禦性檢查：確保所有參數都存在
+  if (!weightTrend || !bodyFatTrend || !trainingFrequency || !trainingIntensity) {
+    return 'maintenance'; // 默認返回維持期
+  }
+
   const weightIncreasing = weightTrend.direction === 'increasing' && weightTrend.strength !== 'weak';
   const weightDecreasing = weightTrend.direction === 'decreasing' && weightTrend.strength !== 'weak';
   const weightStable = weightTrend.direction === 'stable';
@@ -246,8 +287,8 @@ const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, training
   const bodyFatDecreasing = bodyFatTrend.direction === 'decreasing' && bodyFatTrend.strength !== 'weak';
   const bodyFatStable = bodyFatTrend.direction === 'stable';
 
-  const highFrequency = trainingFrequency.perWeek >= 4;
-  const lowFrequency = trainingFrequency.perWeek < 2;
+  const highFrequency = (trainingFrequency.perWeek || 0) >= 4;
+  const lowFrequency = (trainingFrequency.perWeek || 0) < 2;
   const highIntensity = trainingIntensity.avgIntensity === 'high';
 
   // 恢復期：低頻率或低強度
@@ -261,7 +302,7 @@ const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, training
   }
 
   // 增肌期：體重增加 + 體脂率穩定或略增 + 高強度
-  if (weightIncreasing && (bodyFatStable || bodyFatTrend.direction === 'increasing') && highIntensity) {
+  if (weightIncreasing && (bodyFatStable || (bodyFatTrend.direction === 'increasing')) && highIntensity) {
     return 'bulking';
   }
 
@@ -383,10 +424,16 @@ const generatePhaseHistory = (bodyLogs, workouts, weeks) => {
  * @returns {number} 週數
  */
 const getWeekNumber = (dateStr) => {
-  const date = new Date(dateStr);
-  const startOfYear = new Date(date.getFullYear(), 0, 1);
-  const days = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
-  return Math.floor(days / 7);
+  try {
+    if (!dateStr) return 0;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 0;
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const days = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
+    return Math.floor(days / 7);
+  } catch (error) {
+    return 0;
+  }
 };
 
 /**

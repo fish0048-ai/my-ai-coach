@@ -100,6 +100,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             active={currentView === 'run-analysis'} 
             onClick={() => { setCurrentView('run-analysis'); setIsSidebarOpen(false); }} 
           />
+          <SidebarItem 
+            icon={Zap} 
+            text="训练计划推荐" 
+            active={currentView === 'training-plan'} 
+            onClick={() => { setCurrentView('training-plan'); setIsSidebarOpen(false); }} 
+          />
           
           <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Account

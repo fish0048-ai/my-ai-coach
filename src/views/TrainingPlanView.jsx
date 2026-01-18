@@ -93,7 +93,7 @@ export default function TrainingPlanView() {
         </div>
       </div>
 
-      {/* 计划类型选择 */}
+      {/* 計劃類型選擇 */}
       {!generatedPlan && (
         <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -135,7 +135,7 @@ export default function TrainingPlanView() {
             ))}
           </div>
 
-          {/* 周数选择 */}
+          {/* 週數選擇 */}
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-300 mb-2">
               計劃週數
@@ -173,10 +173,10 @@ export default function TrainingPlanView() {
         </div>
       )}
 
-      {/* 生成的计划展示 */}
+      {/* 生成的計劃展示 */}
       {generatedPlan && (
         <div className="space-y-6">
-          {/* 计划概览 */}
+          {/* 計劃概覽 */}
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -206,7 +206,7 @@ export default function TrainingPlanView() {
             )}
           </div>
 
-          {/* 训练安排 */}
+          {/* 訓練安排 */}
           {generatedPlan.workouts && generatedPlan.workouts.length > 0 && (
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
               <h3 className="text-lg font-bold text-white mb-4">訓練安排</h3>

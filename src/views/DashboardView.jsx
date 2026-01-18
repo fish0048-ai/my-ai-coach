@@ -70,7 +70,7 @@ export default function DashboardView() {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-      // 2. 使用 service 獲取數據
+      // 2. 使用 service 獲取資料
       const workouts = await listCalendarWorkoutsByDateRange(startDateStr);
 
       let totalSets = 0;
@@ -294,7 +294,7 @@ export default function DashboardView() {
         />
       </div>
 
-      {/* 第二層：PR 追踪 */}
+      {/* 第二層：PR 追蹤 */}
       <PRTracker />
 
       {/* 第三層：跑步週統計 */}
@@ -344,7 +344,7 @@ export default function DashboardView() {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
                     <div className="text-center">
                         <Dumbbell className="mx-auto text-gray-500 mb-2" size={32} />
-                        <p className="text-gray-300 font-bold">尚無訓練數據</p>
+                        <p className="text-gray-300 font-bold">尚無訓練資料</p>
                         <p className="text-gray-500 text-sm">快去行事曆新增一筆重訓紀錄吧！</p>
                     </div>
                 </div>

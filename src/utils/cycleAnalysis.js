@@ -6,7 +6,7 @@
 /**
  * 計算訓練周期階段
  * @param {Object} params - 參數物件
- * @param {Array} params.bodyLogs - 身體數據記錄陣列，包含 {date, weight, bodyFat}
+ * @param {Array} params.bodyLogs - 身體資料記錄陣列，包含 {date, weight, bodyFat}
  * @param {Array} params.workouts - 訓練記錄陣列，包含 {date, type, exercises, runDistance, runDuration, calories}
  * @param {number} params.weeks - 分析週數（預設 12 週）
  * @returns {Object} 周期分析結果，包含 {currentPhase, trend, recommendation, phases}
@@ -18,7 +18,7 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
   weeksAgo.setDate(weeksAgo.getDate() - (weeks * 7));
   const startDateStr = weeksAgo.toISOString().split('T')[0];
 
-  // 2. 過濾數據（只取最近 N 週）
+  // 2. 過濾資料（只取最近 N 週）
   const recentBodyLogs = (Array.isArray(bodyLogs) ? bodyLogs : [])
     .filter(log => log && log.date && log.date >= startDateStr)
     .sort((a, b) => a.date.localeCompare(b.date));

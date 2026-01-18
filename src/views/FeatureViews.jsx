@@ -120,7 +120,7 @@ export default function FeatureViews({ view }) {
         tdee: calculatedTDEE
       });
 
-      // 2. 同步數據至「數據趨勢 (body_logs)」集合
+      // 2. 同步資料至「資料趨勢 (body_logs)」集合
       if (profile.weight || profile.bodyFat) {
         const todayStr = new Date().toISOString().split('T')[0];
         await syncBodyLogFromProfile(
@@ -156,7 +156,7 @@ export default function FeatureViews({ view }) {
       <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <User className="text-purple-500" />
-          個人檔案與數據
+          個人檔案與資料
         </h1>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

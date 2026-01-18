@@ -112,7 +112,7 @@ export default function PRTracker() {
       <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="text-yellow-400" size={24} />
-          <h3 className="text-xl font-bold text-white">PR 追踪</h3>
+          <h3 className="text-xl font-bold text-white">PR 追蹤</h3>
         </div>
         <p className="text-gray-400 text-sm">
           還沒有記錄任何 PR。完成訓練後，系統會自動識別並記錄你的最佳表現！
@@ -127,7 +127,7 @@ export default function PRTracker() {
         <div className="flex items-center gap-3">
           <Trophy className="text-yellow-400" size={24} />
           <div>
-            <h3 className="text-xl font-bold text-white">PR 追踪</h3>
+            <h3 className="text-xl font-bold text-white">PR 追蹤</h3>
             <p className="text-sm text-gray-400">
               {strengthPRCount > 0 && `${strengthPRCount} 個動作`}
               {strengthPRCount > 0 && hasRunPR && ' · '}

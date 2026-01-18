@@ -135,59 +135,59 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
 };
 
 /**
- * 训练计划模板类型
+ * 訓練計劃模板類型
  */
 export const PLAN_TYPES = {
   '5x5': {
-    name: '5x5 力量训练',
-    description: '经典的力量训练计划，每周3次，每次5组5次',
-    duration: '4-6 周',
+    name: '5x5 力量訓練',
+    description: '經典的力量訓練計劃，每週3次，每次5組5次',
+    duration: '4-6 週',
     frequency: 3,
     focus: 'strength'
   },
   'push_pull_legs': {
     name: '推/拉/腿 (PPL)',
-    description: '每周6次训练，分为推、拉、腿三个循环',
-    duration: '持续',
+    description: '每週6次訓練，分為推、拉、腿三個循環',
+    duration: '持續',
     frequency: 6,
     focus: 'hypertrophy'
   },
   'upper_lower': {
-    name: '上下半身分离',
-    description: '每周4次训练，分为上半身和下半身',
-    duration: '持续',
+    name: '上下半身分離',
+    description: '每週4次訓練，分為上半身和下半身',
+    duration: '持續',
     frequency: 4,
     focus: 'balanced'
   },
   'full_body': {
-    name: '全身训练',
-    description: '每周3次，每次训练全身肌群',
-    duration: '持续',
+    name: '全身訓練',
+    description: '每週3次，每次訓練全身肌群',
+    duration: '持續',
     frequency: 3,
     focus: 'general'
   },
   'running_beginner': {
-    name: '跑步新手计划',
-    description: '适合初学者的跑步计划，逐步增加距离',
-    duration: '8-12 周',
+    name: '跑步新手計劃',
+    description: '適合初學者的跑步計劃，逐步增加距離',
+    duration: '8-12 週',
     frequency: 3,
     focus: 'endurance'
   },
   'running_5k': {
-    name: '5K 训练计划',
-    description: '针对5公里跑步的训练计划',
-    duration: '8-10 周',
+    name: '5K 訓練計劃',
+    description: '針對5公里跑步的訓練計劃',
+    duration: '8-10 週',
     frequency: 4,
     focus: 'speed'
   }
 };
 
 /**
- * 生成训练计划推荐
- * @param {Object} params - 参数对象
- * @param {string} [params.planType] - 计划类型（可选，如果不提供则基于用户数据推荐）
- * @param {number} [params.weeks] - 计划周数，默认4周
- * @returns {Promise<Object>} 训练计划对象
+ * 生成訓練計劃推薦
+ * @param {Object} params - 參數物件
+ * @param {string} [params.planType] - 計劃類型（可選，如果不提供則基於用戶資料推薦）
+ * @param {number} [params.weeks] - 計劃週數，預設4週
+ * @returns {Promise<Object>} 訓練計劃物件
  */
 export const generateTrainingPlan = async ({ planType = null, weeks = 4 }) => {
   const apiKey = getApiKey();
@@ -201,21 +201,21 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4 }) => {
     const userProfile = (await getUserProfile()) || { goal: '健康' };
     const recentLogs = await getAIContext();
 
-    // 如果没有指定计划类型，基于用户数据推荐
+    // 如果沒有指定計劃類型，基於用戶資料推薦
     if (!planType) {
       planType = recommendPlanType(userProfile, recentLogs);
     }
 
     const planTemplate = PLAN_TYPES[planType];
     if (!planTemplate) {
-      throw new Error(`未知的训练计划类型: ${planType}`);
+      throw new Error(`未知的訓練計劃類型: ${planType}`);
     }
 
-    // 生成计划提示词
+    // 生成計劃提示詞
     const prompt = generatePlanPrompt(userProfile, recentLogs, planType, planTemplate, weeks);
     const response = await runGemini(prompt, apiKey);
 
-    // 清理 JSON 回应
+    // 清理 JSON 回應
     let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
     const startIndex = cleanJson.indexOf('{');
     const endIndex = cleanJson.lastIndexOf('}');
@@ -242,16 +242,16 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4 }) => {
 };
 
 /**
- * 基于用户数据推荐训练计划类型
- * @param {Object} userProfile - 用户资料
- * @param {Object} recentLogs - 最近训练记录
- * @returns {string} 推荐的计划类型
+ * 基於用戶資料推薦訓練計劃類型
+ * @param {Object} userProfile - 用戶資料
+ * @param {Object} recentLogs - 最近訓練記錄
+ * @returns {string} 推薦的計劃類型
  */
 const recommendPlanType = (userProfile, recentLogs) => {
   const goal = userProfile.goal?.toLowerCase() || '';
   const experience = userProfile.experience?.toLowerCase() || 'beginner';
 
-  // 根据目标推荐
+  // 根據目標推薦
   if (goal.includes('力量') || goal.includes('strength')) {
     return experience === 'beginner' ? '5x5' : 'push_pull_legs';
   }
@@ -261,62 +261,62 @@ const recommendPlanType = (userProfile, recentLogs) => {
   if (goal.includes('增肌') || goal.includes('muscle')) {
     return 'push_pull_legs';
   }
-  if (goal.includes('减脂') || goal.includes('weight')) {
+  if (goal.includes('減脂') || goal.includes('weight')) {
     return 'upper_lower';
   }
 
-  // 默认推荐
+  // 預設推薦
   return experience === 'beginner' ? 'full_body' : 'upper_lower';
 };
 
 /**
- * 生成训练计划提示词
- * @param {Object} userProfile - 用户资料
- * @param {Object} recentLogs - 最近训练记录
- * @param {string} planType - 计划类型
- * @param {Object} planTemplate - 计划模板
- * @param {number} weeks - 周数
- * @returns {string} 提示词
+ * 生成訓練計劃提示詞
+ * @param {Object} userProfile - 用戶資料
+ * @param {Object} recentLogs - 最近訓練記錄
+ * @param {string} planType - 計劃類型
+ * @param {Object} planTemplate - 計劃模板
+ * @param {number} weeks - 週數
+ * @returns {string} 提示詞
  */
 const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, weeks) => {
-  return `你是一位专业的健身教练。请为用户生成一个${weeks}周的"${planTemplate.name}"训练计划。
+  return `你是一位專業的健身教練。請為用戶生成一個${weeks}週的"${planTemplate.name}"訓練計劃。
 
-用户信息：
-- 目标：${userProfile.goal || '健康'}
-- 经验：${userProfile.experience || '初学者'}
-- 年龄：${userProfile.age || '未知'}
-- 性别：${userProfile.gender || '未知'}
+用戶資訊：
+- 目標：${userProfile.goal || '健康'}
+- 經驗：${userProfile.experience || '初學者'}
+- 年齡：${userProfile.age || '未知'}
+- 性別：${userProfile.gender || '未知'}
 
-计划要求：
-- 类型：${planTemplate.name}
+計劃要求：
+- 類型：${planTemplate.name}
 - 描述：${planTemplate.description}
-- 频率：每周${planTemplate.frequency}次
-- 持续时间：${weeks}周
+- 頻率：每週${planTemplate.frequency}次
+- 持續時間：${weeks}週
 
-请生成一个详细的训练计划，包括：
-1. 每周的训练安排（日期、训练类型、动作、组数、次数）
-2. 渐进式增加强度
+請生成一個詳細的訓練計劃，包括：
+1. 每週的訓練安排（日期、訓練類型、動作、組數、次數）
+2. 漸進式增加強度
 3. 休息日安排
-4. 训练建议和注意事项
+4. 訓練建議和注意事項
 
-输出格式（JSON）：
+輸出格式（JSON）：
 {
   "workouts": [
     {
       "week": 1,
       "day": 1,
       "type": "strength",
-      "title": "训练标题",
+      "title": "訓練標題",
       "exercises": [
-        {"name": "动作名称", "sets": 5, "reps": 5, "weight": "建议重量", "rest": "90秒"}
+        {"name": "動作名稱", "sets": 5, "reps": 5, "weight": "建議重量", "rest": "90秒"}
       ],
-      "notes": "训练说明"
+      "notes": "訓練說明"
     }
   ],
   "schedule": [
-    {"week": 1, "days": ["周一", "周三", "周五"]}
+    {"week": 1, "days": ["週一", "週三", "週五"]}
   ],
-  "tips": ["建议1", "建议2"]
+  "tips": ["建議1", "建議2"]
 }
 
 IMPORTANT: Output ONLY raw JSON.`;

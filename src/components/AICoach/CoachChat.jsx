@@ -221,7 +221,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={apiKey ? "輸入問題 (AI 會根據您的數據回答)..." : "請設定 API Key"}
+              placeholder={apiKey ? "輸入問題 (AI 會根據您的資料回答)..." : "請設定 API Key"}
               disabled={!apiKey}
               className="flex-1 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />

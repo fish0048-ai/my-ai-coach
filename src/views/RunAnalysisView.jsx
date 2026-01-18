@@ -612,7 +612,7 @@ export default function RunAnalysisView() {
            {metrics && (
              <>
                 <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
-                   <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
+                   <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態資料</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
                    {Object.entries(metrics).map(([k, m]) => (
                        <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
                            <span className="text-gray-400 text-sm flex items-center gap-2">

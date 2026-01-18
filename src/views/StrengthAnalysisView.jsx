@@ -249,9 +249,9 @@ export default function StrengthAnalysisView() {
     
     const prompt = `
       角色：專業肌力與體能教練 (CSCS)。
-      任務：分析以下「${mode === 'bench' ? '臥推' : '深蹲'}」數據。
+      任務：分析以下「${mode === 'bench' ? '臥推' : '深蹲'}」資料。
       評分：${score} 分。
-      數據：${JSON.stringify(metrics)}
+      資料：${JSON.stringify(metrics)}
       
       請給出評分理由與優化建議。200字內，繁體中文。
     `;
@@ -360,7 +360,7 @@ export default function StrengthAnalysisView() {
              {(videoFile || isFitMode) && analysisStep === 'idle' && (
                  <>
                     <button onClick={() => fileInputRef.current.click()} className="px-6 py-2 bg-gray-700 text-white rounded-lg">更換</button>
-                    {!isFitMode && <button onClick={performInternalAnalysis} className="px-6 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"><Camera size={18}/> 擷取數據</button>}
+                    {!isFitMode && <button onClick={performInternalAnalysis} className="px-6 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"><Camera size={18}/> 擷取資料</button>}
                  </>
              )}
              {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
@@ -392,7 +392,7 @@ export default function StrengthAnalysisView() {
 
            {metrics && (
              <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
-               <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動作數據</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
+               <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動作資料</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
                {Object.entries(metrics).map(([k, m]) => (
                    <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
                        <span className="text-gray-400 text-sm flex items-center gap-2">

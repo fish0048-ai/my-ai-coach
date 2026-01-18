@@ -44,7 +44,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
         {/* 3. 核心數據區塊 (根據類型切換) */}
         <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
             <h4 className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1">
-                <Gauge size={12}/> 核心數據
+                <Gauge size={12}/> 核心資料
             </h4>
 
             {editForm.type === 'strength' ? (
@@ -100,7 +100,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
         {/* 4. 詳細數據區塊 (兩欄排列) */}
         <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
             <h4 className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1">
-                <Activity size={12}/> 詳細數據
+                <Activity size={12}/> 詳細資料
             </h4>
             <div className="grid grid-cols-2 gap-4">
                 {/* 重訓模式才顯示總時間 */}

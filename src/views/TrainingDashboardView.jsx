@@ -146,7 +146,7 @@ export default function TrainingDashboardView() {
           
           {loading ? (
             <div className="h-40 flex items-center justify-center text-gray-500">
-               <span className="animate-pulse">載入數據中...</span>
+               <span className="animate-pulse">載入資料中...</span>
             </div>
           ) : (
             <BarChart 
@@ -197,7 +197,7 @@ export default function TrainingDashboardView() {
             <h3 className="text-white font-bold mb-2 text-sm">AI 分析摘要</h3>
             <p className="text-gray-300 text-xs leading-relaxed">
               {stats.totalWorkouts === 0 ? (
-                "目前區間內還沒有數據。快去行事曆新增您的訓練紀錄吧！"
+                "目前區間內還沒有資料。快去行事曆新增您的訓練紀錄吧！"
               ) : (
                 `在選定的期間內，您共完成了 ${stats.totalWorkouts} 次訓練。` +
                 (stats.runCount > stats.strengthCount 

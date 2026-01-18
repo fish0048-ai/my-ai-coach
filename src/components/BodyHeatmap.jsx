@@ -91,7 +91,7 @@ export default function BodyHeatmap({ data = {}, frontImage, backImage }) {
            </h3>
            <span className="text-xs text-gray-500 h-4 transition-all duration-300">
              {mode === 'heatmap' && hoveredMuscle ? `${hoveredMuscle.name}: ${hoveredMuscle.value}/10` : 
-              mode === 'photo' ? '檢視體態照片' : '移動游標查看數據'}
+              mode === 'photo' ? '檢視體態照片' : '移動游標查看資料'}
            </span>
         </div>
 

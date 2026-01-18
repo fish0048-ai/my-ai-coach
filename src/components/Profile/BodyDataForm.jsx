@@ -2,7 +2,7 @@ import React from 'react';
 import { Calculator, Settings, Save, Loader } from 'lucide-react';
 
 /**
- * 身體數據表單組件
+ * 身體資料表單組件
  * 包含身高、體重、體脂率、肌肉率、BMR、最大心率、年齡、性別、活動量、訓練目標等輸入欄位
  */
 export default function BodyDataForm({ profile, isEditing, isSaving, calculatedTDEE, onProfileChange, onSave, onEdit }) {
@@ -11,7 +11,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-bold text-white flex items-center gap-2">
           <Calculator size={18} className="text-orange-400"/>
-          身體數據與 TDEE 分析
+          身體資料與 TDEE 分析
         </h3>
         {isEditing ? (
           <button 

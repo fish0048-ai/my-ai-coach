@@ -102,7 +102,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
           />
           <SidebarItem 
             icon={Zap} 
-            text="训练计划推荐" 
+            text="訓練計劃推薦" 
             active={currentView === 'training-plan'} 
             onClick={() => { setCurrentView('training-plan'); setIsSidebarOpen(false); }} 
           />

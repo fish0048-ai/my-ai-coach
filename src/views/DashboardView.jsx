@@ -237,9 +237,6 @@ export default function DashboardView({ userData, setCurrentView }) {
                     {/* 引導到行事曆按鈕 */}
                     {todayWorkouts.some(w => w.status !== 'completed') && (
                         <div className="text-right mt-2">
-                            {/* #region agent log */}
-                            {typeof window !== 'undefined' && fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DashboardView.jsx:239',message:'Navigate to calendar clicked - checking if setCurrentView is available',data:{hasSetCurrentView:typeof setCurrentView!=='undefined',hasOnNavigate:typeof onNavigate!=='undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{})}
-                            {/* #endregion */}
                             <button 
                                 onClick={() => {
                                     // #region agent log

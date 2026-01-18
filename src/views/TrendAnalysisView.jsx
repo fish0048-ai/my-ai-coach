@@ -167,11 +167,15 @@ export default function TrendAnalysisView() {
   // 訓練周期分析
   const cycleAnalysis = useMemo(() => {
     if (bodyLogs.length === 0 && workoutLogs.length === 0) return null;
-    return analyzeTrainingCycle({ 
+    const result = analyzeTrainingCycle({ 
       bodyLogs, 
       workouts: workoutLogs.filter(w => w.status === 'completed'),
       weeks: 12 
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TrendAnalysisView.jsx:175',message:'cycleAnalysis after calculation',data:{hasResult:!!result,hasTrend:!!result?.trend,hasWeight:!!result?.trend?.weight,hasWeightDirection:!!result?.trend?.weight?.direction,hasBodyFat:!!result?.trend?.bodyFat,hasBodyFatDirection:!!result?.trend?.bodyFat?.direction,bodyLogsCount:bodyLogs.length,workoutLogsCount:workoutLogs.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C,E'})}).catch(()=>{});
+    // #endregion
+    return result;
   }, [bodyLogs, workoutLogs]);
 
   // 修正：將變數名稱統一為 stats，解決 ReferenceError
@@ -301,6 +305,12 @@ export default function TrendAnalysisView() {
       {/* 訓練周期分析卡片 */}
       {cycleAnalysis && (
         <div className={`bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border ${getPhaseColor(cycleAnalysis.currentPhase)} p-6 shadow-lg`}>
+          {/* #region agent log */}
+          {(() => {
+            fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TrendAnalysisView.jsx:303',message:'Rendering cycleAnalysis card',data:{hasCycleAnalysis:!!cycleAnalysis,hasTrend:!!cycleAnalysis.trend,hasWeight:!!cycleAnalysis.trend?.weight,hasWeightDirection:!!cycleAnalysis.trend?.weight?.direction,hasBodyFat:!!cycleAnalysis.trend?.bodyFat,hasBodyFatDirection:!!cycleAnalysis.trend?.bodyFat?.direction},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C,E'})}).catch(()=>{});
+            return null;
+          })()}
+          {/* #endregion */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <Target className="text-purple-400" size={24} />
@@ -331,19 +341,19 @@ export default function TrendAnalysisView() {
           <div className="mt-4 pt-4 border-t border-gray-700/50 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
               <p className="text-gray-400 mb-1">訓練頻率</p>
-              <p className="text-white font-bold">{cycleAnalysis.trend.frequency.perWeek.toFixed(1)} 次/週</p>
+              <p className="text-white font-bold">{cycleAnalysis.trend?.frequency?.perWeek?.toFixed(1) || '0.0'} 次/週</p>
             </div>
             <div>
               <p className="text-gray-400 mb-1">體重趨勢</p>
-              <p className="text-white font-bold capitalize">{cycleAnalysis.trend.weight.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend.weight.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
+              <p className="text-white font-bold capitalize">{cycleAnalysis.trend?.weight?.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend?.weight?.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
             </div>
             <div>
               <p className="text-gray-400 mb-1">體脂趨勢</p>
-              <p className="text-white font-bold capitalize">{cycleAnalysis.trend.bodyFat.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend.bodyFat.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
+              <p className="text-white font-bold capitalize">{cycleAnalysis.trend?.bodyFat?.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend?.bodyFat?.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
             </div>
             <div>
               <p className="text-gray-400 mb-1">訓練強度</p>
-              <p className="text-white font-bold">{cycleAnalysis.trend.intensity.avgIntensity === 'high' ? '高' : cycleAnalysis.trend.intensity.avgIntensity === 'moderate' ? '中' : '低'}</p>
+              <p className="text-white font-bold">{cycleAnalysis.trend?.intensity?.avgIntensity === 'high' ? '高' : cycleAnalysis.trend?.intensity?.avgIntensity === 'moderate' ? '中' : '低'}</p>
             </div>
           </div>
         </div>

@@ -30,15 +30,22 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
   // 3. 計算關鍵指標
   
   // 3.1 體重和體脂率趨勢
-  const weightTrend = calculateTrend(recentBodyLogs.map(log => ({
+  const weightTrendData = recentBodyLogs.map(log => ({
     date: log.date,
     value: parseFloat(log.weight) || 0
-  })));
+  }));
+  const weightTrend = calculateTrend(weightTrendData);
   
-  const bodyFatTrend = calculateTrend(recentBodyLogs.map(log => ({
+  const bodyFatTrendData = recentBodyLogs.map(log => ({
     date: log.date,
     value: parseFloat(log.bodyFat) || 0
-  })));
+  }));
+  const bodyFatTrend = calculateTrend(bodyFatTrendData);
+
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cycleAnalysis.js:40',message:'weightTrend calculated',data:{hasDirection:!!weightTrend.direction,weightTrend:weightTrend,recentBodyLogsCount:recentBodyLogs.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cycleAnalysis.js:45',message:'bodyFatTrend calculated',data:{hasDirection:!!bodyFatTrend.direction,bodyFatTrend:bodyFatTrend},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // 3.2 訓練頻率和強度
   const trainingFrequency = calculateTrainingFrequency(recentWorkouts, weeks);
@@ -68,7 +75,7 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
   // 6. 歷史周期階段（用於可視化）
   const phases = generatePhaseHistory(recentBodyLogs, recentWorkouts, weeks);
 
-  return {
+  const result = {
     currentPhase,
     trend: {
       weight: weightTrend,
@@ -79,6 +86,12 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
     recommendation,
     phases
   };
+
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cycleAnalysis.js:75',message:'analyzeTrainingCycle return',data:{hasTrend:!!result.trend,hasWeight:!!result.trend.weight,hasWeightDirection:!!result.trend?.weight?.direction,hasBodyFat:!!result.trend.bodyFat,hasBodyFatDirection:!!result.trend?.bodyFat?.direction,trendKeys:Object.keys(result.trend||{})},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C,D'})}).catch(()=>{});
+  // #endregion
+
+  return result;
 };
 
 /**

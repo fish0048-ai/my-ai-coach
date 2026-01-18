@@ -7,6 +7,8 @@ import { getCurrentUser } from '../services/authService';
 import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
 import { calculateMuscleFatigue } from '../utils/statsCalculations';
 import StatCard from '../components/Dashboard/StatCard';
+import { useUserStore } from '../store/userStore';
+import { useViewStore } from '../store/viewStore';
 
 // 安全的日期解析函數
 const safeTimestamp = (dateStr) => {

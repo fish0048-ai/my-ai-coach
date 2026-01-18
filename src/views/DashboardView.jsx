@@ -19,7 +19,10 @@ const safeTimestamp = (dateStr) => {
     }
 };
 
-export default function DashboardView({ userData, setCurrentView }) {
+export default function DashboardView() {
+  // 使用 zustand store 獲取全局狀態
+  const userData = useUserStore((state) => state.userData);
+  const setCurrentView = useViewStore((state) => state.setCurrentView);
   const [stats, setStats] = useState({
     totalWorkouts: 0,
     caloriesBurned: 0,
@@ -239,11 +242,7 @@ export default function DashboardView({ userData, setCurrentView }) {
                         <div className="text-right mt-2">
                             <button 
                                 onClick={() => {
-                                    if (setCurrentView) {
-                                        setCurrentView('calendar');
-                                    } else {
-                                        console.warn('Navigation function not available');
-                                    }
+                                    setCurrentView('calendar');
                                 }}
                                 className="text-xs text-blue-300 hover:text-blue-200 flex items-center justify-end gap-1 cursor-pointer hover:underline transition-colors"
                             >

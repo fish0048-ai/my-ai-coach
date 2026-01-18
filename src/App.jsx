@@ -1,5 +1,6 @@
-import React, { useState, Suspense, useMemo, useCallback } from 'react';
-import { useUserData } from './hooks/useUserData';
+import React, { useEffect, Suspense, useMemo, useCallback } from 'react';
+import { useUserStore } from './store/userStore';
+import { useViewStore } from './store/viewStore';
 import MainLayout from './layouts/MainLayout';
 // 移除靜態引入，改用 Lazy Load
 // import CoachChat from './components/AICoach/CoachChat.jsx';
@@ -93,14 +94,22 @@ const LoginView = () => {
 };
 
 export default function App() {
-  const { user, userData, loading } = useUserData();
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  // 使用 zustand store 管理全局狀態
+  const { user, userData, loading, initializeAuth } = useUserStore();
+  const { currentView, setCurrentView, isChatOpen, setIsChatOpen } = useViewStore();
+
+  // 初始化認證監聽
+  useEffect(() => {
+    const unsubscribe = initializeAuth();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [initializeAuth]);
 
   // 優化：使用 useCallback 穩定 callback 參考
   const handleCloseChat = useCallback(() => {
     setIsChatOpen(false);
-  }, []);
+  }, [setIsChatOpen]);
 
   // 優化：使用 useMemo 快取視圖渲染結果，避免不必要的重新渲染
   const content = useMemo(() => {
@@ -109,17 +118,17 @@ export default function App() {
         <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader className="animate-spin text-gray-500"/></div>}>
           {(() => {
             switch (currentView) {
-              case 'dashboard': return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
+              case 'dashboard': return <DashboardView />;
               case 'calendar': return <CalendarView />;
               case 'trend': return <TrendAnalysisView />;
-              case 'nutrition': return <NutritionView userData={userData} />;
+              case 'nutrition': return <NutritionView />;
               case 'gear': return <GearView />;
               case 'strength-analysis': return <StrengthAnalysisView />;
               case 'run-analysis': return <RunAnalysisView />;
-              case 'profile': return <FeatureViews view="profile" userData={userData} />;
+              case 'profile': return <FeatureViews view="profile" />;
               case 'training': 
               case 'analysis':
-                return <DashboardView userData={userData} setCurrentView={setCurrentView} />; 
+                return <DashboardView />; 
               default:
                 return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
             }

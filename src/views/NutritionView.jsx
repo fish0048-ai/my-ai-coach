@@ -6,8 +6,11 @@ import { getApiKey } from '../services/apiKeyService';
 import { subscribeFoodLogsByDate, createFoodLog, deleteFoodLog } from '../services/nutritionService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { updateAIContext } from '../utils/contextManager';
+import { useUserStore } from '../store/userStore';
 
-export default function NutritionView({ userData }) {
+export default function NutritionView() {
+  // 使用 zustand store 獲取用戶資料
+  const userData = useUserStore((state) => state.userData);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);

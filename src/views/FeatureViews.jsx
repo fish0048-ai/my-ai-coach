@@ -11,8 +11,12 @@ import BodyDataForm from '../components/Profile/BodyDataForm';
 import TrainingScheduleSection from '../components/Profile/TrainingScheduleSection';
 import RunningScheduleSection from '../components/Profile/RunningScheduleSection';
 import SupplementsList from '../components/Profile/SupplementsList';
+import { useUserStore } from '../store/userStore';
 
-export default function FeatureViews({ view, userData }) {
+export default function FeatureViews({ view }) {
+  // 使用 zustand store 獲取和更新用戶資料
+  const userData = useUserStore((state) => state.userData);
+  const updateUserData = useUserStore((state) => state.updateUserData);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -127,6 +131,9 @@ export default function FeatureViews({ view, userData }) {
 
       // 3. 更新 AI 記憶上下文
       await updateAIContext();
+
+      // 4. 刷新 store 中的用戶資料
+      await updateUserData();
 
       setIsEditing(false);
       alert("個人資料已更新！並已同步至數據趨勢紀錄。");

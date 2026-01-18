@@ -2,78 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff } from 'lucide-react';
 import { subscribeBodyLogs, createBodyLog, deleteBodyLog } from '../services/bodyService';
 import { subscribeCompletedWorkouts } from '../services/calendarService';
-
-// --- 輔助：解析配速字串為小數分鐘 (例如 "5'30"" -> 5.5) ---
-const parsePaceToDecimal = (paceStr) => {
-    if (!paceStr) return 0;
-    const match = paceStr.match(/(\d+)'(\d+)"/);
-    if (match) {
-        return parseInt(match[1]) + parseInt(match[2]) / 60;
-    }
-    return 0;
-};
-
-// --- 輔助：計算重訓容量 (Volume Load) ---
-const calculateVolume = (exercises) => {
-    if (!Array.isArray(exercises)) return 0;
-    return exercises.reduce((total, ex) => {
-        const weight = parseFloat(ex.weight) || 0;
-        const sets = parseFloat(ex.sets) || 0;
-        const reps = parseFloat(ex.reps) || 0;
-        return total + (weight * sets * reps);
-    }, 0);
-};
-
-// --- 核心：資料處理 (移動平均 & 週彙整) ---
-const processData = (rawData, metric, timeScale) => {
-    if (!rawData || rawData.length === 0) return [];
-
-    // 1. 轉換為標準格式
-    let data = rawData.map(d => {
-        let val = 0;
-        if (metric === 'pace') val = d.pace || 0;
-        else if (metric === 'sets') val = d.sets || 0;
-        else if (metric === 'volume') val = d.volume || 0;
-        else val = parseFloat(d[metric]) || 0;
-        
-        return { date: d.date, value: val, original: d };
-    }).filter(d => !isNaN(d.value) && d.value !== 0);
-
-    // 2. 如果是週模式，進行彙整
-    if (timeScale === 'weekly') {
-        const weeklyMap = {};
-        data.forEach(d => {
-            const dateObj = new Date(d.date);
-            const day = dateObj.getDay();
-            const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1);
-            const monday = new Date(dateObj.setDate(diff)).toISOString().split('T')[0];
-
-            if (!weeklyMap[monday]) weeklyMap[monday] = { sum: 0, count: 0, values: [] };
-            weeklyMap[monday].sum += d.value;
-            weeklyMap[monday].count += 1;
-            weeklyMap[monday].values.push(d.value);
-        });
-
-        const isSumType = ['distance', 'sets', 'volume'].includes(metric);
-
-        data = Object.keys(weeklyMap).sort().map(week => {
-            const info = weeklyMap[week];
-            const finalVal = isSumType ? info.sum : (info.sum / info.count);
-            return { date: week, value: finalVal };
-        });
-    }
-
-    // 3. 計算移動平均 (Trend Line)
-    const windowSize = timeScale === 'daily' ? 7 : 4;
-    data = data.map((item, idx, arr) => {
-        const start = Math.max(0, idx - windowSize + 1);
-        const subset = arr.slice(start, idx + 1);
-        const avg = subset.reduce((a, b) => a + b.value, 0) / subset.length;
-        return { ...item, trend: avg };
-    });
-
-    return data;
-};
+import { parsePaceToDecimal, calculateVolume } from '../utils/workoutCalculations';
+import { processTrendData } from '../utils/trendCalculations';
 
 // --- 進階圖表組件 ---
 const AdvancedChart = ({ data, color, unit, label, showTrend }) => {

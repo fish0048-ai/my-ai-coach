@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Calendar, Trophy, Zap, Timer, Dumbbell, TrendingUp } from 'lucide-react';
 import { listCalendarWorkouts } from '../services/calendarService';
-
-// 輔助函式：取得本地 YYYY-MM-DD 字串
-const getLocalDateStr = (d) => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getLocalDateStr, processWorkoutStats } from '../utils/statsCalculations';
 
 export default function TrainingDashboardView() {
   const [period, setPeriod] = useState('week'); // 'week' | 'month' | 'year'
@@ -33,105 +26,15 @@ export default function TrainingDashboardView() {
       const workouts = await listCalendarWorkouts();
       const rawDocs = workouts.map(w => ({ ...w, id: undefined })); // 移除 id 以保持相容性
 
-      // 2. 處理統計 (交由前端運算)
-      processStats(rawDocs, period);
+      // 2. 處理統計 (交由工具函數運算)
+      const result = processWorkoutStats(rawDocs, period);
+      setStats(result);
       
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const processStats = (docs, currentPeriod) => {
-    let totalWorkouts = 0;
-    let totalDuration = 0;
-    let totalDistance = 0;
-    let strengthCount = 0;
-    let runCount = 0;
-    
-    // 初始化圖表數據容器
-    let chartData = [];
-    const now = new Date();
-    const todayStr = getLocalDateStr(now);
-
-    // --- 準備圖表 X 軸 ---
-    if (currentPeriod === 'week') {
-      // 過去 7 天 (包含今天)
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
-        const dateStr = getLocalDateStr(d);
-        const dayLabel = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-        // 標記是否為今天
-        const label = dateStr === todayStr ? '今天' : dayLabel;
-        chartData.push({ label, date: dateStr, value: 0 });
-      }
-    } else if (currentPeriod === 'month') {
-      // 本月所有日期
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      
-      for (let i = 1; i <= daysInMonth; i++) {
-        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-        chartData.push({ label: `${i}`, date: dateStr, value: 0 });
-      }
-    } else if (currentPeriod === 'year') {
-      // 今年 12 個月
-      for (let i = 0; i < 12; i++) {
-        chartData.push({ label: `${i+1}月`, monthIndex: i, value: 0 });
-      }
-    }
-
-    // --- 遍歷資料進行統計 ---
-    docs.forEach(doc => {
-      // 1. 資料相容性處理：如果沒有 status 欄位，預設視為 'completed' (舊資料)
-      const status = doc.status || 'completed';
-      
-      // 2. 過濾條件：只計算已完成，且排除純分析紀錄 (type: 'analysis')
-      if (status !== 'completed' || doc.type === 'analysis') return;
-
-      const docDateStr = doc.date; // 假設格式為 YYYY-MM-DD
-      if (!docDateStr) return;
-
-      // 判斷這筆資料是否在我們需要的圖表區間內
-      let matchIndex = -1;
-
-      if (currentPeriod === 'year') {
-        const docDate = new Date(docDateStr);
-        if (docDate.getFullYear() === now.getFullYear()) {
-          matchIndex = docDate.getMonth();
-        }
-      } else {
-        // Week & Month 直接比對字串，解決時區問題
-        matchIndex = chartData.findIndex(d => d.date === docDateStr);
-      }
-
-      // 如果這筆資料在區間內，進行累加
-      if (matchIndex !== -1) {
-        chartData[matchIndex].value += 1; // 累積次數
-
-        // 累積總體數據
-        totalWorkouts++;
-        if (doc.type === 'run') {
-          runCount++;
-          totalDistance += parseFloat(doc.runDistance || 0);
-          totalDuration += parseFloat(doc.runDuration || 0);
-        } else {
-          strengthCount++;
-        }
-      }
-    });
-
-    setStats({
-      totalWorkouts,
-      totalDuration: Math.round(totalDuration),
-      totalDistance: totalDistance.toFixed(1),
-      strengthCount,
-      runCount,
-      chartData
-    });
   };
 
   // 簡易長條圖組件

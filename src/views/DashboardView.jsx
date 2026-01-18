@@ -5,6 +5,7 @@ import WeatherWidget from '../components/WeatherWidget.jsx';
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
+import { calculateMuscleFatigue } from '../utils/statsCalculations';
 
 // 安全的日期解析函數
 const safeTimestamp = (dateStr) => {
@@ -168,13 +169,7 @@ export default function DashboardView({ userData }) {
               : String(rawLatestAnalysis.feedback || '無詳細建議')
       } : null;
 
-      const normalizedFatigue = {};
-      Object.keys(muscleScore).forEach(muscle => {
-        const score = muscleScore[muscle];
-        let heat = Math.min(Math.round((score / 20) * 10), 10);
-        if (score > 0 && heat === 0) heat = 1;
-        normalizedFatigue[muscle] = heat;
-      });
+      const normalizedFatigue = calculateMuscleFatigue(muscleScore);
 
       setStats({
         totalWorkouts: totalWorkouts,

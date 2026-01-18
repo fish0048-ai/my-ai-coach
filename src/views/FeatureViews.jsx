@@ -4,6 +4,7 @@ import { updateUserProfile } from '../services/userService';
 import { syncBodyLogFromProfile } from '../services/bodyService';
 import { getCurrentUser } from '../services/authService';
 import { updateAIContext } from '../utils/contextManager';
+import { calculateTDEE, getTargetCalories } from '../utils/nutritionCalculations';
 
 export default function FeatureViews({ view, userData }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -72,42 +73,19 @@ export default function FeatureViews({ view, userData }) {
   }, [userData]);
 
   useEffect(() => {
-    calculateTDEE();
+    const tdee = calculateTDEE({
+      weight: profile.weight,
+      height: profile.height,
+      age: profile.age,
+      gender: profile.gender,
+      activity: profile.activity,
+      manualBmr: profile.bmr
+    });
+    setCalculatedTDEE(tdee);
   }, [profile.height, profile.weight, profile.age, profile.gender, profile.activity, profile.bmr]);
 
-  const calculateTDEE = () => {
-    const act = parseFloat(profile.activity);
-    const manualBmr = parseFloat(profile.bmr);
-    
-    if (manualBmr && manualBmr > 0 && act) {
-        setCalculatedTDEE(Math.round(manualBmr * act));
-        return;
-    }
-
-    const w = parseFloat(profile.weight);
-    const h = parseFloat(profile.height);
-    const a = parseFloat(profile.age);
-
-    if (w && h && a && act) {
-      let bmr = 0;
-      if (profile.gender === 'male') {
-        bmr = (10 * w) + (6.25 * h) - (5 * a) + 5;
-      } else {
-        bmr = (10 * w) + (6.25 * h) - (5 * a) - 161;
-      }
-      setCalculatedTDEE(Math.round(bmr * act));
-    } else {
-      setCalculatedTDEE(0);
-    }
-  };
-
-  const getTargetCalories = () => {
-    if (!calculatedTDEE) return 0;
-    switch (profile.goal) {
-      case '增肌': return calculatedTDEE + 300; 
-      case '減脂': return calculatedTDEE - 400; 
-      default: return calculatedTDEE; 
-    }
+  const getTargetCaloriesValue = () => {
+    return getTargetCalories(calculatedTDEE, profile.goal);
   };
 
   const toggleDay = (day) => {
@@ -203,7 +181,7 @@ export default function FeatureViews({ view, userData }) {
                     <div className="text-xs text-gray-500 uppercase mb-1">每日建議攝取</div>
                     <div className="text-2xl font-bold text-green-400 flex items-center justify-center gap-1">
                         <Flame size={20} fill="currentColor" />
-                        {getTargetCalories()} <span className="text-sm text-gray-400 font-normal">kcal</span>
+                        {getTargetCaloriesValue()} <span className="text-sm text-gray-400 font-normal">kcal</span>
                     </div>
                     <div className="text-xs text-gray-500 mt-2">
                         基礎代謝 (BMR): {Math.round(calculatedTDEE / parseFloat(profile.activity))}

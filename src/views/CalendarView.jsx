@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as Ca
 import { doc, setDoc, deleteDoc, addDoc, collection, getDocs, query, updateDoc, where, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { runGemini } from '../utils/gemini';
-import { detectMuscleGroup } from '../assets/data/exerciseDB';
+import { detectMuscleGroup } from '../utils/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import FitParser from 'fit-file-parser';
 // 確保這裡正確匯入兩個函式

@@ -1,7 +1,7 @@
 import { collection, addDoc, query, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { updateAIContext } from './contextManager';
-import { detectMuscleGroup } from '../assets/data/exerciseDB';
+import { detectMuscleGroup } from './exerciseDB';
 import FitParser from 'fit-file-parser';
 import { formatDate } from './date';
 

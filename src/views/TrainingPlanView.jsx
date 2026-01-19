@@ -279,15 +279,23 @@ export default function TrainingPlanView() {
                       <div className="mt-2 space-y-1">
                         {workout.exercises.map((ex, exIdx) => (
                           <div key={exIdx} className="text-sm text-gray-300">
-                            {ex.name} - {ex.sets}组 × {ex.reps}次
+                            {ex.name} - {ex.sets}組 × {ex.reps}次
                             {ex.weight && ` (${ex.weight})`}
                             {ex.rest && ` · 休息 ${ex.rest}`}
                           </div>
                         ))}
                       </div>
                     )}
+                    {workout.type === 'run' && (
+                      <div className="mt-2 space-y-1 text-sm text-gray-300">
+                        {workout.runDistance && <div>距離: {workout.runDistance} km</div>}
+                        {workout.runDuration && <div>時間: {workout.runDuration} 分鐘</div>}
+                        {workout.runPace && <div>配速: {workout.runPace}</div>}
+                        {workout.runHeartRate && <div>心率: {workout.runHeartRate} bpm</div>}
+                      </div>
+                    )}
                     {workout.notes && (
-                      <p className="text-xs text-gray-500 mt-2">{workout.notes}</p>
+                      <p className="text-xs text-gray-400 mt-2 italic">{workout.notes}</p>
                     )}
                   </div>
                 ))}

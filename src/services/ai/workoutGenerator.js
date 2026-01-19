@@ -264,15 +264,47 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4, targetP
 
     const planData = JSON.parse(cleanJson);
 
+    // 後處理：確保 workouts 是結構化數據，清理可能的文字說明
+    const processedWorkouts = (planData.workouts || []).map(workout => {
+      // 如果 title 或 notes 太長（可能是文字說明），截斷
+      const processed = { ...workout };
+      if (processed.title && processed.title.length > 20) {
+        processed.title = processed.title.substring(0, 20);
+      }
+      if (processed.notes && processed.notes.length > 100) {
+        processed.notes = processed.notes.substring(0, 100);
+      }
+      
+      // 確保跑步訓練有必要的數值欄位
+      if (processed.type === 'run') {
+        if (!processed.runDistance && !processed.runDuration) {
+          // 如果沒有數據，嘗試從 notes 或 title 提取（備用方案）
+          console.warn('跑步訓練缺少距離/時間數據:', processed);
+        }
+      }
+      
+      // 確保力量訓練有 exercises
+      if (processed.type === 'strength' && (!processed.exercises || processed.exercises.length === 0)) {
+        console.warn('力量訓練缺少 exercises:', processed);
+      }
+      
+      return processed;
+    });
+
+    // 限制 tips 長度和數量
+    const processedTips = (planData.tips || [])
+      .slice(0, 5) // 最多 5 條
+      .map(tip => tip.length > 30 ? tip.substring(0, 30) : tip);
+
     return {
       type: planType,
       name: planTemplate.name,
       description: planTemplate.description,
       duration: planTemplate.duration,
       weeks: weeks,
-      workouts: planData.workouts || [],
+      workouts: processedWorkouts,
       schedule: planData.schedule || [],
-      tips: planData.tips || []
+      tips: processedTips
     };
   } catch (error) {
     handleError(error, { context: 'workoutGenerator', operation: 'generateTrainingPlan' });
@@ -315,7 +347,7 @@ const recommendPlanType = (userProfile, recentLogs) => {
 };
 
 /**
- * 生成訓練計劃提示詞
+ * 生成訓練計劃提示詞（精簡版，加速生成）
  * @param {Object} userProfile - 用戶資料
  * @param {Object} recentLogs - 最近訓練記錄
  * @param {string} planType - 計劃類型
@@ -328,69 +360,68 @@ const recommendPlanType = (userProfile, recentLogs) => {
  */
 const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, weeks, options = {}) => {
   const { targetPB, targetRaceDate } = options;
-  const raceGoalLine = planTemplate.raceGoalDescription
-    ? `- 特別目標：${planTemplate.raceGoalDescription}\n`
-    : '';
-
-  let pbLines = '';
-  const isPBPlan = planType === 'running_half_marathon_pb' || planType === 'running_full_marathon_pb';
-  if (isPBPlan) {
-    if (targetPB) {
-      pbLines += `- 目標 PB：${targetPB}\n`;
-    }
-    if (targetRaceDate) {
-      pbLines += `- 目標賽事日期：${targetRaceDate}\n`;
-    }
-    if (!targetPB && !targetRaceDate) {
-      pbLines += `- 目標：在下一場重要賽事中大幅提升個人最佳成績（PB）\n`;
-    }
+  
+  // 壓縮用戶資料（只保留關鍵資訊）
+  const userInfo = `目標:${userProfile.goal || '健康'},經驗:${userProfile.experience || '初學者'},年齡:${userProfile.age || '未知'}`;
+  
+  // 壓縮最近訓練記錄（只保留摘要）
+  let recentSummary = '';
+  if (recentLogs && typeof recentLogs === 'string') {
+    // 如果 recentLogs 是字串，只取前 200 字
+    recentSummary = recentLogs.substring(0, 200);
+  } else if (recentLogs) {
+    recentSummary = '已有訓練記錄';
   }
 
-  return `你是一位專業的健身教練。請為用戶生成一個${weeks}週的「${planTemplate.name}」訓練計劃。
+  // 構建目標資訊
+  let goalInfo = '';
+  if (planTemplate.raceGoalDescription) {
+    goalInfo += `目標:${planTemplate.raceGoalDescription}`;
+  }
+  const isPBPlan = planType === 'running_half_marathon_pb' || planType === 'running_full_marathon_pb';
+  if (isPBPlan) {
+    if (targetPB) goalInfo += `,目標PB:${targetPB}`;
+    if (targetRaceDate) goalInfo += `,賽事日期:${targetRaceDate}`;
+  }
 
-用戶資訊：
-- 目標：${userProfile.goal || '健康'}
-- 經驗：${userProfile.experience || '初學者'}
-- 年齡：${userProfile.age || '未知'}
-- 性別：${userProfile.gender || '未知'}
+  return `生成${weeks}週「${planTemplate.name}」訓練計劃。
 
-計劃要求：
-- 類型：${planTemplate.name}
-- 描述：${planTemplate.description}
-- 頻率：每週${planTemplate.frequency}次
-- 持續時間：${weeks}週
-${raceGoalLine}${pbLines}
+用戶:${userInfo}${recentSummary ? `,近期:${recentSummary}` : ''}
+要求:每週${planTemplate.frequency}次${goalInfo ? `,${goalInfo}` : ''}
 
-請生成一個詳細的訓練計劃，包括：
-1. 每週的訓練安排（日期、訓練類型、動作、組數、次數）
-2. 漸進式增加強度
-3. 休息日安排
-4. 訓練建議和注意事項
+輸出結構化課表數據（非文字說明）：
+- workouts: 每週每天具體訓練數據
+  * 力量訓練: 必須有 exercises 陣列，每個動作包含 name, sets, reps, weight, rest
+  * 跑步訓練: 必須有 runDistance(km), runDuration(分鐘), runPace(格式如"5:30/km"), runHeartRate
+  * title: 簡短標題（10字內）
+  * notes: 訓練重點（1-2句，非長篇說明）
+- tips: 3-5條簡短建議（每條20字內）
 
-輸出格式（JSON）：
+JSON格式:
 {
   "workouts": [
     {
       "week": 1,
       "day": 1,
-      "type": "strength 或 run",
-      "title": "訓練標題",
-      "exercises": [
-        {"name": "動作名稱", "sets": 5, "reps": 5, "weight": "建議重量", "rest": "90秒"}
-      ], // 若為力量訓練使用此欄位
-      // 若為跑步訓練，請同時提供以下欄位（可根據情況留空）：
-      "runDistance": 10,         // 跑步距離 (km)
-      "runDuration": 60,         // 預計時間 (分鐘)
-      "runPace": "5:30/km",      // 目標配速
-      "runHeartRate": 150,       // 建議心率
-      "notes": "訓練說明"
+      "type": "strength",
+      "title": "胸背訓練",
+      "exercises": [{"name": "深蹲", "sets": 5, "reps": 5, "weight": "80kg", "rest": "90秒"}],
+      "notes": "注意動作標準"
+    },
+    {
+      "week": 1,
+      "day": 2,
+      "type": "run",
+      "title": "輕鬆跑",
+      "runDistance": 8,
+      "runDuration": 45,
+      "runPace": "5:30/km",
+      "runHeartRate": 140,
+      "notes": "Zone 2 心率區間"
     }
-  ],
-  "schedule": [
-    {"week": 1, "days": ["週一", "週三", "週五"]}
   ],
   "tips": ["建議1", "建議2"]
 }
 
-IMPORTANT: Output ONLY raw JSON.`;
+重要: 只輸出 JSON，不要文字說明。workouts 必須是具體數據，不是描述性文字。`;
 };

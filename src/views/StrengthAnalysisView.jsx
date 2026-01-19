@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy, Loader } from 'lucide-react';
+import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy, Loader, ShieldCheck } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
@@ -398,6 +398,18 @@ export default function StrengthAnalysisView() {
             {videoFile && <video ref={videoRef} src={videoFile} className="absolute inset-0 w-full h-full object-contain bg-black z-10" controls loop muted playsInline crossOrigin="anonymous" onPlay={onVideoPlay} />}
             {isFitMode && <div className="absolute inset-0 flex items-center justify-center text-gray-500"><FileCode size={48}/> FIT 模式</div>}
             {(analysisStep === 'analyzing_internal' || analysisStep === 'analyzing_ai') && <div className="absolute inset-0 bg-gray-900/80 z-30 flex items-center justify-center text-purple-400 font-mono"><BrainCircuit className="animate-pulse mr-2"/> AI 分析中...</div>}
+          </div>
+
+          {/* 隱私保護宣告 */}
+          <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 text-sm text-blue-200">
+            <div className="flex items-start gap-2">
+              <ShieldCheck size={16} className="mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold mb-1">隱私保護</p>
+                <p>您的動作分析影片僅在本地運算，不會儲存於雲端。MediaPipe 分析在您的裝置上完成，影片不會上傳至任何伺服器。</p>
+                <p className="mt-2 text-xs text-blue-300">僅當使用 AI 深度分析時，會上傳截圖至 Gemini API（可選功能）。</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-4 justify-center">

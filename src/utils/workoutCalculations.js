@@ -33,3 +33,44 @@ export const calculateVolume = (exercises) => {
     return total + (weight * sets * reps);
   }, 0);
 };
+
+/**
+ * 計算訓練負荷 (Training Load)
+ * Training Load = RPE × 時間(分鐘)
+ * 這是一個簡單的內部負荷指標，反映訓練對身體的實際壓力
+ * @param {number} rpe - 自覺強度 (Rate of Perceived Exertion, 1-10)
+ * @param {number} durationMinutes - 訓練時間（分鐘）
+ * @returns {number} 訓練負荷值
+ */
+export const calculateTrainingLoad = (rpe, durationMinutes) => {
+  const rpeValue = parseFloat(rpe) || 0;
+  const duration = parseFloat(durationMinutes) || 0;
+  
+  // RPE 必須在 1-10 範圍內
+  if (rpeValue < 1 || rpeValue > 10) return 0;
+  if (duration <= 0) return 0;
+  
+  return Math.round(rpeValue * duration);
+};
+
+/**
+ * 計算進階訓練壓力分數 (TSS - Training Stress Score)
+ * TSS = (訓練時間 / FTP時間) × IF² × 100
+ * 這裡簡化為基於 RPE 的估算：TSS ≈ (RPE/10)² × 訓練時間(小時) × 100
+ * @param {number} rpe - 自覺強度 (1-10)
+ * @param {number} durationMinutes - 訓練時間（分鐘）
+ * @returns {number} TSS 分數
+ */
+export const calculateTSS = (rpe, durationMinutes) => {
+  const rpeValue = parseFloat(rpe) || 0;
+  const duration = parseFloat(durationMinutes) || 0;
+  
+  if (rpeValue < 1 || rpeValue > 10) return 0;
+  if (duration <= 0) return 0;
+  
+  const intensityFactor = rpeValue / 10; // 強度因子 (0.1 - 1.0)
+  const durationHours = duration / 60; // 轉換為小時
+  const tss = Math.pow(intensityFactor, 2) * durationHours * 100;
+  
+  return Math.round(tss);
+};

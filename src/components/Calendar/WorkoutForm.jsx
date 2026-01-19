@@ -2,6 +2,23 @@ import React from 'react';
 // 修正：加入 Zap
 import { Dumbbell, Activity, Sparkles, Loader, Plus, Trash2, Timer, Flame, Heart, BarChart2, AlignLeft, ShoppingBag, Tag, Gauge, Zap } from 'lucide-react';
 
+// RPE 描述文字
+const getRPEDescription = (rpe) => {
+  const descriptions = {
+    1: '極輕鬆 - 幾乎沒有感覺',
+    2: '很輕鬆 - 可以持續很久',
+    3: '輕鬆 - 呼吸平穩',
+    4: '有點輕鬆 - 開始流汗',
+    5: '中等 - 可以說話',
+    6: '有點累 - 說話有點困難',
+    7: '累 - 需要努力維持',
+    8: '很累 - 接近極限',
+    9: '極累 - 幾乎無法完成',
+    10: '極限 - 完全力竭'
+  };
+  return descriptions[rpe] || '';
+};
+
 export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCoachGenerate, isGenerating, handleExerciseNameChange }) {
   return (
     <div className="space-y-6">
@@ -125,9 +142,32 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                         <input type="number" value={editForm.runPower} onChange={e => setEditForm({...editForm, runPower: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:border-orange-500 outline-none" />
                     </div>
                 )}
-                <div className="space-y-1">
+                <div className="space-y-2 col-span-2">
                     <label className="text-xs text-gray-500 flex items-center gap-1"><BarChart2 size={10}/> 自覺強度 (RPE 1-10)</label>
-                    <input type="number" min="1" max="10" value={editForm.runRPE} onChange={e => setEditForm({...editForm, runRPE: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:border-blue-500 outline-none" />
+                    <div className="space-y-2">
+                        <input 
+                            type="range" 
+                            min="1" 
+                            max="10" 
+                            step="1"
+                            value={editForm.rpe || editForm.runRPE || 5} 
+                            onChange={e => {
+                                const rpeValue = parseInt(e.target.value);
+                                setEditForm({...editForm, rpe: rpeValue, runRPE: rpeValue});
+                            }} 
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                        />
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-400">1 (極輕鬆)</span>
+                            <span className="text-lg font-bold text-blue-400">{editForm.rpe || editForm.runRPE || 5}</span>
+                            <span className="text-xs text-gray-400">10 (極限)</span>
+                        </div>
+                        {editForm.rpe || editForm.runRPE ? (
+                            <p className="text-xs text-gray-500 text-center">
+                                {getRPEDescription(parseInt(editForm.rpe || editForm.runRPE))}
+                            </p>
+                        ) : null}
+                    </div>
                 </div>
             </div>
         </div>

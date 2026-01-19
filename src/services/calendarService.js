@@ -1,5 +1,6 @@
 import { collection, addDoc, query, getDocs, updateDoc, doc, setDoc, deleteDoc, getDoc, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { calculateTrainingLoad } from '../utils/workoutCalculations';
 
 const getCurrentUser = () => {
   return auth.currentUser;
@@ -170,6 +171,22 @@ export const listRunLogs = async () => {
 export const updateCalendarWorkout = async (workoutId, updates) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
+  
+  // 如果更新了 RPE 或時間，重新計算 Training Load
+  if (updates.rpe !== undefined || updates.runRPE !== undefined || updates.runDuration !== undefined || updates.duration !== undefined) {
+    // 需要先獲取現有資料來計算
+    const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const existingData = docSnap.data();
+      const rpe = updates.rpe || updates.runRPE || existingData.rpe || existingData.runRPE;
+      const duration = updates.runDuration || updates.duration || existingData.runDuration || existingData.duration;
+      if (rpe && duration) {
+        updates.trainingLoad = calculateTrainingLoad(rpe, duration);
+      }
+    }
+  }
+  
   const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
   await updateDoc(docRef, updates);
   
@@ -180,6 +197,14 @@ export const updateCalendarWorkout = async (workoutId, updates) => {
 export const setCalendarWorkout = async (workoutId, data) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
+  
+  // 自動計算 Training Load（如果有 RPE 和時間）
+  const rpe = data.rpe || data.runRPE;
+  const duration = data.runDuration || data.duration;
+  if (rpe && duration) {
+    data.trainingLoad = calculateTrainingLoad(rpe, duration);
+  }
+  
   const docRef = doc(db, 'users', user.uid, 'calendar', workoutId);
   await setDoc(docRef, data);
   
@@ -190,6 +215,14 @@ export const setCalendarWorkout = async (workoutId, data) => {
 export const createCalendarWorkout = async (data) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
+  
+  // 自動計算 Training Load（如果有 RPE 和時間）
+  const rpe = data.rpe || data.runRPE;
+  const duration = data.runDuration || data.duration;
+  if (rpe && duration) {
+    data.trainingLoad = calculateTrainingLoad(rpe, duration);
+  }
+  
   const collectionRef = collection(db, 'users', user.uid, 'calendar');
   await addDoc(collectionRef, data);
   

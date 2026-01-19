@@ -45,6 +45,9 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
   // 3.2 訓練頻率和強度
   const trainingFrequency = calculateTrainingFrequency(recentWorkouts, weeks);
   const trainingIntensity = calculateTrainingIntensity(recentWorkouts);
+  
+  // 3.2.1 計算 Training Load 趨勢（基於 RPE）
+  const trainingLoadTrend = calculateTrainingLoadTrend(recentWorkouts);
 
   // 3.3 熱量攝入估算（如果有營養資料）
   // 這裡簡化處理，實際應該從營養資料計算
@@ -56,7 +59,8 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
     bodyFatTrend,
     trainingFrequency,
     trainingIntensity,
-    avgCalorieBurn
+    avgCalorieBurn,
+    trainingLoadTrend
   });
 
   // 5. 生成建議
@@ -76,7 +80,8 @@ export const analyzeTrainingCycle = ({ bodyLogs = [], workouts = [], weeks = 12 
       weight: weightTrend,
       bodyFat: bodyFatTrend,
       frequency: trainingFrequency,
-      intensity: trainingIntensity
+      intensity: trainingIntensity,
+      trainingLoad: trainingLoadTrend
     },
     recommendation,
     phases
@@ -255,11 +260,91 @@ const calculateAvgCalorieBurn = (workouts) => {
 };
 
 /**
+ * 計算 Training Load 趨勢
+ * @param {Array} workouts - 訓練記錄陣列
+ * @returns {Object} Training Load 趨勢 {avgLoad, trend, isOvertraining}
+ */
+const calculateTrainingLoadTrend = (workouts) => {
+  if (!Array.isArray(workouts) || workouts.length === 0) {
+    return { avgLoad: 0, trend: 'stable', isOvertraining: false, weeklyLoads: [] };
+  }
+
+  try {
+    // 提取有 Training Load 的訓練
+    const loadsWithDates = workouts
+      .filter(w => w && w.trainingLoad !== undefined && w.trainingLoad !== null)
+      .map(w => ({
+        date: w.date,
+        load: parseFloat(w.trainingLoad) || 0
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (loadsWithDates.length === 0) {
+      return { avgLoad: 0, trend: 'stable', isOvertraining: false, weeklyLoads: [] };
+    }
+
+    // 計算平均 Training Load
+    const totalLoad = loadsWithDates.reduce((sum, item) => sum + item.load, 0);
+    const avgLoad = Math.round(totalLoad / loadsWithDates.length);
+
+    // 計算趨勢（最近 4 週 vs 前 4 週）
+    const midPoint = Math.floor(loadsWithDates.length / 2);
+    const recentLoads = loadsWithDates.slice(midPoint).map(item => item.load);
+    const earlierLoads = loadsWithDates.slice(0, midPoint).map(item => item.load);
+
+    const recentAvg = recentLoads.length > 0 
+      ? recentLoads.reduce((sum, load) => sum + load, 0) / recentLoads.length 
+      : 0;
+    const earlierAvg = earlierLoads.length > 0 
+      ? earlierLoads.reduce((sum, load) => sum + load, 0) / earlierLoads.length 
+      : 0;
+
+    let trend = 'stable';
+    if (earlierAvg > 0) {
+      const changePercent = ((recentAvg - earlierAvg) / earlierAvg) * 100;
+      if (changePercent > 10) trend = 'increasing';
+      else if (changePercent < -10) trend = 'decreasing';
+    }
+
+    // 判斷是否過度訓練（平均 Training Load > 400 且趨勢上升）
+    // 這個閾值可以根據實際情況調整
+    const isOvertraining = avgLoad > 400 && trend === 'increasing';
+
+    // 按週分組計算週負荷（用於可視化）
+    const weeklyLoads = {};
+    loadsWithDates.forEach(item => {
+      try {
+        const weekNum = getWeekNumber(item.date);
+        if (!weeklyLoads[weekNum]) {
+          weeklyLoads[weekNum] = { total: 0, count: 0 };
+        }
+        weeklyLoads[weekNum].total += item.load;
+        weeklyLoads[weekNum].count += 1;
+      } catch (e) {
+        // 忽略無效日期
+      }
+    });
+
+    return {
+      avgLoad: isNaN(avgLoad) ? 0 : avgLoad,
+      trend,
+      isOvertraining,
+      weeklyLoads: Object.entries(weeklyLoads).map(([week, data]) => ({
+        week: parseInt(week),
+        avgLoad: Math.round(data.total / data.count)
+      }))
+    };
+  } catch (error) {
+    return { avgLoad: 0, trend: 'stable', isOvertraining: false, weeklyLoads: [] };
+  }
+};
+
+/**
  * 判斷當前周期階段
  * @param {Object} indicators - 指標物件
  * @returns {string} 周期階段 ('bulking' | 'cutting' | 'maintenance' | 'recovery')
  */
-const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, trainingIntensity }) => {
+const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, trainingIntensity, trainingLoadTrend }) => {
   // 判斷邏輯：
   // 1. 增肌期（bulking）：體重增加 + 體脂率穩定或略增 + 高訓練強度
   // 2. 減脂期（cutting）：體重下降 + 體脂率下降 + 中等以上訓練強度
@@ -282,8 +367,9 @@ const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, training
   const lowFrequency = (trainingFrequency.perWeek || 0) < 2;
   const highIntensity = trainingIntensity.avgIntensity === 'high';
 
-  // 恢復期：低頻率或低強度
-  if (lowFrequency || trainingIntensity.avgIntensity === 'low') {
+  // 恢復期：低頻率、低強度，或過度訓練
+  const isOvertraining = trainingLoadTrend && trainingLoadTrend.isOvertraining;
+  if (lowFrequency || trainingIntensity.avgIntensity === 'low' || isOvertraining) {
     return 'recovery';
   }
 
@@ -308,6 +394,8 @@ const determinePhase = ({ weightTrend, bodyFatTrend, trainingFrequency, training
  * @returns {Object} 建議物件 {message, actions}
  */
 const generateRecommendation = (currentPhase, trends) => {
+  // 檢查過度訓練風險
+  const isOvertraining = trends.trainingLoad && trends.trainingLoad.isOvertraining;
   const recommendations = {
     bulking: {
       message: '您目前處於增肌期，建議繼續保持高強度訓練和充足營養攝入。',
@@ -337,12 +425,21 @@ const generateRecommendation = (currentPhase, trends) => {
       color: 'yellow'
     },
     recovery: {
-      message: '您目前處於恢復期，建議適度休息並逐漸增加訓練強度。',
-      actions: [
-        '增加訓練頻率（目標每週 3 次以上）',
-        '從低強度開始，逐漸提升',
-        '確保充足睡眠和營養恢復'
-      ],
+      message: trends.trainingLoad && trends.trainingLoad.isOvertraining
+        ? '檢測到過度訓練風險，建議立即降低訓練負荷並充分休息。'
+        : '您目前處於恢復期，建議適度休息並逐漸增加訓練強度。',
+      actions: trends.trainingLoad && trends.trainingLoad.isOvertraining
+        ? [
+            '立即降低訓練強度（減少 RPE 或訓練時間）',
+            '增加休息日（建議每週至少 2-3 天完全休息）',
+            '確保充足睡眠（7-9 小時）和營養恢復',
+            '監控 Training Load，避免持續超過 400'
+          ]
+        : [
+            '增加訓練頻率（目標每週 3 次以上）',
+            '從低強度開始，逐漸提升',
+            '確保充足睡眠和營養恢復'
+          ],
       color: 'gray'
     }
   };
@@ -391,7 +488,8 @@ const generatePhaseHistory = (bodyLogs, workouts, weeks) => {
         value: parseFloat(log.bodyFat) || 0
       }))),
       frequency: calculateTrainingFrequency(weekWorkouts, 1),
-      intensity: calculateTrainingIntensity(weekWorkouts)
+      intensity: calculateTrainingIntensity(weekWorkouts),
+      trainingLoad: calculateTrainingLoadTrend(weekWorkouts)
     };
 
     const weekPhase = determinePhase(weekTrends);

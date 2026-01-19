@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // 使用您提供的設定直接初始化，避開環境變數讀取失敗的問題
 const firebaseConfig = {
@@ -19,3 +19,23 @@ const app = initializeApp(firebaseConfig);
 // 匯出 Auth 和 Firestore 實例供其他檔案使用
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// 啟用離線持久化（Offline Persistence）
+// 這讓應用在離線時也能讀取快取的資料，並在離線時排隊寫入操作
+try {
+  enableIndexedDbPersistence(db).then(() => {
+    console.log('✅ Firebase 離線持久化已啟用');
+  }).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      // 多個分頁開啟，離線持久化僅在一個分頁中啟用（這是正常的）
+      console.warn('⚠️ 多個分頁開啟，離線持久化僅在主要分頁中啟用');
+    } else if (err.code === 'unimplemented') {
+      // 瀏覽器不支援離線持久化
+      console.warn('⚠️ 瀏覽器不支援離線持久化');
+    } else {
+      console.error('❌ 啟用離線持久化失敗:', err);
+    }
+  });
+} catch (error) {
+  console.error('❌ 初始化離線持久化時發生錯誤:', error);
+}

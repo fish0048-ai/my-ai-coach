@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
-import { getUserProfile } from '../services/userService';
+import { getUserProfile, subscribeUserProfile } from '../services/userService';
 
 /**
  * 用戶 Store
@@ -37,26 +37,37 @@ export const useUserStore = create((set) => ({
 
   /**
    * 初始化認證監聽
-   * 監聽 Firebase 認證狀態變化並自動更新用戶資料
+   * 監聽 Firebase 認證狀態變化並自動更新用戶資料（使用實時監聽）
    */
   initializeAuth: () => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let profileUnsubscribe = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
       set({ user: currentUser, loading: true });
       
+      // 取消之前的 Profile 訂閱
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+        profileUnsubscribe = null;
+      }
+      
       if (currentUser) {
-        try {
-          const profile = await getUserProfile();
+        // 使用實時監聽取代一次性查詢
+        profileUnsubscribe = subscribeUserProfile((profile) => {
           set({ userData: profile, loading: false });
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          set({ userData: null, loading: false });
-        }
+        });
       } else {
         set({ userData: null, loading: false });
       }
     });
 
-    return unsubscribe;
+    // 返回取消訂閱函數
+    return () => {
+      authUnsubscribe();
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+      }
+    };
   },
 
   /**

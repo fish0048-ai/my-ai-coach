@@ -8,6 +8,7 @@ import { handleError } from '../services/errorService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';
+import { MOVEMENT_ANALYSIS_RULES } from '../services/ai/localAnalysisRules';
 
 // --- 評分組件 ---
 const ScoreGauge = ({ score }) => {
@@ -250,6 +251,17 @@ export default function StrengthAnalysisView() {
   };
 
   const performAIAnalysis = async () => {
+    // 先使用本地規則生成基礎反饋
+    const localFeedback = MOVEMENT_ANALYSIS_RULES.getLocalFeedback(score, metrics, mode);
+    
+    // 如果不需要 AI，直接使用本地反饋
+    if (!localFeedback.needsAI && localFeedback.feedback) {
+      setAiFeedback(localFeedback.feedback);
+      setAnalysisStep('ai_complete');
+      return;
+    }
+
+    // 需要 AI 深度分析
     const apiKey = getApiKey();
     if (!apiKey) { 
       handleError("請先設定 API Key", { context: 'StrengthAnalysisView', operation: 'performAIAnalysis' }); 

@@ -6,6 +6,7 @@
 import { getApiKey } from '../apiKeyService';
 import { runGemini } from '../../utils/gemini';
 import { handleError } from '../errorService';
+import { FORM_CORRECTION_RULES } from './localAnalysisRules';
 
 /**
  * 標準動作角度範圍（根據運動科學研究）
@@ -142,6 +143,29 @@ export const generateFormCorrection = async ({
   mode,
   score
 }) => {
+  // 先使用本地規則生成基礎建議
+  const localCorrection = FORM_CORRECTION_RULES.getLocalCorrections(deviationAnalysis, mode);
+  
+  // 判斷是否需要 AI 深度分析
+  // 條件：嚴重偏差、多項問題、或本地建議不足
+  const needsAI = 
+    !localCorrection || // 本地無法生成建議
+    deviationAnalysis.overallSeverity === 'severe' || // 嚴重偏差
+    Object.keys(deviationAnalysis.deviations).filter(k => 
+      deviationAnalysis.deviations[k]?.severity !== 'none'
+    ).length > 2; // 多項問題
+
+  // 如果不需要 AI，直接返回本地分析結果
+  if (!needsAI && localCorrection) {
+    return {
+      ...localCorrection,
+      deviationAnalysis,
+      timestamp: new Date().toISOString(),
+      source: 'local'
+    };
+  }
+
+  // 需要 AI 深度分析
   const apiKey = getApiKey();
   if (!apiKey) {
     const error = new Error('請先設定 API Key');
@@ -220,7 +244,8 @@ IMPORTANT: Output ONLY raw JSON.`;
     return {
       ...correction,
       deviationAnalysis,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: 'ai'
     };
   } catch (error) {
     handleError(error, { context: 'formCorrection', operation: 'generateFormCorrection' });

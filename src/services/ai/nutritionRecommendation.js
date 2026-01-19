@@ -8,6 +8,7 @@ import { getUserProfile } from '../userService';
 import { listTodayWorkouts } from '../calendarService';
 import { runGemini } from '../../utils/gemini';
 import { handleError } from '../errorService';
+import { NUTRITION_RULES } from './localAnalysisRules';
 
 /**
  * 計算今日訓練強度
@@ -130,7 +131,34 @@ export const generateNutritionRecommendation = async ({
     const carbsGap = targetCarbs - currentCarbs;
     const fatGap = targetFat - currentFat;
 
-    // 構建 prompt
+    const gaps = { calorie: calorieGap, protein: proteinGap, carbs: carbsGap, fat: fatGap };
+
+    // 先使用本地規則生成基礎建議
+    const localRecommendations = NUTRITION_RULES.getTrainingBasedRecommendations(trainingInfo, gaps);
+    const localMeals = NUTRITION_RULES.getMealSuggestions(gaps, userGoalText);
+    const localGaps = NUTRITION_RULES.getGapAlerts(gaps);
+
+    // 判斷是否需要 AI 深度分析
+    // 條件：有特殊需求、複雜情況、或本地建議不足
+    const needsAI = 
+      Math.abs(calorieGap) > 800 || // 熱量缺口過大
+      Math.abs(proteinGap) > 50 || // 蛋白質缺口過大
+      localMeals.length < 2 || // 本地餐點建議不足
+      trainingInfo.intensity === 'high' && Math.abs(calorieGap) > 500; // 高強度訓練且缺口大
+
+    // 如果不需要 AI，直接返回本地分析結果
+    if (!needsAI && localRecommendations.length > 0) {
+      return {
+        recommendations: localRecommendations,
+        mealSuggestions: localMeals,
+        gaps: localGaps,
+        trainingInfo,
+        timestamp: new Date().toISOString(),
+        source: 'local'
+      };
+    }
+
+    // 需要 AI 深度分析時，構建 prompt
     const prompt = `你是一位專業的營養師。請根據以下資訊提供個人化營養建議。
 
 用戶資訊：

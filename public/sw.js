@@ -18,12 +18,7 @@ self.addEventListener('activate', (event) => {
       // 刪除所有舊的快取（包括舊版本的 CACHE_NAME）
       caches.keys().then((keys) =>
         Promise.all(
-          keys.map((key) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sw.js:activate',message:'Deleting cache',data:{cacheName:key},timestamp:Date.now(),sessionId:'debug-session',runId:'sw-fix',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
-            return caches.delete(key);
-          })
+          keys.map((key) => caches.delete(key))
         )
       ),
       // 立即控制所有客戶端
@@ -37,9 +32,6 @@ self.addEventListener('fetch', (event) => {
   
   // 導航請求與 index.html 一律走網路，避免舊版 HTML 快取導致引用不存在的 hash 檔案
   if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sw.js:fetch',message:'Skipping navigation request',data:{pathname:url.pathname,mode:event.request.mode},timestamp:Date.now(),sessionId:'debug-session',runId:'sw-fix',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     return; // 不攔截，直接走網路
   }
 

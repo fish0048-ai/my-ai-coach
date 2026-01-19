@@ -4,6 +4,7 @@ import { updateAIContext } from '../utils/contextManager';
 import { detectMuscleGroup } from '../utils/exerciseDB';
 import { formatDate } from '../utils/date';
 import FitParser from 'fit-file-parser';
+import { parseStravaCSV, parseGenericRunCSV } from './import/platformSync';
 
 // 輔助：取得目前所有資料以便比對 (防重複)
 const fetchCurrentWorkoutsForCheck = async (uid) => {
@@ -101,6 +102,42 @@ export const parseAndUploadCSV = (file) => {
     const processContent = async (text) => {
       const lines = text.split(/\r\n|\n/).filter((l) => l.trim());
       if (lines.length < 2) return { success: false, message: "檔案無內容" };
+
+      // 先嘗試使用多平台解析器（Strava / 通用跑步 CSV）
+      const stravaWorkouts = parseStravaCSV(text);
+      const genericWorkouts = stravaWorkouts.length === 0 ? parseGenericRunCSV(text) : [];
+
+      const user = auth.currentUser;
+      if (!user) return { success: false, message: "請先登入" };
+
+      // 如果平台解析器有解析出資料，優先走統一匯入路徑
+      if (stravaWorkouts.length > 0 || genericWorkouts.length > 0) {
+        const workouts = stravaWorkouts.length > 0 ? stravaWorkouts : genericWorkouts;
+        const currentData = await fetchCurrentWorkoutsForCheck(user.uid);
+        let importCount = 0; let updateCount = 0;
+
+        for (const w of workouts) {
+          const existingDoc = currentData.find(
+            (d) => d.date === w.date && d.type === w.type && d.title === w.title
+          );
+          try {
+            if (existingDoc) {
+              await updateDoc(doc(db, 'users', user.uid, 'calendar', existingDoc.id), w);
+              updateCount++;
+            } else {
+              await addDoc(collection(db, 'users', user.uid, 'calendar'), w);
+              importCount++;
+            }
+          } catch (e) {
+            // 單筆錯誤略過，繼續處理其他紀錄
+          }
+        }
+
+        await updateAIContext();
+        return { success: true, message: `匯入完成！新增：${importCount}, 更新：${updateCount}` };
+      }
+
+      // 若非平台格式，回退至原本的 CSV 解析邏輯（支援自家匯出）
       const parseLine = (line) => {
         const res = []; let cur = ''; let inQuote = false;
         for (let char of line) {
@@ -121,8 +158,6 @@ export const parseAndUploadCSV = (file) => {
         ? { type: '活動類型', date: '日期', title: '標題', dist: '距離', time: '時間', hr: '平均心率', pwr: '平均功率', cal: '卡路里', sets: '總組數', reps: '總次數' }
         : { type: 'Activity Type', date: 'Date', title: 'Title', dist: 'Distance', time: 'Time', hr: 'Avg HR', pwr: 'Avg Power', cal: 'Calories', sets: 'Total Sets', reps: 'Total Reps' };
 
-      const user = auth.currentUser;
-      if (!user) return { success: false, message: "請先登入" };
       const currentData = await fetchCurrentWorkoutsForCheck(user.uid);
       let importCount = 0; let updateCount = 0;
 

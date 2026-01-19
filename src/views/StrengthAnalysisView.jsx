@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy } from 'lucide-react';
+import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy, Loader } from 'lucide-react';
 import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
@@ -7,6 +7,7 @@ import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analys
 import { handleError } from '../services/errorService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
+import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';
 
 // --- 評分組件 ---
 const ScoreGauge = ({ score }) => {
@@ -54,7 +55,10 @@ export default function StrengthAnalysisView() {
   const [score, setScore] = useState(0);
   const [aiFeedback, setAiFeedback] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [realtimeAngle, setRealtimeAngle] = useState(0); 
+  const [realtimeAngle, setRealtimeAngle] = useState(0);
+  const [formCorrection, setFormCorrection] = useState(null);
+  const [loadingCorrection, setLoadingCorrection] = useState(false);
+  const [deviationAnalysis, setDeviationAnalysis] = useState(null); 
 
   // --- 幾何運算 ---
   const calculateAngle = (a, b, c) => {
@@ -234,7 +238,13 @@ export default function StrengthAnalysisView() {
           };
       }
       setMetrics(m);
-      setScore(calculateStrengthScore(m, mode));
+      const calculatedScore = calculateStrengthScore(m, mode);
+      setScore(calculatedScore);
+      
+      // 分析動作偏差
+      const deviations = analyzeFormDeviations(m, mode);
+      setDeviationAnalysis(deviations);
+      
       setAnalysisStep('internal_complete');
     }, 1000);
   };
@@ -262,6 +272,28 @@ export default function StrengthAnalysisView() {
     } catch (e) {
         setAiFeedback("連線錯誤");
         setAnalysisStep('internal_complete');
+    }
+  };
+
+  const getFormCorrection = async () => {
+    if (!metrics || !deviationAnalysis) {
+      handleError("請先完成動作分析", { context: 'StrengthAnalysisView', operation: 'getFormCorrection' });
+      return;
+    }
+
+    setLoadingCorrection(true);
+    try {
+      const correction = await generateFormCorrection({
+        metrics,
+        deviationAnalysis,
+        mode,
+        score
+      });
+      setFormCorrection(correction);
+    } catch (error) {
+      // 錯誤已在服務中處理
+    } finally {
+      setLoadingCorrection(false);
     }
   };
 
@@ -411,6 +443,111 @@ export default function StrengthAnalysisView() {
                    <h3 className="text-purple-400 font-bold mb-2 flex items-center gap-2"><Sparkles size={16}/> 教練建議</h3>
                    {aiFeedback}
                </div>
+           )}
+
+           {/* 動作偏差分析 */}
+           {deviationAnalysis && deviationAnalysis.hasIssues && (
+             <div className="bg-yellow-900/20 p-5 rounded-xl border border-yellow-700/50">
+               <div className="flex items-center justify-between mb-3">
+                 <h3 className="text-white font-bold flex items-center gap-2">
+                   <AlertCircle className="text-yellow-400"/> 動作偏差檢測
+                 </h3>
+                 <span className={`text-xs px-2 py-1 rounded ${
+                   deviationAnalysis.overallSeverity === 'severe' ? 'bg-red-900/50 text-red-400' :
+                   deviationAnalysis.overallSeverity === 'moderate' ? 'bg-yellow-900/50 text-yellow-400' :
+                   'bg-blue-900/50 text-blue-400'
+                 }`}>
+                   {deviationAnalysis.overallSeverity === 'severe' ? '嚴重' :
+                    deviationAnalysis.overallSeverity === 'moderate' ? '中等' : '輕微'}
+                 </span>
+               </div>
+               <div className="space-y-2 mb-3">
+                 {Object.entries(deviationAnalysis.deviations).map(([key, dev]) => {
+                   if (!dev || dev.severity === 'none') return null;
+                   return (
+                     <div key={key} className="bg-gray-900/50 p-2 rounded border border-gray-700">
+                       <div className="flex justify-between items-center">
+                         <span className="text-xs text-gray-400">{metrics[key]?.label || key}</span>
+                         <span className={`text-xs ${
+                           dev.severity === 'severe' ? 'text-red-400' :
+                           dev.severity === 'moderate' ? 'text-yellow-400' : 'text-blue-400'
+                         }`}>
+                           偏差 {dev.deviation.toFixed(1)}{key.includes('Angle') ? '°' : key.includes('Time') ? '秒' : 'cm'}
+                         </span>
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+               <button
+                 onClick={getFormCorrection}
+                 disabled={loadingCorrection}
+                 className="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+               >
+                 {loadingCorrection ? (
+                   <>
+                     <Loader size={16} className="animate-spin"/>
+                     <span>分析中...</span>
+                   </>
+                 ) : (
+                   <>
+                     <Zap size={16}/>
+                     <span>獲取糾正建議</span>
+                   </>
+                 )}
+               </button>
+             </div>
+           )}
+
+           {/* 動作糾正建議 */}
+           {formCorrection && (
+             <div className="bg-blue-900/20 p-5 rounded-xl border border-blue-700/50 space-y-4">
+               <h3 className="text-white font-bold flex items-center gap-2">
+                 <Zap className="text-blue-400"/> 動作糾正建議
+               </h3>
+
+               {/* 具體糾正建議 */}
+               {formCorrection.corrections && formCorrection.corrections.length > 0 && (
+                 <div>
+                   <p className="text-xs text-gray-400 mb-2">糾正要點</p>
+                   <ul className="space-y-1">
+                     {formCorrection.corrections.map((correction, idx) => (
+                       <li key={idx} className="text-sm text-gray-300 flex items-start gap-2">
+                         <span className="text-blue-400 mt-1">•</span>
+                         <span>{correction}</span>
+                       </li>
+                     ))}
+                   </ul>
+                 </div>
+               )}
+
+               {/* 糾正訓練動作 */}
+               {formCorrection.correctiveExercises && formCorrection.correctiveExercises.length > 0 && (
+                 <div>
+                   <p className="text-xs text-gray-400 mb-2">推薦糾正訓練</p>
+                   <div className="space-y-2">
+                     {formCorrection.correctiveExercises.map((exercise, idx) => (
+                       <div key={idx} className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                         <div className="flex justify-between items-start mb-1">
+                           <p className="text-sm font-semibold text-white">{exercise.name}</p>
+                           <span className="text-xs text-blue-400">{exercise.sets}組 × {exercise.reps}次</span>
+                         </div>
+                         <p className="text-xs text-gray-400 mb-1">{exercise.description}</p>
+                         <p className="text-xs text-yellow-400">重點：{exercise.focus}</p>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+
+               {/* 訓練計劃建議 */}
+               {formCorrection.trainingPlan && (
+                 <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                   <p className="text-xs text-gray-400 mb-1">訓練計劃建議</p>
+                   <p className="text-sm text-gray-300">{formCorrection.trainingPlan}</p>
+                 </div>
+               )}
+             </div>
            )}
         </div>
       </div>

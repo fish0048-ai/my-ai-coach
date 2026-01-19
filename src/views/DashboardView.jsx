@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
 // 新增 CalendarClock, CheckCircle2, Circle
-import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight, Share2, Download, FileText, Image } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
 import { calculateMuscleFatigue } from '../utils/statsCalculations';
@@ -11,6 +11,8 @@ import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
 import { useUserStore } from '../store/userStore';
 import { useViewStore } from '../store/viewStore';
+import { exportTrainingDataJSON, exportTrainingDataCSV, copyReportToClipboard, downloadReportImage, generateReportSummary } from '../utils/reportGenerator';
+import { handleError } from '../services/errorService';
 
 // 安全的日期解析函數
 const safeTimestamp = (dateStr) => {
@@ -197,6 +199,98 @@ export default function DashboardView() {
               歡迎回來，{userData?.name || '健身夥伴'}
             </h1>
             <p className="text-gray-400">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              <Share2 size={18} />
+              <span className="hidden md:inline">分享</span>
+            </button>
+            
+            {showShareMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
+                <button
+                  onClick={async () => {
+                    setSharing(true);
+                    try {
+                      const success = await copyReportToClipboard();
+                      if (success) {
+                        handleError('報告已複製到剪貼簿！', { context: 'DashboardView', operation: 'shareReport' });
+                      }
+                    } catch (error) {
+                      handleError(error, { context: 'DashboardView', operation: 'shareReport' });
+                    } finally {
+                      setSharing(false);
+                      setShowShareMenu(false);
+                    }
+                  }}
+                  disabled={sharing}
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                >
+                  <FileText size={16} />
+                  複製文字報告
+                </button>
+                <button
+                  onClick={async () => {
+                    setSharing(true);
+                    try {
+                      await downloadReportImage();
+                      handleError('報告圖片已下載！', { context: 'DashboardView', operation: 'shareReport' });
+                    } catch (error) {
+                      handleError(error, { context: 'DashboardView', operation: 'shareReport' });
+                    } finally {
+                      setSharing(false);
+                      setShowShareMenu(false);
+                    }
+                  }}
+                  disabled={sharing}
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                >
+                  <Image size={16} />
+                  下載圖片報告
+                </button>
+                <button
+                  onClick={async () => {
+                    setSharing(true);
+                    try {
+                      await exportTrainingDataJSON();
+                      handleError('JSON 資料已下載！', { context: 'DashboardView', operation: 'shareReport' });
+                    } catch (error) {
+                      handleError(error, { context: 'DashboardView', operation: 'shareReport' });
+                    } finally {
+                      setSharing(false);
+                      setShowShareMenu(false);
+                    }
+                  }}
+                  disabled={sharing}
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                >
+                  <Download size={16} />
+                  匯出 JSON
+                </button>
+                <button
+                  onClick={async () => {
+                    setSharing(true);
+                    try {
+                      await exportTrainingDataCSV();
+                      handleError('CSV 資料已下載！', { context: 'DashboardView', operation: 'shareReport' });
+                    } catch (error) {
+                      handleError(error, { context: 'DashboardView', operation: 'shareReport' });
+                    } finally {
+                      setSharing(false);
+                      setShowShareMenu(false);
+                    }
+                  }}
+                  disabled={sharing}
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors border-t border-gray-700"
+                >
+                  <Download size={16} />
+                  匯出 CSV
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

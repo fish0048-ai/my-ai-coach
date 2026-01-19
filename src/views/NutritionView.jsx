@@ -8,6 +8,7 @@ import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { updateAIContext } from '../utils/contextManager';
 import { useUserStore } from '../store/userStore';
+import { generateNutritionRecommendation } from '../services/ai/nutritionRecommendation';
 
 export default function NutritionView() {
   // 使用 zustand store 獲取用戶資料
@@ -37,6 +38,8 @@ export default function NutritionView() {
   const [foodFat, setFoodFat] = useState('');
   const [suggestion, setSuggestion] = useState('');
   const [suggesting, setSuggesting] = useState(false);
+  const [smartRecommendation, setSmartRecommendation] = useState(null);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -191,6 +194,28 @@ export default function NutritionView() {
       }
   };
 
+  const getSmartRecommendation = async () => {
+    setLoadingRecommendation(true);
+    try {
+      const recommendation = await generateNutritionRecommendation({
+        currentCalories: summary.cal,
+        currentProtein: summary.protein,
+        currentCarbs: summary.carbs,
+        currentFat: summary.fat,
+        targetCalories: targetCal,
+        targetProtein: targetProtein,
+        targetCarbs: targetCarbs,
+        targetFat: targetFat,
+        userGoal: userData?.goal || '健康'
+      });
+      setSmartRecommendation(recommendation);
+    } catch (error) {
+      // 錯誤已在服務中處理
+    } finally {
+      setLoadingRecommendation(false);
+    }
+  };
+
   const ProgressBar = ({ label, current, target, color }) => {
       const safeTarget = target > 0 ? target : 1;
       const pct = Math.min(100, Math.max(0, (current / safeTarget) * 100));
@@ -259,8 +284,98 @@ export default function NutritionView() {
           </div>
       </div>
 
+      {/* 智能營養建議卡片 */}
+      <div className="bg-blue-900/20 p-5 rounded-2xl border border-blue-500/30">
+          <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-white flex gap-2 items-center">
+                  <Sparkles className="text-blue-400" size={20}/> 智能營養建議
+              </h3>
+              <button 
+                  onClick={getSmartRecommendation} 
+                  disabled={loadingRecommendation}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 px-4 py-2 rounded text-white flex gap-2 items-center transition-colors"
+              >
+                  {loadingRecommendation ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} 
+                  {loadingRecommendation ? '分析中...' : '生成智能建議'}
+              </button>
+          </div>
+          
+          {smartRecommendation && (
+              <div className="space-y-4">
+                  {/* 訓練資訊 */}
+                  {smartRecommendation.trainingInfo?.hasTraining && (
+                      <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                          <p className="text-xs text-gray-400 mb-1">今日訓練</p>
+                          <p className="text-sm text-white">
+                              {smartRecommendation.trainingInfo.type} · 
+                              強度{smartRecommendation.trainingInfo.intensity === 'high' ? '高' : smartRecommendation.trainingInfo.intensity === 'moderate' ? '中' : '低'} · 
+                              {smartRecommendation.trainingInfo.duration}分鐘 · 
+                              消耗約{smartRecommendation.trainingInfo.calories}大卡
+                          </p>
+                      </div>
+                  )}
+
+                  {/* 營養建議 */}
+                  {smartRecommendation.recommendations && smartRecommendation.recommendations.length > 0 && (
+                      <div>
+                          <p className="text-xs text-gray-400 mb-2">建議事項</p>
+                          <ul className="space-y-1">
+                              {smartRecommendation.recommendations.map((rec, idx) => (
+                                  <li key={idx} className="text-sm text-gray-300 flex items-start gap-2">
+                                      <span className="text-blue-400 mt-1">•</span>
+                                      <span>{rec}</span>
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                  )}
+
+                  {/* 餐點建議 */}
+                  {smartRecommendation.mealSuggestions && smartRecommendation.mealSuggestions.length > 0 && (
+                      <div>
+                          <p className="text-xs text-gray-400 mb-2">推薦餐點</p>
+                          <div className="space-y-2">
+                              {smartRecommendation.mealSuggestions.map((meal, idx) => (
+                                  <div key={idx} className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                                      <div className="flex justify-between items-start mb-1">
+                                          <p className="text-sm font-semibold text-white">{meal.name}</p>
+                                          <span className="text-xs text-blue-400">{meal.calories} kcal</span>
+                                      </div>
+                                      <p className="text-xs text-gray-400 mb-2">{meal.description}</p>
+                                      <div className="flex gap-3 text-xs text-gray-500">
+                                          <span>蛋白質 {meal.protein}g</span>
+                                          <span>碳水 {meal.carbs}g</span>
+                                          <span>脂肪 {meal.fat}g</span>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* 營養缺口提醒 */}
+                  {smartRecommendation.gaps && (
+                      <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-700/50">
+                          <p className="text-xs text-yellow-400 mb-1">⚠️ 營養缺口提醒</p>
+                          {smartRecommendation.gaps.protein && (
+                              <p className="text-xs text-gray-300">{smartRecommendation.gaps.protein}</p>
+                          )}
+                          {smartRecommendation.gaps.calorie && (
+                              <p className="text-xs text-gray-300">{smartRecommendation.gaps.calorie}</p>
+                          )}
+                      </div>
+                  )}
+              </div>
+          )}
+
+          {!smartRecommendation && !loadingRecommendation && (
+              <p className="text-sm text-gray-500">點擊上方按鈕，AI 將根據您的訓練強度和營養現況生成個人化建議</p>
+          )}
+      </div>
+
+      {/* 原有簡單建議 */}
       <div className="bg-green-900/20 p-5 rounded-2xl border border-green-500/30">
-          <h3 className="font-bold text-white mb-2 flex gap-2"><ChefHat size={20}/> 飲食建議</h3>
+          <h3 className="font-bold text-white mb-2 flex gap-2"><ChefHat size={20}/> 快速飲食建議</h3>
           {suggestion ? <p className="text-sm text-gray-300 whitespace-pre-wrap">{suggestion}</p> : <p className="text-sm text-gray-500">點擊下方按鈕取得建議</p>}
           <button onClick={getSuggestion} disabled={suggesting} className="mt-3 text-xs bg-green-600 px-4 py-2 rounded text-white flex gap-2 items-center w-fit">
               {suggesting ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} 

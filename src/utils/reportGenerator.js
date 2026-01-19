@@ -1,0 +1,262 @@
+/**
+ * 訓練報告生成工具
+ * 生成訓練日誌報告、PDF、圖片分享等
+ */
+
+import { listCalendarWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
+import { getUserProfile } from '../services/userService';
+import { formatDate } from './date';
+
+/**
+ * 生成訓練報告 JSON 資料
+ * @param {Object} params - 參數物件
+ * @param {string} [params.startDate] - 開始日期 (YYYY-MM-DD)，預設為最近 30 天
+ * @param {string} [params.endDate] - 結束日期 (YYYY-MM-DD)，預設為今天
+ * @returns {Promise<Object>} 報告資料物件
+ */
+export const generateTrainingReport = async ({ startDate = null, endDate = null } = {}) => {
+  try {
+    // 計算日期範圍
+    const today = new Date();
+    const end = endDate ? new Date(endDate) : today;
+    const start = startDate ? new Date(startDate) : new Date(today);
+    start.setDate(start.getDate() - 30); // 預設 30 天
+
+    const startStr = formatDate(start);
+    const endStr = formatDate(end);
+
+    // 獲取訓練資料
+    const workouts = await listCalendarWorkoutsByDateRange(startStr, endStr);
+    const completedWorkouts = workouts.filter(w => w.status === 'completed');
+
+    // 獲取用戶資料
+    const userProfile = await getUserProfile();
+
+    // 統計資料
+    const stats = {
+      totalWorkouts: completedWorkouts.length,
+      strengthWorkouts: completedWorkouts.filter(w => w.type === 'strength').length,
+      runningWorkouts: completedWorkouts.filter(w => w.type === 'run').length,
+      totalDistance: completedWorkouts
+        .filter(w => w.type === 'run')
+        .reduce((sum, w) => sum + (parseFloat(w.runDistance) || 0), 0),
+      totalCalories: completedWorkouts.reduce((sum, w) => sum + (parseFloat(w.calories) || 0), 0),
+      period: { start: startStr, end: endStr }
+    };
+
+    return {
+      user: {
+        name: userProfile?.name || 'User',
+        goal: userProfile?.goal || '健康',
+        tdee: userProfile?.tdee || 2000
+      },
+      stats,
+      workouts: completedWorkouts.map(w => ({
+        date: w.date,
+        type: w.type,
+        title: w.title,
+        distance: w.runDistance || null,
+        duration: w.runDuration || null,
+        exercises: w.exercises || [],
+        calories: w.calories || null
+      })),
+      generatedAt: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('生成訓練報告失敗:', error);
+    throw error;
+  }
+};
+
+/**
+ * 匯出訓練資料為 JSON
+ * @param {Object} reportData - 報告資料（可選，如果不提供則自動生成）
+ * @returns {Promise<void>}
+ */
+export const exportTrainingDataJSON = async (reportData = null) => {
+  try {
+    const data = reportData || await generateTrainingReport();
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `training_report_${formatDate(new Date())}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('匯出 JSON 失敗:', error);
+    throw error;
+  }
+};
+
+/**
+ * 匯出訓練資料為 CSV
+ * @param {Object} reportData - 報告資料（可選，如果不提供則自動生成）
+ * @returns {Promise<void>}
+ */
+export const exportTrainingDataCSV = async (reportData = null) => {
+  try {
+    const data = reportData || await generateTrainingReport();
+    
+    // CSV 標題
+    const headers = ['日期', '類型', '標題', '距離(km)', '時間(分鐘)', '熱量(kcal)', '動作數'];
+    const rows = [headers.join(',')];
+
+    // 資料行
+    data.workouts.forEach(workout => {
+      const row = [
+        workout.date,
+        workout.type === 'run' ? '跑步' : '力量',
+        `"${workout.title || ''}"`,
+        workout.distance || '',
+        workout.duration || '',
+        workout.calories || '',
+        workout.exercises?.length || 0
+      ];
+      rows.push(row.join(','));
+    });
+
+    const csvContent = rows.join('\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `training_report_${formatDate(new Date())}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('匯出 CSV 失敗:', error);
+    throw error;
+  }
+};
+
+/**
+ * 生成訓練報告文字摘要（用於分享）
+ * @param {Object} reportData - 報告資料（可選，如果不提供則自動生成）
+ * @returns {Promise<string>} 文字摘要
+ */
+export const generateReportSummary = async (reportData = null) => {
+  try {
+    const data = reportData || await generateTrainingReport();
+    const { stats, user } = data;
+
+    const summary = `
+🏋️ 訓練報告 - ${stats.period.start} 至 ${stats.period.end}
+
+👤 ${user.name}
+🎯 目標：${user.goal}
+
+📊 統計資料：
+• 總訓練次數：${stats.totalWorkouts} 次
+• 力量訓練：${stats.strengthWorkouts} 次
+• 跑步訓練：${stats.runningWorkouts} 次
+• 總跑量：${stats.totalDistance.toFixed(1)} km
+• 總消耗熱量：${stats.totalCalories} kcal
+
+💪 繼續加油！
+    `.trim();
+
+    return summary;
+  } catch (error) {
+    console.error('生成報告摘要失敗:', error);
+    throw error;
+  }
+};
+
+/**
+ * 複製報告摘要到剪貼簿
+ * @param {Object} reportData - 報告資料（可選）
+ * @returns {Promise<boolean>} 是否成功
+ */
+export const copyReportToClipboard = async (reportData = null) => {
+  try {
+    const summary = await generateReportSummary(reportData);
+    await navigator.clipboard.writeText(summary);
+    return true;
+  } catch (error) {
+    console.error('複製到剪貼簿失敗:', error);
+    return false;
+  }
+};
+
+/**
+ * 生成訓練報告圖片（使用 Canvas）
+ * @param {Object} reportData - 報告資料（可選）
+ * @returns {Promise<string>} 圖片 Data URL
+ */
+export const generateReportImage = async (reportData = null) => {
+  try {
+    const data = reportData || await generateTrainingReport();
+    const { stats, user } = data;
+
+    // 創建 Canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+
+    // 背景
+    ctx.fillStyle = '#1F2937';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 標題
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 32px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('訓練報告', canvas.width / 2, 50);
+
+    // 用戶資訊
+    ctx.font = '20px Arial';
+    ctx.fillText(`${user.name} - ${user.goal}`, canvas.width / 2, 90);
+
+    // 統計資料
+    ctx.font = '18px Arial';
+    ctx.textAlign = 'left';
+    let y = 150;
+    ctx.fillText(`總訓練次數：${stats.totalWorkouts} 次`, 50, y);
+    y += 35;
+    ctx.fillText(`力量訓練：${stats.strengthWorkouts} 次`, 50, y);
+    y += 35;
+    ctx.fillText(`跑步訓練：${stats.runningWorkouts} 次`, 50, y);
+    y += 35;
+    ctx.fillText(`總跑量：${stats.totalDistance.toFixed(1)} km`, 50, y);
+    y += 35;
+    ctx.fillText(`總消耗熱量：${stats.totalCalories} kcal`, 50, y);
+
+    // 日期範圍
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#9CA3AF';
+    ctx.fillText(`${stats.period.start} 至 ${stats.period.end}`, canvas.width / 2, canvas.height - 30);
+
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.error('生成報告圖片失敗:', error);
+    throw error;
+  }
+};
+
+/**
+ * 下載訓練報告圖片
+ * @param {Object} reportData - 報告資料（可選）
+ * @returns {Promise<void>}
+ */
+export const downloadReportImage = async (reportData = null) => {
+  try {
+    const imageDataUrl = await generateReportImage(reportData);
+    const link = document.createElement('a');
+    link.href = imageDataUrl;
+    link.download = `training_report_${formatDate(new Date())}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('下載報告圖片失敗:', error);
+    throw error;
+  }
+};

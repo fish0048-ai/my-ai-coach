@@ -11,7 +11,8 @@ import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
 import { useUserStore } from '../store/userStore';
 import { useViewStore } from '../store/viewStore';
-import { exportTrainingDataJSON, exportTrainingDataCSV, copyReportToClipboard, downloadReportImage, downloadReportPDF, generateReportSummary } from '../utils/reportGenerator';
+import { exportTrainingDataJSON, exportTrainingDataCSV, copyReportToClipboard, downloadReportImage, downloadReportPDF } from '../utils/reportGenerator';
+import { getBackupReminder, downloadBackup } from '../services/backupService';
 import { handleError } from '../services/errorService';
 
 // 安全的日期解析函數
@@ -45,6 +46,8 @@ export default function DashboardView() {
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [backupReminder, setBackupReminder] = useState(null);
+  const [hideBackupBanner, setHideBackupBanner] = useState(false);
 
   // 計算 Zone 2 範圍
   const age = parseInt(userData?.age) || 30;
@@ -55,6 +58,13 @@ export default function DashboardView() {
   useEffect(() => {
     fetchWorkoutStats();
     fetchTodaySchedule(); // 新增：讀取今日課表
+
+    // 讀取備份提醒狀態（依使用者帳號）
+    const user = getCurrentUser();
+    if (user) {
+      const info = getBackupReminder(user.uid, 30);
+      setBackupReminder(info);
+    }
   }, [userData]);
 
   // 新增：讀取今日課表邏輯
@@ -314,6 +324,53 @@ export default function DashboardView() {
             )}
           </div>
         </div>
+
+        {/* 定期備份提醒區塊 */}
+        {backupReminder?.shouldRemind && !hideBackupBanner && (
+          <div className="bg-yellow-900/30 border border-yellow-500/40 text-yellow-100 px-4 py-3 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                <AlertCircle className="text-yellow-400" size={20} />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">建議定期下載備份，保護您的訓練資料。</p>
+                <p className="text-xs text-yellow-100/80 mt-1">
+                  {backupReminder.lastDate
+                    ? `上次備份日期：${backupReminder.lastDate}（約 ${backupReminder.daysSince} 天前）`
+                    : '尚未偵測到備份紀錄，建議先建立第一份備份檔案。'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await downloadBackup();
+                    const user = getCurrentUser();
+                    if (user) {
+                      const info = getBackupReminder(user.uid, 30);
+                      setBackupReminder(info);
+                    }
+                    handleError('備份檔案已下載完成！', { context: 'DashboardView', operation: 'downloadBackup' });
+                  } catch (error) {
+                    handleError(error, { context: 'DashboardView', operation: 'downloadBackup' });
+                  }
+                }}
+                className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-xs font-semibold rounded-lg transition-colors"
+              >
+                立即備份
+              </button>
+              <button
+                type="button"
+                onClick={() => setHideBackupBanner(true)}
+                className="text-xs text-yellow-200/80 hover:text-yellow-100 underline-offset-2 hover:underline"
+              >
+                稍後再提醒
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 新增：今日課表提醒區塊 */}
         <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 p-5 rounded-xl border border-blue-500/30">

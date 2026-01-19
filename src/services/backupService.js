@@ -12,6 +12,42 @@ const getCurrentUser = () => {
   return auth.currentUser;
 };
 
+// 以 localStorage 紀錄最後備份時間與摘要資訊
+const LAST_BACKUP_KEY_PREFIX = 'my_ai_coach_last_backup_';
+
+/**
+ * 讀取當前使用者的最後備份資訊
+ * @param {string} userId
+ * @returns {{date:string|null, timestamp:number|null, stats?:Object}|null}
+ */
+export const getLastBackupInfo = (userId) => {
+  if (!userId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`${LAST_BACKUP_KEY_PREFIX}${userId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 儲存最後備份資訊到 localStorage（僅在瀏覽器端呼叫）
+ * @param {string} userId
+ * @param {Object} payload
+ */
+const setLastBackupInfo = (userId, payload) => {
+  if (!userId || typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      `${LAST_BACKUP_KEY_PREFIX}${userId}`,
+      JSON.stringify(payload)
+    );
+  } catch {
+    // 忽略本地儲存錯誤，不影響主流程
+  }
+};
+
 /**
  * 匯出所有用戶資料
  * @returns {Promise<Object>} 完整的用戶資料物件
@@ -88,6 +124,8 @@ export const exportAllUserData = async () => {
 export const downloadBackup = async () => {
   try {
     const backupData = await exportAllUserData();
+    const user = getCurrentUser();
+
     const jsonStr = JSON.stringify(backupData, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -98,6 +136,15 @@ export const downloadBackup = async () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    // 成功下載後，更新本地最後備份時間
+    if (user) {
+      setLastBackupInfo(user.uid, {
+        date: formatDate(new Date()),
+        timestamp: Date.now(),
+        stats: backupData.stats || {}
+      });
+    }
   } catch (error) {
     handleError(error, { context: 'backupService', operation: 'downloadBackup' });
     throw error;
@@ -322,4 +369,45 @@ export const readBackupFile = async (file) => {
     reader.onerror = () => reject(new Error('讀取檔案失敗'));
     reader.readAsText(file);
   });
+};
+
+/**
+ * 計算是否需要顯示備份提醒
+ * @param {string} userId
+ * @param {number} thresholdDays - 間隔天數門檻，預設 30 天
+ * @returns {{shouldRemind:boolean, daysSince:number|null, lastDate:string|null, message:string}}
+ */
+export const getBackupReminder = (userId, thresholdDays = 30) => {
+  if (!userId || typeof window === 'undefined') {
+    return { shouldRemind: false, daysSince: null, lastDate: null, message: '' };
+  }
+
+  const info = getLastBackupInfo(userId);
+  if (!info || !info.timestamp) {
+    return {
+      shouldRemind: true,
+      daysSince: null,
+      lastDate: null,
+      message: '建議先備份一次資料，以防止訓練紀錄與設定遺失。'
+    };
+  }
+
+  const diffMs = Date.now() - info.timestamp;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays >= thresholdDays) {
+    return {
+      shouldRemind: true,
+      daysSince: diffDays,
+      lastDate: info.date || null,
+      message: `距離上次備份已超過 ${diffDays} 天，建議立即下載備份檔案。`
+    };
+  }
+
+  return {
+    shouldRemind: false,
+    daysSince: diffDays,
+    lastDate: info.date || null,
+    message: ''
+  };
 };

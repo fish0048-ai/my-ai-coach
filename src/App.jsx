@@ -102,58 +102,10 @@ export default function App() {
   // 初始化認證監聽
   useEffect(() => {
     const unsubscribe = initializeAuth();
-
-    // #region agent log:app_auth_init
-    try {
-      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H1',
-          location: 'App.jsx:initializeAuth',
-          message: 'initializeAuth called',
-          data: {},
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    } catch {
-      // 忽略記錄錯誤，避免影響主流程
-    }
-    // #endregion agent log:app_auth_init
-
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, [initializeAuth]);
-
-  // 監控關鍵狀態變化（loading / user / currentView）
-  useEffect(() => {
-    // #region agent log:app_state_change
-    try {
-      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H2',
-          location: 'App.jsx:state',
-          message: 'App state changed',
-          data: {
-            loading,
-            hasUser: !!user,
-            currentView,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    } catch {
-      // 忽略記錄錯誤
-    }
-    // #endregion agent log:app_state_change
-  }, [loading, user, currentView]);
 
   // 優化：使用 useCallback 穩定 callback 參考
   const handleCloseChat = useCallback(() => {
@@ -162,34 +114,18 @@ export default function App() {
 
   // 優化：使用 useMemo 快取視圖渲染結果，避免不必要的重新渲染
   const content = useMemo(() => {
-    // #region agent log:app_render_content
-    try {
-      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H3',
-          location: 'App.jsx:content',
-          message: 'Rendering content',
-          data: { currentView, hasUserData: !!userData },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    } catch {}
-    // #endregion agent log:app_render_content
-
     return (
       <ErrorBoundary>
-        <Suspense fallback={
-          <div className="flex items-center justify-center h-full bg-gray-900">
-            <div className="text-center">
-              <Loader className="animate-spin text-blue-500 mx-auto mb-4" size={32} />
-              <p className="text-gray-400">載入中...</p>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center h-full bg-gray-900">
+              <div className="text-center">
+                <Loader className="animate-spin text-blue-500 mx-auto mb-4" size={32} />
+                <p className="text-gray-400">載入中...</p>
+              </div>
             </div>
-          </div>
-        }>
+          }
+        >
           {(() => {
             try {
               switch (currentView) {
@@ -202,9 +138,9 @@ export default function App() {
                 case 'run-analysis': return <RunAnalysisView />;
                 case 'profile': return <FeatureViews view="profile" />;
                 case 'training-plan': return <TrainingPlanView />;
-                case 'training': 
+                case 'training':
                 case 'analysis':
-                  return <DashboardView />; 
+                  return <DashboardView />;
                 default:
                   return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
               }
@@ -221,7 +157,7 @@ export default function App() {
         </Suspense>
       </ErrorBoundary>
     );
-  }, [currentView, userData]);
+  }, [currentView, userData, setCurrentView]);
 
   if (loading) {
     return (
@@ -232,43 +168,8 @@ export default function App() {
   }
 
   if (!user) {
-    // #region agent log:app_no_user
-    try {
-      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H5',
-          location: 'App.jsx:no_user',
-          message: 'No user, showing login',
-          data: { loading },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    } catch {}
-    // #endregion agent log:app_no_user
-    return <LoginView />; 
+    return <LoginView />;
   }
-
-  // #region agent log:app_render_main
-  try {
-    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'H4',
-        location: 'App.jsx:render',
-        message: 'Rendering main layout',
-        data: { hasUser: !!user, currentView, loading },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  } catch {}
-  // #endregion agent log:app_render_main
 
   return (
     <>

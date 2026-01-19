@@ -207,28 +207,6 @@ export default function DashboardView() {
               onClick={() => setShowShareMenu(!showShareMenu)}
               className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
             >
-              {/* #region agent log:dashboard_share_button_click */}
-              {(() => {
-                try {
-                  fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      sessionId: 'debug-session',
-                      runId: 'pre-fix',
-                      hypothesisId: 'H1',
-                      location: 'DashboardView.jsx:shareButton',
-                      message: 'Share button clicked',
-                      data: { showShareMenu },
-                      timestamp: Date.now(),
-                    }),
-                  }).catch(() => {});
-                } catch {
-                  // 忽略記錄錯誤，避免影響主流程
-                }
-                return null;
-              })()}
-              {/* #endregion agent log:dashboard_share_button_click */}
               <Share2 size={18} />
               <span className="hidden md:inline">分享</span>
             </button>
@@ -237,25 +215,6 @@ export default function DashboardView() {
               <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
                 <button
                   onClick={async () => {
-                    {/* #region agent log:dashboard_copy_report */}
-                    try {
-                      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          sessionId: 'debug-session',
-                          runId: 'pre-fix',
-                          hypothesisId: 'H2',
-                          location: 'DashboardView.jsx:copyReport',
-                          message: 'Copy report clicked',
-                          data: { sharingBefore: sharing },
-                          timestamp: Date.now(),
-                        }),
-                      }).catch(() => {});
-                    } catch {
-                      // 忽略記錄錯誤
-                    }
-                    {/* #endregion agent log:dashboard_copy_report */}
                     setSharing(true);
                     try {
                       const success = await copyReportToClipboard();

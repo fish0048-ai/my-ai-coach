@@ -8,17 +8,33 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000, // 提高警告閾值到 1000KB（因為已使用 lazy loading）
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks(id) {
           // React 核心庫
-          'react-vendor': ['react', 'react-dom'],
-          // Firebase SDK（大型依賴）
-          'firebase-vendor': ['firebase'],
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-vendor';
+          }
+          // Firebase SDK（通過子模組導入）
+          if (id.includes('node_modules/firebase/')) {
+            return 'firebase-vendor';
+          }
           // MediaPipe（大型依賴，僅在特定頁面使用）
-          'mediapipe-vendor': ['@mediapipe/pose', '@mediapipe/drawing_utils'],
+          if (id.includes('node_modules/@mediapipe/')) {
+            return 'mediapipe-vendor';
+          }
           // PDF 生成（僅在報告功能使用）
-          'pdf-vendor': ['jspdf'],
+          if (id.includes('node_modules/jspdf')) {
+            return 'pdf-vendor';
+          }
           // 其他工具庫
-          'utils-vendor': ['buffer', 'fit-file-parser', 'zustand'],
+          if (id.includes('node_modules/buffer') || 
+              id.includes('node_modules/fit-file-parser') || 
+              id.includes('node_modules/zustand')) {
+            return 'utils-vendor';
+          }
+          // 其他 node_modules 依賴
+          if (id.includes('node_modules/')) {
+            return 'vendor';
+          }
         },
       },
     },

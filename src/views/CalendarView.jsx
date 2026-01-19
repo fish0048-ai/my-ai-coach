@@ -15,6 +15,7 @@ import { cleanNumber } from '../utils/number';
 import { checkAndUnlockAchievements } from '../services/achievementService';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 import WeeklyModal from '../components/Calendar/WeeklyModal';
+import { useViewStore } from '../store/viewStore';
 
 
 // --- 組件主體 ---
@@ -43,6 +44,7 @@ export default function CalendarView() {
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [monthlyMileage, setMonthlyMileage] = useState(0); 
+  const setCurrentView = useViewStore((state) => state.setCurrentView);
 
   useEffect(() => {
     const fetchGears = async () => {
@@ -380,18 +382,29 @@ export default function CalendarView() {
 
       <div className="flex justify-between items-center bg-gray-800 p-4 rounded-xl border border-gray-700">
         <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <CalendarIcon className="text-blue-500" />
             運動行事曆
-            </h1>
-            <button onClick={() => { 
+          </h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { 
                 const initialPrefs = {}; 
                 weekDateList.forEach(d => initialPrefs[d] = ['auto']); 
                 setWeeklyPrefs(initialPrefs); 
                 setShowWeeklyModal(true); 
-            }} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-purple-900/30 transition-all">
-                <CalendarDays size={18} /> 本週總教練排程
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-purple-900/30 transition-all"
+            >
+              <CalendarDays size={18} /> 本週總教練排程
             </button>
+            <button
+              onClick={() => setCurrentView('training-plan')}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-bold border border-gray-600 transition-all"
+            >
+              <Sparkles size={16} /> 訓練計劃推薦
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
           <button onClick={handleSync} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50">

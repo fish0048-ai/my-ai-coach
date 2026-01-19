@@ -38,6 +38,10 @@ export default function TrainingPlanView() {
   const handleApplyToCalendar = async () => {
     if (!generatedPlan || !generatedPlan.workouts) return;
 
+    // 確認是否要將計劃寫入行事曆
+    const ok = window.confirm('確定要將此訓練計劃從下週一開始新增到行事曆嗎？');
+    if (!ok) return;
+
     setLoading(true);
     try {
       // 將計劃應用到行事曆
@@ -63,6 +67,11 @@ export default function TrainingPlanView() {
           title: workout.title || '訓練計劃',
           exercises: workout.exercises || [],
           notes: workout.notes || '',
+          // 跑步相關欄位（若為跑步訓練）
+          runDistance: workout.runDistance || '',
+          runDuration: workout.runDuration || '',
+          runPace: workout.runPace || '',
+          runHeartRate: workout.runHeartRate || '',
           updatedAt: new Date().toISOString()
         });
       });

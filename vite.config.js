@@ -9,9 +9,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // React 核心庫
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor';
+          // React 和 React-DOM 保留在主 bundle 中，不分離（避免載入順序問題）
+          // 如果分離 React，可能導致 vendor chunk 在 React 載入前執行
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return; // 返回 undefined，保留在主 bundle
           }
           // Firebase SDK（通過子模組導入）
           if (id.includes('node_modules/firebase/')) {
@@ -30,6 +31,10 @@ export default defineConfig({
               id.includes('node_modules/fit-file-parser') || 
               id.includes('node_modules/zustand')) {
             return 'utils-vendor';
+          }
+          // lucide-react 圖標庫（使用頻繁但較大）
+          if (id.includes('node_modules/lucide-react')) {
+            return 'icons-vendor';
           }
           // 其他 node_modules 依賴
           if (id.includes('node_modules/')) {

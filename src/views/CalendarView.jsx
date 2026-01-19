@@ -380,13 +380,13 @@ export default function CalendarView() {
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, .fit" className="hidden" />
       <input type="file" ref={csvInputRef} onChange={handleCSVUpload} accept=".csv" className="hidden" />
 
-      <div className="flex justify-between items-center bg-gray-800 p-4 rounded-xl border border-gray-700">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-800 p-4 rounded-xl border border-gray-700 gap-3">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <CalendarIcon className="text-blue-500" />
             運動行事曆
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => { 
                 const initialPrefs = {}; 
@@ -406,7 +406,7 @@ export default function CalendarView() {
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 md:justify-end">
           <button onClick={handleSync} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50">
             {loading ? <Loader size={16} className="animate-spin"/> : <RefreshCw size={16} />}
             <span className="hidden md:inline">同步</span>

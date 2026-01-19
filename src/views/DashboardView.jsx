@@ -11,7 +11,7 @@ import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
 import { useUserStore } from '../store/userStore';
 import { useViewStore } from '../store/viewStore';
-import { exportTrainingDataJSON, exportTrainingDataCSV, copyReportToClipboard, downloadReportImage, generateReportSummary } from '../utils/reportGenerator';
+import { exportTrainingDataJSON, exportTrainingDataCSV, copyReportToClipboard, downloadReportImage, downloadReportPDF, generateReportSummary } from '../utils/reportGenerator';
 import { handleError } from '../services/errorService';
 
 // 安全的日期解析函數
@@ -252,6 +252,25 @@ export default function DashboardView() {
                 >
                   <Image size={16} />
                   下載圖片報告
+                </button>
+                <button
+                  onClick={async () => {
+                    setSharing(true);
+                    try {
+                      await downloadReportPDF();
+                      handleError('PDF 報告已下載！', { context: 'DashboardView', operation: 'shareReport' });
+                    } catch (error) {
+                      handleError(error, { context: 'DashboardView', operation: 'shareReport' });
+                    } finally {
+                      setSharing(false);
+                      setShowShareMenu(false);
+                    }
+                  }}
+                  disabled={sharing}
+                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                >
+                  <FileText size={16} />
+                  下載 PDF 報告
                 </button>
                 <button
                   onClick={async () => {

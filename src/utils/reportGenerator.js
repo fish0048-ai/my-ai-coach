@@ -6,6 +6,7 @@
 import { listCalendarWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
 import { getUserProfile } from '../services/userService';
 import { formatDate } from './date';
+import jsPDF from 'jspdf';
 
 /**
  * 生成訓練報告 JSON 資料
@@ -257,6 +258,67 @@ export const downloadReportImage = async (reportData = null) => {
     document.body.removeChild(link);
   } catch (error) {
     console.error('下載報告圖片失敗:', error);
+    throw error;
+  }
+};
+
+/**
+ * 生成並下載訓練報告 PDF
+ * 使用 jsPDF，內容以目前的統計資訊為主，搭配簡單版面
+ * @param {Object} reportData - 報告資料（可選）
+ * @returns {Promise<void>}
+ */
+export const downloadReportPDF = async (reportData = null) => {
+  try {
+    const data = reportData || await generateTrainingReport();
+    const { stats, user } = data;
+
+    const doc = new jsPDF();
+
+    // 標題
+    doc.setFontSize(18);
+    doc.text('訓練報告', 105, 20, { align: 'center' });
+
+    // 使用者資訊
+    doc.setFontSize(12);
+    doc.text(`姓名：${user.name}`, 20, 32);
+    doc.text(`目標：${user.goal}`, 20, 40);
+    doc.text(`TDEE：約 ${user.tdee} kcal`, 20, 48);
+
+    // 期間
+    doc.text(`期間：${stats.period.start} 至 ${stats.period.end}`, 20, 58);
+
+    // 統計區塊
+    doc.setFontSize(14);
+    doc.text('統計摘要', 20, 72);
+    doc.setFontSize(12);
+    const lines = [
+      `總訓練次數：${stats.totalWorkouts} 次`,
+      `力量訓練：${stats.strengthWorkouts} 次`,
+      `跑步訓練：${stats.runningWorkouts} 次`,
+      `總跑量：${stats.totalDistance.toFixed(1)} km`,
+      `總消耗熱量：約 ${stats.totalCalories} kcal`
+    ];
+    let y = 80;
+    lines.forEach((line) => {
+      doc.text(line, 26, y);
+      y += 8;
+    });
+
+    // 簡短說明
+    doc.setFontSize(10);
+    doc.text(
+      '此報告由 My AI Coach 自動生成，建議搭配行事曆與 AI 教練建議一同參考。',
+      20,
+      120,
+      { maxWidth: 170 }
+    );
+
+    // 下載
+    const fileName = `training_report_${formatDate(new Date())}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error('下載 PDF 報告失敗:', error);
     throw error;
   }
 };

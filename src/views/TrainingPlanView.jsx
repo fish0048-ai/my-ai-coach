@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Calendar, Dumbbell, Activity, Sparkles, CheckCircle2, Clock, ArrowLeft } from 'lucide-react';
+import { Calendar, Dumbbell, Activity, Sparkles, CheckCircle2, Clock, ArrowLeft, Map } from 'lucide-react';
 import { generateTrainingPlan, PLAN_TYPES } from '../services/ai/workoutGenerator';
 import { handleError } from '../services/errorService';
 import { useViewStore } from '../store/viewStore';
 import { createCalendarWorkout } from '../services/calendarService';
+import { generateHalfMarathonStrategy } from '../utils/workoutCalculations';
 
 /**
  * 訓練計劃推薦頁面
@@ -16,8 +17,12 @@ export default function TrainingPlanView() {
   const [generatedPlan, setGeneratedPlan] = useState(null);
   const [targetPB, setTargetPB] = useState('');
   const [targetRaceDate, setTargetRaceDate] = useState('');
+  const [raceTargetTime, setRaceTargetTime] = useState('1:59:00');
+  const [raceCourseType, setRaceCourseType] = useState('flat');
+  const [raceStrategy, setRaceStrategy] = useState(null);
 
   const isPBPlan = selectedPlanType === 'running_half_marathon_pb' || selectedPlanType === 'running_full_marathon_pb';
+  const canShowRaceStrategy = selectedPlanType === 'running_half_marathon_pb' || selectedPlanType === 'running_half_marathon_finish';
 
   const handleGeneratePlan = async () => {
     if (!selectedPlanType) {
@@ -44,6 +49,22 @@ export default function TrainingPlanView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGenerateRaceStrategy = () => {
+    if (!raceTargetTime) {
+      handleError('請先輸入目標完賽時間，例如 1:59:00', { context: 'TrainingPlanView', operation: 'handleGenerateRaceStrategy' });
+      return;
+    }
+    const strategy = generateHalfMarathonStrategy({
+      targetTime: raceTargetTime,
+      courseType: raceCourseType,
+    });
+    if (!strategy) {
+      handleError('目標時間格式不正確，請確認為 HH:MM:SS 或 MM:SS', { context: 'TrainingPlanView', operation: 'handleGenerateRaceStrategy' });
+      return;
+    }
+    setRaceStrategy(strategy);
   };
 
   const handleApplyToCalendar = async () => {
@@ -115,7 +136,7 @@ export default function TrainingPlanView() {
 
       {/* 計劃類型選擇 */}
       {!generatedPlan && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 space-y-6">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Sparkles className="text-yellow-400" size={20} />
             選擇訓練計劃類型
@@ -208,7 +229,7 @@ export default function TrainingPlanView() {
             </div>
           )}
 
-          {/* 生成按钮 */}
+          {/* 生成按鈕 */}
           <button
             onClick={handleGeneratePlan}
             disabled={!selectedPlanType || loading}
@@ -226,6 +247,117 @@ export default function TrainingPlanView() {
               </>
             )}
           </button>
+
+          {/* 比賽配速策略區塊（半馬相關計畫時顯示） */}
+          {canShowRaceStrategy && (
+            <div className="mt-8 border-t border-gray-700 pt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Map className="text-green-400" size={20} />
+                <h2 className="text-lg font-bold text-white">比賽配速策略（半馬）</h2>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">
+                根據目標完賽時間與賽道類型，產生 Negative Split 配速與補給建議。
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    目標完賽時間（例如：1:59:00）
+                  </label>
+                  <input
+                    type="text"
+                    value={raceTargetTime}
+                    onChange={(e) => setRaceTargetTime(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-500"
+                    placeholder="1:59:00"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    賽道類型
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setRaceCourseType('flat')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+                        raceCourseType === 'flat'
+                          ? 'bg-green-600 border-green-500 text-white'
+                          : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      平路
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRaceCourseType('hilly')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+                        raceCourseType === 'hilly'
+                          ? 'bg-yellow-600 border-yellow-500 text-white'
+                          : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      起伏 / 坡道
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateRaceStrategy}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
+              >
+                <Map size={16} />
+                生成比賽配速策略
+              </button>
+
+              {raceStrategy && (
+                <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-white mb-3">配速分段</h3>
+                    <p className="text-xs text-gray-400 mb-2">
+                      目標時間：<span className="font-mono text-blue-300">{raceStrategy.targetTime}</span>，
+                      平均配速：約 <span className="font-mono text-blue-300">{raceStrategy.averagePacePerKm}/km</span>
+                    </p>
+                    <div className="space-y-3">
+                      {raceStrategy.segments.map((seg, idx) => (
+                        <div key={idx} className="bg-gray-900 rounded-md border border-gray-700 px-3 py-2 text-xs text-gray-300">
+                          <div className="flex justify-between mb-1">
+                            <span className="font-semibold text-white">{seg.label}</span>
+                            <span>{seg.startKm}–{seg.endKm} km</span>
+                          </div>
+                          <div className="flex justify-between text-[11px] text-gray-400">
+                            <span>配速：{seg.pacePerKm}/km</span>
+                            <span>區間時間：約 {seg.segmentTime}</span>
+                          </div>
+                          <p className="mt-1 text-[11px] text-gray-400">{seg.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-white mb-3">補給建議（能量膠）</h3>
+                    {raceStrategy.gels.length > 0 ? (
+                      <ul className="space-y-1 text-xs text-gray-300">
+                        {raceStrategy.gels.map((gel, idx) => (
+                          <li key={idx} className="flex justify-between">
+                            <span>時間：{gel.time}</span>
+                            <span>約 {gel.approxKm} km</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        比賽時間較短（少於 45 分鐘），可視情況選擇是否補給。
+                      </p>
+                    )}
+                    <p className="mt-3 text-[11px] text-gray-500">
+                      建議搭配你在「營養模組」設定的比賽日補給策略，一併規劃水站與能量膠品牌。
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

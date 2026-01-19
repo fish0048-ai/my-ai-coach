@@ -74,3 +74,110 @@ export const calculateTSS = (rpe, durationMinutes) => {
   
   return Math.round(tss);
 };
+
+/**
+ * 將時間字串轉為秒數
+ * 支援格式：HH:MM:SS 或 MM:SS
+ * @param {string} timeStr
+ * @returns {number} 秒數
+ */
+export const parseTimeToSeconds = (timeStr) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':').map((p) => parseInt(p, 10) || 0);
+  if (parts.length === 2) {
+    const [m, s] = parts;
+    return m * 60 + s;
+  }
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return h * 3600 + m * 60 + s;
+  }
+  return 0;
+};
+
+/**
+ * 將秒數轉為 mm:ss 或 hh:mm:ss 字串
+ * @param {number} totalSeconds
+ * @returns {string}
+ */
+export const formatSecondsToTime = (totalSeconds) => {
+  const sec = Math.max(0, Math.round(totalSeconds || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+/**
+ * 生成半馬比賽配速策略（Negative Split）
+ * @param {Object} params
+ * @param {string} params.targetTime - 目標完賽時間，例如 "1:59:00"
+ * @param {'flat'|'hilly'} params.courseType - 賽道類型：平路(flat) / 起伏(hilly)
+ * @returns {Object} 策略物件，包含分段配速與補給時間建議
+ */
+export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }) => {
+  const HALF_MARATHON_KM = 21.1;
+  const totalSeconds = parseTimeToSeconds(targetTime);
+  if (!totalSeconds || totalSeconds <= 0) {
+    return null;
+  }
+
+  // 基本平均配速（秒/公里）
+  const basePacePerKm = totalSeconds / HALF_MARATHON_KM;
+
+  // 根據賽道類型調整前後段比例（平路稍微後半加速，起伏則前後更保守）
+  const negativeSplitFactor = courseType === 'hilly' ? 0.03 : 0.05; // 後半段快 3–5%
+
+  const firstPartKm = 10;
+  const secondPartKm = HALF_MARATHON_KM - firstPartKm;
+
+  const firstPacePerKm = basePacePerKm * (1 + negativeSplitFactor / 2); // 前段略慢
+  const secondPacePerKm = basePacePerKm * (1 - negativeSplitFactor / 2); // 後段略快
+
+  const firstPartTime = firstPacePerKm * firstPartKm;
+  const secondPartTime = totalSeconds - firstPartTime; // 確保總時間一致
+
+  // 補給策略：每 45 分鐘一包能量膠
+  const gelIntervalSec = 45 * 60;
+  const gelPoints = [];
+  for (let t = gelIntervalSec; t < totalSeconds; t += gelIntervalSec) {
+    const progress = t / totalSeconds;
+    const approxKm = HALF_MARATHON_KM * progress;
+    gelPoints.push({
+      time: formatSecondsToTime(t),
+      approxKm: Math.round(approxKm * 10) / 10,
+    });
+  }
+
+  return {
+    distanceKm: HALF_MARATHON_KM,
+    targetTime: formatSecondsToTime(totalSeconds),
+    averagePacePerKm: formatSecondsToTime(basePacePerKm),
+    segments: [
+      {
+        label: '前段',
+        startKm: 0,
+        endKm: firstPartKm,
+        pacePerKm: formatSecondsToTime(firstPacePerKm),
+        segmentTime: formatSecondsToTime(firstPartTime),
+        description: courseType === 'hilly'
+          ? '保守起跑，專注穩定呼吸與放鬆步伐'
+          : '稍微保守起跑，讓身體進入狀態',
+      },
+      {
+        label: '後段',
+        startKm: firstPartKm,
+        endKm: HALF_MARATHON_KM,
+        pacePerKm: formatSecondsToTime(secondPacePerKm),
+        segmentTime: formatSecondsToTime(secondPartTime),
+        description: courseType === 'hilly'
+          ? '視當天狀況微調配速，在下坡與平路穩定推進'
+          : '逐步提速，最後 3–5km 若還有餘力可再加速',
+      },
+    ],
+    gels: gelPoints,
+  };
+};

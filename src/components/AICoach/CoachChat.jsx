@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2, RefreshCw } from 'lucide-react';
 import { runGemini } from '../../utils/gemini';
 import { getAIContext, updateAIContext } from '../../utils/contextManager';
+import { getKnowledgeContextForQuery } from '../../services/ai/knowledgeBaseService';
 import { getApiKey, setApiKey as persistApiKey } from '../../services/apiKeyService';
 
 export default function CoachChat({ isOpen, onClose, user }) {
@@ -77,17 +78,20 @@ export default function CoachChat({ isOpen, onClose, user }) {
     try {
         // 1. 獲取統整後的上下文 (Context)
         const userContext = await getAIContext();
+        // 2. 從個人知識庫（RAG）檢索相關歷史紀錄
+        const knowledgeContext = await getKnowledgeContextForQuery(userMessage);
 
-        // 2. 組合 Prompt
+        // 3. 組合 Prompt
         const systemPrompt = `
-          角色：專業健身教練。
-          風格：繁體中文、幽默鼓勵、極度精簡(50字內)。
-          
-          [使用者目前狀態與近期訓練]
-          ${userContext || '目前無詳細資料'}
-          
-          用戶問題：${userMessage}
-        `;
+角色：專業健身教練。
+風格：繁體中文、幽默鼓勵、極度精簡(50字內)。
+
+[使用者目前狀態與近期訓練]
+${userContext || '目前無詳細資料'}
+${knowledgeContext || ''}
+
+用戶問題：${userMessage}
+        `.trim();
 
         const responseText = await runGemini(systemPrompt, apiKey);
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);

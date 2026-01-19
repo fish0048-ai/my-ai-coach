@@ -27,29 +27,6 @@ self.addEventListener('fetch', (event) => {
   // 開發環境：不攔截動態模組和 API 請求
   const url = new URL(event.request.url);
   
-  // #region agent log:sw_fetch_request
-  try {
-    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'H1',
-        location: 'sw.js:fetch',
-        message: 'Service Worker fetch event',
-        data: {
-          url: url.href,
-          pathname: url.pathname,
-          method: event.request.method,
-          mode: event.request.mode,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  } catch {}
-  // #endregion agent log:sw_fetch_request
-  
   // 跳過開發伺服器請求（localhost / 127.0.0.1）
   if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
     return; // 不攔截，直接使用網路請求
@@ -62,23 +39,6 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/assets/') ||
     url.pathname.startsWith('/src/')
   ) {
-    // #region agent log:sw_skip_module
-    try {
-      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H1',
-          location: 'sw.js:skip_module',
-          message: 'Skipping module/resource request',
-          data: { pathname: url.pathname },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    } catch {}
-    // #endregion agent log:sw_skip_module
     return; // 不攔截，直接使用網路請求
   }
   
@@ -90,46 +50,8 @@ self.addEventListener('fetch', (event) => {
   // 其他請求使用快取策略
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) {
-        // #region agent log:sw_cache_hit
-        try {
-          fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId: 'debug-session',
-              runId: 'pre-fix',
-              hypothesisId: 'H2',
-              location: 'sw.js:cache_hit',
-              message: 'Cache hit',
-              data: { pathname: url.pathname },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-        } catch {}
-        // #endregion agent log:sw_cache_hit
-        return cached;
-      }
-      return fetch(event.request).catch((error) => {
-        // #region agent log:sw_fetch_error
-        try {
-          fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId: 'debug-session',
-              runId: 'pre-fix',
-              hypothesisId: 'H3',
-              location: 'sw.js:fetch_error',
-              message: 'Fetch error',
-              data: { pathname: url.pathname, error: error.message },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-        } catch {}
-        // #endregion agent log:sw_fetch_error
-        throw error;
-      });
+      if (cached) return cached;
+      return fetch(event.request);
     })
   );
 });

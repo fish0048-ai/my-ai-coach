@@ -102,10 +102,58 @@ export default function App() {
   // 初始化認證監聽
   useEffect(() => {
     const unsubscribe = initializeAuth();
+
+    // #region agent log:app_auth_init
+    try {
+      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'H1',
+          location: 'App.jsx:initializeAuth',
+          message: 'initializeAuth called',
+          data: {},
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    } catch {
+      // 忽略記錄錯誤，避免影響主流程
+    }
+    // #endregion agent log:app_auth_init
+
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, [initializeAuth]);
+
+  // 監控關鍵狀態變化（loading / user / currentView）
+  useEffect(() => {
+    // #region agent log:app_state_change
+    try {
+      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'H2',
+          location: 'App.jsx:state',
+          message: 'App state changed',
+          data: {
+            loading,
+            hasUser: !!user,
+            currentView,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    } catch {
+      // 忽略記錄錯誤
+    }
+    // #endregion agent log:app_state_change
+  }, [loading, user, currentView]);
 
   // 優化：使用 useCallback 穩定 callback 參考
   const handleCloseChat = useCallback(() => {

@@ -1,34 +1,46 @@
-const CACHE_NAME = 'my-ai-coach-cache-v3';
+const CACHE_NAME = 'my-ai-coach-cache-v4';
 const ASSETS = [
-  '/',           // 保留首頁離線載入能力
   '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
+  // 強制立即激活新的 Service Worker，取代舊版本
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
 });
 
 self.addEventListener('activate', (event) => {
+  // 立即控制所有客戶端，確保新 SW 立即生效
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    )
+    Promise.all([
+      // 刪除所有舊的快取（包括舊版本的 CACHE_NAME）
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys.map((key) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sw.js:activate',message:'Deleting cache',data:{cacheName:key},timestamp:Date.now(),sessionId:'debug-session',runId:'sw-fix',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            return caches.delete(key);
+          })
+        )
+      ),
+      // 立即控制所有客戶端
+      clients.claim()
+    ])
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // 開發環境：不攔截動態模組和 API 請求
   const url = new URL(event.request.url);
   
   // 導航請求與 index.html 一律走網路，避免舊版 HTML 快取導致引用不存在的 hash 檔案
   if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
-    return;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'sw.js:fetch',message:'Skipping navigation request',data:{pathname:url.pathname,mode:event.request.mode},timestamp:Date.now(),sessionId:'debug-session',runId:'sw-fix',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return; // 不攔截，直接走網路
   }
 
   // 跳過開發伺服器請求（localhost / 127.0.0.1）

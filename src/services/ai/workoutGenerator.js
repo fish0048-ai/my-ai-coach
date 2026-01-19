@@ -196,6 +196,23 @@ export const PLAN_TYPES = {
     frequency: 4,
     focus: 'endurance',
     raceGoalDescription: '在安全前提下完成全程馬拉松 (42km) 比賽'
+  },
+  // 跑步進階：半馬 / 全馬 破 PB 目標
+  'running_half_marathon_pb': {
+    name: '半馬破 PB 訓練計劃',
+    description: '針對半馬成績提升的強化訓練計劃，重點放在配速與乳酸門檻訓練',
+    duration: '10-12 週',
+    frequency: 4,
+    focus: 'speed',
+    raceGoalDescription: '在指定賽事中突破過去半馬最佳成績 (PB)'
+  },
+  'running_full_marathon_pb': {
+    name: '全馬破 PB 訓練計劃',
+    description: '針對全馬成績提升的強化訓練計劃，結合馬拉松配速長跑與節奏跑',
+    duration: '12-16 週',
+    frequency: 5,
+    focus: 'speed',
+    raceGoalDescription: '在指定賽事中突破過去全馬最佳成績 (PB)'
   }
 };
 
@@ -204,9 +221,11 @@ export const PLAN_TYPES = {
  * @param {Object} params - 參數物件
  * @param {string} [params.planType] - 計劃類型（可選，如果不提供則基於用戶資料推薦）
  * @param {number} [params.weeks] - 計劃週數，預設4週
+ * @param {string} [params.targetPB] - 目標 PB（例如：1:45:00），僅對「破 PB」類型有效
+ * @param {string} [params.targetRaceDate] - 目標賽事日期（YYYY-MM-DD），僅對「破 PB」類型有效
  * @returns {Promise<Object>} 訓練計劃物件
  */
-export const generateTrainingPlan = async ({ planType = null, weeks = 4 }) => {
+export const generateTrainingPlan = async ({ planType = null, weeks = 4, targetPB = null, targetRaceDate = null }) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     const error = new Error('請先設定 API Key');
@@ -229,7 +248,10 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4 }) => {
     }
 
     // 生成計劃提示詞
-    const prompt = generatePlanPrompt(userProfile, recentLogs, planType, planTemplate, weeks);
+    const prompt = generatePlanPrompt(userProfile, recentLogs, planType, planTemplate, weeks, {
+      targetPB,
+      targetRaceDate
+    });
     const response = await runGemini(prompt, apiKey);
 
     // 清理 JSON 回應
@@ -299,12 +321,30 @@ const recommendPlanType = (userProfile, recentLogs) => {
  * @param {string} planType - 計劃類型
  * @param {Object} planTemplate - 計劃模板
  * @param {number} weeks - 週數
+ * @param {Object} [options] - 額外選項（例如破 PB 目標）
+ * @param {string} [options.targetPB] - 目標 PB（字串，如 3:30:00）
+ * @param {string} [options.targetRaceDate] - 目標賽事日期（YYYY-MM-DD）
  * @returns {string} 提示詞
  */
-const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, weeks) => {
+const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, weeks, options = {}) => {
+  const { targetPB, targetRaceDate } = options;
   const raceGoalLine = planTemplate.raceGoalDescription
     ? `- 特別目標：${planTemplate.raceGoalDescription}\n`
     : '';
+
+  let pbLines = '';
+  const isPBPlan = planType === 'running_half_marathon_pb' || planType === 'running_full_marathon_pb';
+  if (isPBPlan) {
+    if (targetPB) {
+      pbLines += `- 目標 PB：${targetPB}\n`;
+    }
+    if (targetRaceDate) {
+      pbLines += `- 目標賽事日期：${targetRaceDate}\n`;
+    }
+    if (!targetPB && !targetRaceDate) {
+      pbLines += `- 目標：在下一場重要賽事中大幅提升個人最佳成績（PB）\n`;
+    }
+  }
 
   return `你是一位專業的健身教練。請為用戶生成一個${weeks}週的「${planTemplate.name}」訓練計劃。
 
@@ -319,7 +359,7 @@ const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, wee
 - 描述：${planTemplate.description}
 - 頻率：每週${planTemplate.frequency}次
 - 持續時間：${weeks}週
-${raceGoalLine}
+${raceGoalLine}${pbLines}
 
 請生成一個詳細的訓練計劃，包括：
 1. 每週的訓練安排（日期、訓練類型、動作、組數、次數）

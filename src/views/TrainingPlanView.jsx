@@ -14,6 +14,10 @@ export default function TrainingPlanView() {
   const [weeks, setWeeks] = useState(4);
   const [loading, setLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState(null);
+  const [targetPB, setTargetPB] = useState('');
+  const [targetRaceDate, setTargetRaceDate] = useState('');
+
+  const isPBPlan = selectedPlanType === 'running_half_marathon_pb' || selectedPlanType === 'running_full_marathon_pb';
 
   const handleGeneratePlan = async () => {
     if (!selectedPlanType) {
@@ -21,11 +25,18 @@ export default function TrainingPlanView() {
       return;
     }
 
+    if (isPBPlan && !targetPB) {
+      handleError('請輸入目標 PB（例如：1:45:00）', { context: 'TrainingPlanView', operation: 'handleGeneratePlan' });
+      return;
+    }
+
     setLoading(true);
     try {
       const plan = await generateTrainingPlan({
         planType: selectedPlanType,
-        weeks: weeks
+        weeks: weeks,
+        targetPB: isPBPlan ? targetPB : null,
+        targetRaceDate: isPBPlan ? targetRaceDate || null : null
       });
       setGeneratedPlan(plan);
     } catch (error) {
@@ -114,7 +125,14 @@ export default function TrainingPlanView() {
             {Object.entries(PLAN_TYPES).map(([key, plan]) => (
               <button
                 key={key}
-                onClick={() => setSelectedPlanType(key)}
+                onClick={() => {
+                  setSelectedPlanType(key);
+                  // 切換計劃類型時，若不是 PB 類型則清除 PB 相關欄位
+                  if (key !== 'running_half_marathon_pb' && key !== 'running_full_marathon_pb') {
+                    setTargetPB('');
+                    setTargetRaceDate('');
+                  }
+                }}
                 className={`p-4 rounded-lg border-2 transition-all text-left ${
                   selectedPlanType === key
                     ? 'border-blue-500 bg-blue-900/20'
@@ -160,6 +178,35 @@ export default function TrainingPlanView() {
               <option value={12}>12 周</option>
             </select>
           </div>
+
+          {/* 破 PB 類型專用設定 */}
+          {isPBPlan && (
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  目標 PB（例如：1:45:00 或 3:30:00）
+                </label>
+                <input
+                  type="text"
+                  value={targetPB}
+                  onChange={(e) => setTargetPB(e.target.value)}
+                  placeholder="請輸入目標完賽時間"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  目標賽事日期（可選）
+                </label>
+                <input
+                  type="date"
+                  value={targetRaceDate}
+                  onChange={(e) => setTargetRaceDate(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm"
+                />
+              </div>
+            </div>
+          )}
 
           {/* 生成按钮 */}
           <button

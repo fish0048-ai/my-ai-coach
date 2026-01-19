@@ -1,7 +1,6 @@
-const CACHE_NAME = 'my-ai-coach-cache-v2';
+const CACHE_NAME = 'my-ai-coach-cache-v3';
 const ASSETS = [
-  '/',
-  '/index.html',
+  '/',           // 保留首頁離線載入能力
   '/manifest.json'
 ];
 
@@ -27,6 +26,11 @@ self.addEventListener('fetch', (event) => {
   // 開發環境：不攔截動態模組和 API 請求
   const url = new URL(event.request.url);
   
+  // 導航請求與 index.html 一律走網路，避免舊版 HTML 快取導致引用不存在的 hash 檔案
+  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    return;
+  }
+
   // 跳過開發伺服器請求（localhost / 127.0.0.1）
   if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
     return; // 不攔截，直接使用網路請求

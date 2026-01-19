@@ -80,7 +80,8 @@ export const listCalendarWorkouts = async () => {
   const user = getCurrentUser();
   if (!user) return [];
   
-  const cacheKey = `calendar_workouts_${user.uid}`;
+  // 使用與清除快取時一致的 key，確保更新後能立即反映在 UI
+  const cacheKey = `calendar_${user.uid}`;
   const cached = getCache(cacheKey);
   if (cached) return cached;
   

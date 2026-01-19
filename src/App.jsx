@@ -162,25 +162,60 @@ export default function App() {
 
   // 優化：使用 useMemo 快取視圖渲染結果，避免不必要的重新渲染
   const content = useMemo(() => {
+    // #region agent log:app_render_content
+    try {
+      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'H3',
+          location: 'App.jsx:content',
+          message: 'Rendering content',
+          data: { currentView, hasUserData: !!userData },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    } catch {}
+    // #endregion agent log:app_render_content
+
     return (
       <ErrorBoundary>
-        <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader className="animate-spin text-gray-500"/></div>}>
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-full bg-gray-900">
+            <div className="text-center">
+              <Loader className="animate-spin text-blue-500 mx-auto mb-4" size={32} />
+              <p className="text-gray-400">載入中...</p>
+            </div>
+          </div>
+        }>
           {(() => {
-            switch (currentView) {
-              case 'dashboard': return <DashboardView />;
-              case 'calendar': return <CalendarView />;
-              case 'trend': return <TrendAnalysisView />;
-              case 'nutrition': return <NutritionView />;
-              case 'gear': return <GearView />;
-              case 'strength-analysis': return <StrengthAnalysisView />;
-              case 'run-analysis': return <RunAnalysisView />;
-              case 'profile': return <FeatureViews view="profile" />;
-              case 'training-plan': return <TrainingPlanView />;
-              case 'training': 
-              case 'analysis':
-                return <DashboardView />; 
-              default:
-                return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
+            try {
+              switch (currentView) {
+                case 'dashboard': return <DashboardView />;
+                case 'calendar': return <CalendarView />;
+                case 'trend': return <TrendAnalysisView />;
+                case 'nutrition': return <NutritionView />;
+                case 'gear': return <GearView />;
+                case 'strength-analysis': return <StrengthAnalysisView />;
+                case 'run-analysis': return <RunAnalysisView />;
+                case 'profile': return <FeatureViews view="profile" />;
+                case 'training-plan': return <TrainingPlanView />;
+                case 'training': 
+                case 'analysis':
+                  return <DashboardView />; 
+                default:
+                  return <DashboardView userData={userData} setCurrentView={setCurrentView} />;
+              }
+            } catch (error) {
+              console.error('View render error:', error);
+              return (
+                <div className="p-8 text-center text-red-400">
+                  <AlertTriangle size={48} className="mx-auto mb-4" />
+                  <p>載入視圖時發生錯誤：{error.message}</p>
+                </div>
+              );
             }
           })()}
         </Suspense>
@@ -197,8 +232,43 @@ export default function App() {
   }
 
   if (!user) {
+    // #region agent log:app_no_user
+    try {
+      fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'pre-fix',
+          hypothesisId: 'H5',
+          location: 'App.jsx:no_user',
+          message: 'No user, showing login',
+          data: { loading },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    } catch {}
+    // #endregion agent log:app_no_user
     return <LoginView />; 
   }
+
+  // #region agent log:app_render_main
+  try {
+    fetch('http://127.0.0.1:7242/ingest/5a6b9ca3-e450-4461-8b56-55c583802666', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'pre-fix',
+        hypothesisId: 'H4',
+        location: 'App.jsx:render',
+        message: 'Rendering main layout',
+        data: { hasUser: !!user, currentView, loading },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  } catch {}
+  // #endregion agent log:app_render_main
 
   return (
     <>

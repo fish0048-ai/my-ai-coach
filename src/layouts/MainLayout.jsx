@@ -130,7 +130,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-900">
         {/* Header */}
         <header className="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 lg:px-8">
           <button 

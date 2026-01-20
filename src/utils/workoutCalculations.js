@@ -1,6 +1,12 @@
+import { parsePaceToDecimal as parsePaceToDecimalFromNumber } from './number';
+
 /**
  * 訓練計算工具函數
  * 統一的訓練相關計算邏輯，包括配速、容量等
+ *
+ * 注意：
+ * - `parsePaceToDecimal` 的實作統一由 `utils/number.js` 提供，
+ *   這裡僅作為轉出口，避免重複定義。
  */
 
 /**
@@ -8,15 +14,10 @@
  * 例如 "5'30"" -> 5.5
  * @param {string} paceStr - 配速字串 (格式: "5'30"")
  * @returns {number} 配速（分鐘/公里）
+ *
+ * 實際邏輯由 `utils/number.js` 提供，這裡僅作為轉出口。
  */
-export const parsePaceToDecimal = (paceStr) => {
-  if (!paceStr) return 0;
-  const match = paceStr.match(/(\d+)'(\d+)"/);
-  if (match) {
-    return parseInt(match[1]) + parseInt(match[2]) / 60;
-  }
-  return 0;
-};
+export const parsePaceToDecimal = parsePaceToDecimalFromNumber;
 
 /**
  * 計算重訓容量 (Volume Load)

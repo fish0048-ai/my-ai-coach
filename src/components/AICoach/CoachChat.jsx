@@ -3,17 +3,16 @@ import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2, RefreshCw 
 import { runGemini } from '../../utils/gemini';
 import { getAIContext, updateAIContext } from '../../utils/contextManager';
 import { getKnowledgeContextForQuery } from '../../services/ai/knowledgeBaseService';
-import { getApiKey, setApiKey as persistApiKey } from '../../services/apiKeyService';
+import { useApiKey } from '../../hooks/useApiKey';
 
 export default function CoachChat({ isOpen, onClose, user }) {
+  const { apiKey, setApiKey: updateApiKey, hasApiKey, isLoading: isApiKeyLoading } = useApiKey();
   const [messages, setMessages] = useState([
     { role: 'model', text: `嗨 ${user?.displayName || '夥伴'}！我是你的 AI 教練。\n今天想練哪裡？\n(我會盡量精簡回答以節省您的 Token)` }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false); // 同步狀態
-  
-  const [apiKey, setApiKey] = useState(() => getApiKey());
   const [showSettings, setShowSettings] = useState(false);
   const [tempKey, setTempKey] = useState('');
 
@@ -34,8 +33,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
   }, [showSettings, apiKey]);
 
   const handleSaveKey = () => {
-    persistApiKey(tempKey);
-    setApiKey(tempKey);
+    updateApiKey(tempKey);
     setShowSettings(false);
     if (messages.length === 1) {
       setMessages(prev => [...prev, { role: 'model', text: "API Key 已儲存！我們現在可以開始對話了。" }]);

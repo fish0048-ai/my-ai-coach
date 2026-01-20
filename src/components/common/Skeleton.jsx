@@ -20,7 +20,7 @@ export const Skeleton = ({ className = '', height, width = '100%' }) => {
 
   return (
     <div 
-      className={`bg-gray-700 animate-pulse rounded ${className}`}
+      className={`bg-gray-700/70 animate-pulse rounded ${className}`}
       style={style}
     />
   );
@@ -30,7 +30,7 @@ export const Skeleton = ({ className = '', height, width = '100%' }) => {
  * 卡片骨架屏
  */
 export const CardSkeleton = () => (
-  <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 space-y-4">
+  <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 space-y-4 shadow-inner shadow-black/40">
     <Skeleton height="1.5rem" width="60%" />
     <Skeleton height="1rem" />
     <Skeleton height="1rem" width="80%" />
@@ -83,7 +83,7 @@ export const TableSkeleton = ({ rows = 5, cols = 4 }) => (
  * 統計卡片骨架屏
  */
 export const StatCardSkeleton = () => (
-  <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center space-x-4">
+  <div className="bg-surface-800 p-6 rounded-xl border border-gray-800 flex items-center space-x-4 shadow-lg shadow-black/40">
     <Skeleton height="3rem" width="3rem" className="rounded-lg" />
     <div className="flex-1 space-y-2">
       <Skeleton height="0.875rem" width="50%" />
@@ -97,7 +97,7 @@ export const StatCardSkeleton = () => (
  * @param {number} height - 高度（預設 300px）
  */
 export const ChartSkeleton = ({ height = 300 }) => (
-  <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+  <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 shadow-lg shadow-black/40">
     <Skeleton height="1.5rem" width="40%" className="mb-4" />
     <div style={{ height: `${height}px` }} className="space-y-2 flex items-end justify-between">
       {Array.from({ length: 7 }).map((_, i) => (

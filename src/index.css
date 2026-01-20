@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #050505;
+  background-color: #020617; /* surface-900 */
   color: white;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;

@@ -6,7 +6,7 @@ import React from 'react';
  */
 export default function StatCard({ icon: Icon, label, value, color }) {
   return (
-    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center space-x-4">
+    <div className="bg-surface-800 p-6 rounded-xl border border-gray-800 flex items-center space-x-4 shadow-lg shadow-black/40">
       <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
         <Icon className={color.replace('bg-', 'text-')} size={24} />
       </div>

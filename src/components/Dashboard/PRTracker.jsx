@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, Dumbbell, Activity, Calendar, Award } from 'lucide-react';
-import { getAllPRs } from '../../services/calendarService';
+import { getAllPRs } from '../../services/workout/prService';
 import { handleError } from '../../services/errorService';
 
 /**

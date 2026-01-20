@@ -105,9 +105,9 @@ ${knowledgeContext || ''}
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 w-full md:w-96 h-[600px] max-h-[100vh] bg-gray-900 md:rounded-2xl shadow-2xl border border-gray-700 flex flex-col z-50 transition-all duration-300 font-sans">
+    <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 w-full md:w-96 h-[600px] max-h-[100vh] glass-panel md:rounded-2xl flex flex-col z-50 transition-all duration-300 font-sans">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gradient-to-r from-gray-900 to-gray-800 md:rounded-t-2xl">
+      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-slate-900/80 to-slate-800/60 md:rounded-t-2xl">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-900/50">
             <Bot size={20} className="text-white" />
@@ -145,10 +145,10 @@ ${knowledgeContext || ''}
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto bg-black/20 relative">
+      <div className="flex-1 overflow-y-auto bg-black/10 relative">
         {showSettings ? (
-          <div className="absolute inset-0 p-6 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-sm z-10 space-y-6 animate-fadeIn">
-            <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center mb-2">
+          <div className="absolute inset-0 p-6 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md z-10 space-y-6 animate-fadeIn rounded-b-2xl">
+            <div className="w-16 h-16 bg-slate-800/80 rounded-2xl flex items-center justify-center mb-2 border border-white/10 shadow-lg shadow-slate-900/80">
               <Key size={32} className="text-blue-500" />
             </div>
             <div className="text-center space-y-2">
@@ -164,11 +164,11 @@ ${knowledgeContext || ''}
                 value={tempKey}
                 onChange={(e) => setTempKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-mono"
+                className="w-full bg-slate-900/70 border border-white/10 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-mono"
               />
               <button
                 onClick={handleSaveKey}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/30"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/40"
               >
                 <Save size={18} />
                 儲存設定
@@ -178,7 +178,7 @@ ${knowledgeContext || ''}
               <button
                 onClick={handleSyncContext}
                 disabled={isSyncing}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-gray-700 mt-2"
+                className="w-full bg-slate-900/60 hover:bg-slate-800/80 text-gray-200 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-white/10 mt-2"
               >
                 {isSyncing ? <Loader size={18} className="animate-spin" /> : <RefreshCw size={18} />}
                 {isSyncing ? '正在讀取舊資料...' : '同步歷史資料到 AI'}
@@ -204,7 +204,7 @@ ${knowledgeContext || ''}
             
             {isLoading && (
               <div className="flex justify-start animate-pulse">
-                <div className="bg-gray-800 p-4 rounded-2xl rounded-bl-none border border-gray-700 flex items-center space-x-2">
+                <div className="bg-slate-900/70 p-4 rounded-2xl rounded-bl-none border border-white/10 flex items-center space-x-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
@@ -218,7 +218,7 @@ ${knowledgeContext || ''}
 
       {/* Input Area */}
       {!showSettings && (
-        <div className="p-4 border-t border-gray-800 bg-gray-900 md:rounded-b-2xl">
+        <div className="p-4 border-t border-white/5 bg-slate-950/70 md:rounded-b-2xl">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -227,7 +227,7 @@ ${knowledgeContext || ''}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
               placeholder={apiKey ? "輸入問題 (AI 會根據您的資料回答)..." : "請設定 API Key"}
               disabled={!apiKey}
-              className="flex-1 bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-slate-900/70 text-white placeholder-gray-500 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button 
               onClick={handleSend}

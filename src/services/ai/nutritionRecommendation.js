@@ -7,6 +7,7 @@ import { getApiKey } from '../apiKeyService';
 import { getUserProfile } from '../userService';
 import { listTodayWorkouts } from '../calendarService';
 import { runGemini } from '../../utils/gemini';
+import { parseLLMJson } from '../../utils/aiJson';
 import { handleError } from '../errorService';
 import { NUTRITION_RULES } from './localAnalysisRules';
 
@@ -199,16 +200,7 @@ export const generateNutritionRecommendation = async ({
 IMPORTANT: Output ONLY raw JSON.`;
 
     const response = await runGemini(prompt, apiKey);
-
-    // 清理 JSON 回應
-    let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const startIndex = cleanJson.indexOf('{');
-    const endIndex = cleanJson.lastIndexOf('}');
-    if (startIndex !== -1 && endIndex !== -1) {
-      cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
-
-    const recommendation = JSON.parse(cleanJson);
+    const recommendation = parseLLMJson(response, { rootType: 'object' });
 
     return {
       ...recommendation,

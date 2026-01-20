@@ -6,6 +6,7 @@ import { getApiKey } from '../services/apiKeyService';
 import { subscribeFoodLogsByDate, createFoodLog, deleteFoodLog } from '../services/nutritionService';
 import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
+import { parseLLMJson } from '../utils/aiJson';
 import { updateAIContext } from '../utils/contextManager';
 import { useUserStore } from '../store/userStore';
 import { generateNutritionRecommendation } from '../services/ai/nutritionRecommendation';
@@ -102,8 +103,7 @@ export default function NutritionView() {
         `;
         
         const resultText = await runGeminiVision(prompt, file, apiKey);
-        const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const data = JSON.parse(cleanJson);
+        const data = parseLLMJson(resultText, { rootType: 'object' });
 
         setFoodName(data.name || '未知食物');
         setFoodCal(data.calories || 0);

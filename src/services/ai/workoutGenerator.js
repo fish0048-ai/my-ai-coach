@@ -10,6 +10,7 @@ import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../../utils/aiProm
 import { runGemini } from '../../utils/gemini';
 import { formatDate, getWeekDates } from '../../utils/date';
 import { cleanNumber } from '../../utils/number';
+import { parseLLMJson } from '../../utils/aiJson';
 import { handleError } from '../errorService';
 
 /**
@@ -36,16 +37,7 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage }) => 
     let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON.";
     const response = await runGemini(prompt, apiKey);
-    
-    // 清理 JSON 回應
-    let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const startIndex = cleanJson.indexOf('{');
-    const endIndex = cleanJson.lastIndexOf('}');
-    if (startIndex !== -1 && endIndex !== -1) {
-      cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
-    
-    const plan = JSON.parse(cleanJson);
+    const plan = parseLLMJson(response, { rootType: 'object' });
 
     // 轉換為表單格式
     return {
@@ -101,16 +93,7 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
     let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
     const response = await runGemini(prompt, apiKey);
-    
-    // 清理 JSON 回應
-    let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const startIndex = cleanJson.indexOf('[');
-    const endIndex = cleanJson.lastIndexOf(']');
-    if (startIndex !== -1 && endIndex !== -1) {
-      cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
-
-    const plans = JSON.parse(cleanJson);
+    const plans = parseLLMJson(response, { rootType: 'array' });
 
     // 轉換為標準格式
     return plans
@@ -253,16 +236,7 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4, targetP
       targetRaceDate
     });
     const response = await runGemini(prompt, apiKey);
-
-    // 清理 JSON 回應
-    let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const startIndex = cleanJson.indexOf('{');
-    const endIndex = cleanJson.lastIndexOf('}');
-    if (startIndex !== -1 && endIndex !== -1) {
-      cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
-
-    const planData = JSON.parse(cleanJson);
+    const planData = parseLLMJson(response, { rootType: 'object' });
 
     // 後處理：確保 workouts 是結構化數據，清理可能的文字說明
     const processedWorkouts = (planData.workouts || []).map(workout => {

@@ -7,6 +7,7 @@ import { getApiKey } from '../apiKeyService';
 import { runGemini } from '../../utils/gemini';
 import { handleError } from '../errorService';
 import { FORM_CORRECTION_RULES } from './localAnalysisRules';
+import { parseLLMJson } from '../../utils/aiJson';
 
 /**
  * 標準動作角度範圍（根據運動科學研究）
@@ -230,16 +231,7 @@ ${deviationText ? `發現問題：${deviationText}` : '動作基本標準'}
 IMPORTANT: Output ONLY raw JSON.`;
 
     const response = await runGemini(prompt, apiKey);
-
-    // 清理 JSON 回應
-    let cleanJson = response.replace(/```json/g, '').replace(/```/g, '').trim();
-    const startIndex = cleanJson.indexOf('{');
-    const endIndex = cleanJson.lastIndexOf('}');
-    if (startIndex !== -1 && endIndex !== -1) {
-      cleanJson = cleanJson.substring(startIndex, endIndex + 1);
-    }
-
-    const correction = JSON.parse(cleanJson);
+    const correction = parseLLMJson(response, { rootType: 'object' });
 
     return {
       ...correction,

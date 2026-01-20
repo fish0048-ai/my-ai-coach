@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Calendar, Trophy, Zap, Timer, Dumbbell, TrendingUp } from 'lucide-react';
-import { listCalendarWorkouts } from '../services/calendarService';
-import { getLocalDateStr, processWorkoutStats } from '../utils/statsCalculations';
+import { getLocalDateStr } from '../utils/statsCalculations';
+import { getWorkoutStatsForPeriod } from '../services/workoutService';
 
 export default function TrainingDashboardView() {
   const [period, setPeriod] = useState('week'); // 'week' | 'month' | 'year'
@@ -22,12 +22,7 @@ export default function TrainingDashboardView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. 從 Service 抓取所有資料
-      const workouts = await listCalendarWorkouts();
-      const rawDocs = workouts.map(w => ({ ...w, id: undefined })); // 移除 id 以保持相容性
-
-      // 2. 處理統計 (交由工具函數運算)
-      const result = processWorkoutStats(rawDocs, period);
+      const result = await getWorkoutStatsForPeriod(period);
       setStats(result);
       
     } catch (error) {

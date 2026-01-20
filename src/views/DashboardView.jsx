@@ -4,8 +4,8 @@ import WeatherWidget from '../components/WeatherWidget.jsx';
 // 新增 CalendarClock, CheckCircle2, Circle
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight, Share2, Download, FileText, Image } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
-import { listTodayWorkouts, listCalendarWorkoutsByDateRange } from '../services/calendarService';
-import { calculateMuscleFatigue } from '../utils/statsCalculations';
+import { listTodayWorkouts } from '../services/calendarService';
+import { getDashboardStats } from '../services/workoutService';
 import StatCard from '../components/Dashboard/StatCard';
 import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
@@ -80,120 +80,8 @@ export default function DashboardView() {
   const fetchWorkoutStats = async () => {
     setLoading(true);
     try {
-      // 1. 計算日期範圍 (過去 30 天)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
-
-      // 2. 使用 service 獲取資料
-      const workouts = await listCalendarWorkoutsByDateRange(startDateStr);
-
-      let totalSets = 0;
-      let muscleScore = {}; 
-      let totalWorkouts = 0;
-      let totalRunDist = 0;
-      let analysisReports = [];
-
-      let weeklyDistance = 0;
-      let weeklyRuns = 0;
-      let longestRun = 0;
-      let zone2Minutes = 0;
-      let totalRunMinutes = 0;
-
-      // 計算本週起始日
-      const now = new Date();
-      const day = now.getDay() || 7; 
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - day + 1);
-      weekStart.setHours(0,0,0,0);
-      const weekStartStr = weekStart.toISOString().split('T')[0];
-
-      const zone2LowerLimit = maxHR * 0.6;
-      const zone2UpperLimit = maxHR * 0.7;
-
-      workouts.forEach((workout) => {
-        const data = workout;
-        if (!data) return;
-
-        // 統計邏輯只看已完成
-        if (data.status === 'completed') {
-          if (data.type !== 'analysis') {
-             totalWorkouts++;
-          }
-          
-          if (Array.isArray(data.exercises)) {
-            data.exercises.forEach(ex => {
-              if (!ex) return;
-              if (ex.targetMuscle && ex.sets) {
-                const sets = parseInt(ex.sets) || 1;
-                muscleScore[ex.targetMuscle] = (muscleScore[ex.targetMuscle] || 0) + sets;
-                totalSets += sets;
-              }
-              if (data.type === 'analysis') { // 注意：analysis 可能是 data.type
-                analysisReports.push({
-                    title: data.title,
-                    feedback: data.feedback,
-                    createdAt: data.createdAt || data.date 
-                });
-              }
-            });
-          }
-          // 修正：analysis 也可能直接是 type
-          if (data.type === 'analysis') {
-             analysisReports.push({
-                title: data.title,
-                feedback: data.feedback,
-                createdAt: data.createdAt || data.date 
-            });
-          }
-
-          if (data.type === 'run' && data.runDistance) {
-            const dist = parseFloat(data.runDistance) || 0;
-            const duration = parseFloat(data.runDuration) || 0;
-            const hr = parseFloat(data.runHeartRate) || 0;
-
-            totalRunDist += dist;
-
-            if (data.date >= weekStartStr) {
-                weeklyDistance += dist;
-                weeklyRuns++;
-                if (dist > longestRun) longestRun = dist;
-                
-                totalRunMinutes += duration;
-                if (hr >= zone2LowerLimit && hr <= zone2UpperLimit) {
-                    zone2Minutes += duration;
-                }
-            }
-          }
-        }
-      });
-
-      const rawLatestAnalysis = analysisReports.sort((a, b) => 
-        safeTimestamp(b.createdAt) - safeTimestamp(a.createdAt)
-      )[0] || null;
-
-      const safeLatestAnalysis = rawLatestAnalysis ? {
-          title: String(rawLatestAnalysis.title || 'AI 分析報告'),
-          feedback: typeof rawLatestAnalysis.feedback === 'object' 
-              ? JSON.stringify(rawLatestAnalysis.feedback) 
-              : String(rawLatestAnalysis.feedback || '無詳細建議')
-      } : null;
-
-      const normalizedFatigue = calculateMuscleFatigue(muscleScore);
-
-      setStats({
-        totalWorkouts: totalWorkouts,
-        caloriesBurned: Math.round(totalWorkouts * 250), 
-        totalHours: Math.round(totalWorkouts * 0.8 * 10) / 10, 
-        completedGoals: userData?.completedGoals || 0,
-        muscleFatigue: normalizedFatigue,
-        latestAnalysis: safeLatestAnalysis,
-        weeklyDistance: weeklyDistance.toFixed(1),
-        weeklyRuns: weeklyRuns,
-        longestRun: longestRun.toFixed(1),
-        zone2Percent: totalRunMinutes > 0 ? Math.round((zone2Minutes / totalRunMinutes) * 100) : 0
-      });
-
+      const result = await getDashboardStats({ userData });
+      setStats(result);
     } catch (error) {
       console.error("Error calculating dashboard stats:", error);
     } finally {

@@ -8,9 +8,13 @@
  */
 
 import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { db, auth, app } from '../../firebase';
 
 const getCurrentUser = () => auth.currentUser;
+const functions = getFunctions(app);
+// 對應 Cloud Functions 專案中的 exports.searchKnowledge
+const searchKnowledgeCallable = httpsCallable(functions, 'searchKnowledge');
 
 /**
  * 新增一筆個人知識庫紀錄
@@ -148,7 +152,24 @@ export const searchKnowledgeByEmbedding = async (queryEmbedding, { queryText = '
  * @returns {Promise<string>} 摘要文字，可直接拼接進 AI Prompt
  */
 export const getKnowledgeContextForQuery = async (queryText) => {
-  const records = await searchKnowledgeRecords(queryText, 5);
+  if (!queryText) return '';
+
+  // 1) 優先嘗試呼叫 Cloud Function 進行向量搜尋
+  let records = [];
+  try {
+    const res = await searchKnowledgeCallable({ queryText, topK: 5 });
+    if (Array.isArray(res.data?.records)) {
+      records = res.data.records;
+    }
+  } catch (error) {
+    console.warn('向量搜尋 Cloud Function 呼叫失敗，改用關鍵字搜尋', error);
+  }
+
+  // 2) 若沒有結果，退回關鍵字搜尋
+  if (!records || records.length === 0) {
+    records = await searchKnowledgeRecords(queryText, 5);
+  }
+
   if (!records || records.length === 0) return '';
 
   const lines = records.map((rec, idx) => {

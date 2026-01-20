@@ -16,7 +16,8 @@ const firebaseConfig = {
 // 初始化 Firebase
 const app = initializeApp(firebaseConfig);
 
-// 匯出 Auth 和 Firestore 實例供其他檔案使用
+// 匯出 App / Auth / Firestore 實例供其他檔案使用
+export { app };
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 

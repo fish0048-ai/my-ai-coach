@@ -322,3 +322,84 @@ export const downloadReportPDF = async (reportData = null) => {
     throw error;
   }
 };
+
+/**
+ * 下載「半馬配速手環」PDF
+ * 搭配比賽配速策略（Race Strategy Generator）使用
+ * @param {Object} strategy - 由 generateHalfMarathonStrategy 產生的策略物件
+ * @param {Object} [options]
+ * @param {string} [options.raceName] - 比賽名稱（例如：2025 台北馬 半馬）
+ * @param {string} [options.targetTime] - 目標時間（預設使用 strategy.targetTime）
+ * @returns {Promise<void>}
+ */
+export const downloadHalfMarathonPaceBandPDF = async (strategy, options = {}) => {
+  if (!strategy) return;
+
+  try {
+    const doc = new jsPDF('landscape'); // 橫向，方便裁剪成手環
+
+    const title = options.raceName || '半馬配速手環';
+    const targetTime = options.targetTime || strategy.targetTime;
+
+    // 標題區
+    doc.setFontSize(16);
+    doc.text(title, 148, 15, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.text(`目標時間：${targetTime}（約 ${strategy.averagePacePerKm}/km）`, 148, 24, { align: 'center' });
+
+    // 表頭
+    const startY = 35;
+    doc.setFontSize(10);
+    doc.text('公里', 20, startY);
+    doc.text('累積時間', 50, startY);
+    doc.text('區間時間', 90, startY);
+    doc.text('備註', 130, startY);
+
+    // 生成每公里配速手環列（粗略以平均配速展開，重點在手上有一份可對照的時間表）
+    const totalKm = Math.round(strategy.distanceKm);
+    const avgPaceSeconds = strategy.averagePacePerKm
+      .split(':')
+      .reduce((acc, v) => acc * 60 + parseInt(v, 10), 0);
+
+    let currentSeconds = 0;
+    let y = startY + 8;
+
+    for (let km = 1; km <= totalKm; km++) {
+      currentSeconds += avgPaceSeconds;
+      const lapTime = avgPaceSeconds;
+
+      const formatTime = (sec) => {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+      };
+
+      doc.text(`${km}`, 20, y);
+      doc.text(formatTime(currentSeconds), 50, y);
+      doc.text(formatTime(lapTime), 90, y);
+
+      y += 6;
+      if (y > 190 && km < totalKm) {
+        // 換頁
+        doc.addPage('landscape');
+        y = 20;
+      }
+    }
+
+    // 底部提示
+    doc.setFontSize(8);
+    doc.text(
+      '提示：此配速手環為概略參考，實際比賽請依當天狀況與教練建議調整。',
+      148,
+      200,
+      { align: 'center' }
+    );
+
+    const fileName = `half_marathon_pace_band_${formatDate(new Date())}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error('下載半馬配速手環 PDF 失敗:', error);
+    throw error;
+  }
+};

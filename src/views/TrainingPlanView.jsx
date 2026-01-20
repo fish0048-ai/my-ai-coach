@@ -5,6 +5,7 @@ import { handleError } from '../services/errorService';
 import { useViewStore } from '../store/viewStore';
 import { createCalendarWorkout } from '../services/calendarService';
 import { generateHalfMarathonStrategy } from '../utils/workoutCalculations';
+import { downloadHalfMarathonPaceBandPDF } from '../utils/reportGenerator';
 
 /**
  * 訓練計劃推薦頁面
@@ -65,6 +66,22 @@ export default function TrainingPlanView() {
       return;
     }
     setRaceStrategy(strategy);
+  };
+
+  const handleDownloadRacePaceBand = async () => {
+    if (!raceStrategy) {
+      handleError('請先生成比賽配速策略，再下載配速手環。', { context: 'TrainingPlanView', operation: 'handleDownloadRacePaceBand' });
+      return;
+    }
+
+    try {
+      await downloadHalfMarathonPaceBandPDF(raceStrategy, {
+        raceName: '半馬比賽配速手環',
+        targetTime: raceStrategy.targetTime,
+      });
+    } catch (error) {
+      handleError('下載配速手環 PDF 失敗，請稍後再試。', { context: 'TrainingPlanView', operation: 'handleDownloadRacePaceBand' });
+    }
   };
 
   const handleApplyToCalendar = async () => {
@@ -303,14 +320,26 @@ export default function TrainingPlanView() {
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleGenerateRaceStrategy}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
-          >
-            <Map size={16} />
-            生成比賽配速策略
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleGenerateRaceStrategy}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
+            >
+              <Map size={16} />
+              生成比賽配速策略
+            </button>
+            {raceStrategy && (
+              <button
+                type="button"
+                onClick={handleDownloadRacePaceBand}
+                className="px-4 py-2 bg-gray-900 border border-gray-600 hover:border-gray-400 text-white text-xs font-semibold rounded-lg flex items-center gap-2"
+              >
+                <Map size={14} />
+                下載配速手環 PDF
+              </button>
+            )}
+          </div>
 
           {raceStrategy && (
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">

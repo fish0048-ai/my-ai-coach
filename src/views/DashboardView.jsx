@@ -90,7 +90,7 @@ export default function DashboardView() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto pb-8">
       {/* 頂部歡迎區 */}
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">

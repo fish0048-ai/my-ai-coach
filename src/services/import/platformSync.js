@@ -4,6 +4,39 @@
  */
 
 /**
+ * @typedef {'strava' | 'garmin' | 'apple_health'} PlatformType
+ */
+
+/**
+ * @typedef {Object} PlatformSyncOptions
+ * @property {boolean} [dryRun]                - 是否僅試跑，不實際寫入資料庫
+ * @property {string|Date} [since]             - 同步起始時間（含），例如 '2024-01-01'
+ * @property {string|Date} [until]             - 同步結束時間（含）
+ * @property {number} [limit]                  - 最多同步幾筆紀錄，用於控制一次呼叫負載
+ * @property {Object} [credentials]            - 平台授權資訊（accessToken / refreshToken 等）
+ * @property {AbortSignal} [signal]            - 可選的 AbortSignal，供呼叫端取消同步
+ */
+
+/**
+ * @typedef {Object} PlatformSyncError
+ * @property {string} code                     - 錯誤代碼，例如 'not-implemented'、'invalid-platform'
+ * @property {string} message                  - 給開發者看的錯誤描述
+ * @property {Object} [detail]                 - 附加細節（原始錯誤、平台回傳內容等）
+ */
+
+/**
+ * @typedef {Object} PlatformSyncResult
+ * @property {PlatformType|null} platform      - 同步的平台
+ * @property {boolean} ok                      - 此次同步是否成功（即使部分失敗也可視情況設為 true）
+ * @property {number} importedCount            - 新增的訓練筆數
+ * @property {number} updatedCount             - 更新的訓練筆數
+ * @property {number} skippedCount             - 因重複或條件不符而略過的筆數
+ * @property {PlatformSyncError[]} errors      - 結構化錯誤列表
+ * @property {string|null} nextSyncCursor      - 可選，供之後增量同步使用的游標或時間點
+ * @property {Object} meta                     - 其他中立性資訊（不含敏感憑證）
+ */
+
+/**
  * 將 Strava 匯出的 CSV 文字解析為統一的跑步紀錄格式
  * @param {string} csvText
  * @returns {Array<Object>} 正規化後的訓練資料
@@ -88,16 +121,104 @@ export const parseGenericRunCSV = (csvText) => {
  * 實際使用時需要申請各平台 API 金鑰與 OAuth 流程
  * 此處僅保留介面與註解，避免阻塞前端開發
  */
+/**
+ * 多平台 API 同步的統一入口
+ *
+ * ⚠️ 注意：目前僅實作「介面＋錯誤回報結構」，尚未串接實際平台 API。
+ * 之後接 Strava / Garmin / Apple Health 時，請在不破壞回傳結構的前提下填入實作。
+ *
+ * @param {PlatformType} platform              - 目標平台（'strava' | 'garmin' | 'apple_health'）
+ * @param {PlatformSyncOptions} [options]      - 同步選項（時間範圍、dryRun 等）
+ * @returns {Promise<PlatformSyncResult>}
+ */
 export const syncFromPlatformAPI = async (platform, options = {}) => {
-  // TODO: 串接各平台 API
+  const supportedPlatforms = ['strava', 'garmin', 'apple_health'];
+
+  /** @type {PlatformSyncError[]} */
+  const errors = [];
+
+  // 基本輸入驗證
+  if (!platform || !supportedPlatforms.includes(platform)) {
+    errors.push({
+      code: 'invalid-platform',
+      message: `不支援的平台類型：${String(platform)}，目前僅支援：${supportedPlatforms.join(', ')}`,
+      detail: { platform }
+    });
+
+    return {
+      platform: null,
+      ok: false,
+      importedCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      errors,
+      nextSyncCursor: null,
+      meta: {
+        supportedPlatforms,
+        receivedOptions: sanitizeOptions(options)
+      }
+    };
+  }
+
+  // 檢查是否有基本授權資訊（實際欄位之後串接時再具體化）
+  if (!options.credentials) {
+    errors.push({
+      code: 'missing-credentials',
+      message: '尚未設定平台授權憑證（credentials），無法呼叫遠端 API',
+      detail: { platform }
+    });
+  }
+
+  // 支援 dryRun，在尚未實作前一律當作乾跑模式
+  const isDryRun = options.dryRun !== false; // 預設 true，避免誤以為已經會真的同步
+
+  // TODO: 未來在這裡依據 platform 分派到真正的同步實作：
   // - Strava: https://developers.strava.com/
   // - Garmin: 需申請合作夥伴
-  // - Apple Health: 需透過手機端或第三方中介
-  console.warn(`多平台同步尚未完成實際 API 串接 (${platform})`, options);
+  // - Apple Health: 需透過手機端或第三方中介（通常由手機 App 提供資料）
+
+  console.info(
+    `[PlatformSync] API 同步尚未實作，僅回傳結構化結果 (platform=${platform}, dryRun=${isDryRun})`,
+    sanitizeOptions(options)
+  );
+
+  // 即使未實作，也回傳完整結構，讓前端可以先串 UI / 錯誤顯示
   return {
     platform,
-    imported: 0,
-    message: '目前僅支援檔案匯入，API 同步將於未來版本提供'
+    ok: errors.length === 0 && isDryRun,
+    importedCount: 0,
+    updatedCount: 0,
+    skippedCount: 0,
+    errors: [
+      ...errors,
+      {
+        code: 'not-implemented',
+        message: '多平台 API 同步尚未實作，目前僅支援檔案匯入與本地匯入流程',
+        detail: { platform }
+      }
+    ],
+    nextSyncCursor: null,
+    meta: {
+      supportedPlatforms,
+      dryRun: isDryRun,
+      receivedOptions: sanitizeOptions(options)
+    }
+  };
+};
+
+/**
+ * 將選項中的敏感資訊（例如 token）過濾掉，避免被 log 或 UI 直接顯示
+ * @param {PlatformSyncOptions} options
+ * @returns {Object}
+ */
+const sanitizeOptions = (options) => {
+  if (!options || typeof options !== 'object') return {};
+
+  const { credentials, ...rest } = options;
+
+  return {
+    ...rest,
+    hasCredentials: !!credentials
   };
 };
 

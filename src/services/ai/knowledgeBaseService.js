@@ -1,20 +1,62 @@
 /**
- * 個人化知識庫服務（RAG 初始版本）
+ * 個人化知識庫服務（RAG：純前端向量版本）
  *
  * 說明：
- * - 目前先使用 Firestore 儲存「訓練日記 / 傷痛紀錄 / 復健建議」等文字資料
- * - 檢索邏輯先採用簡單的關鍵字搜尋與時間排序
- * - 本檔已為「向量搜尋 / Embedding」預留欄位與 API 介面，但尚未接實際向量服務
+ * - 使用 Firestore 儲存「訓練日記 / 傷痛紀錄 / 復健建議」等文字資料
+ * - 在前端呼叫 Gemini Embedding API 產生向量，直接寫入 Firestore
+ * - 向量搜尋也在前端以 cosine similarity 計算（適合中小量個人資料）
+ * - 若無法取得向量，會自動退回簡單關鍵字搜尋
  */
 
-import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { db, auth, app } from '../../firebase';
+import { collection, addDoc, getDocs, query, orderBy, limit, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebase';
+import { getApiKey } from '../../services/apiKeyService';
 
 const getCurrentUser = () => auth.currentUser;
-const functions = getFunctions(app);
-// 對應 Cloud Functions 專案中的 exports.searchKnowledge
-const searchKnowledgeCallable = httpsCallable(functions, 'searchKnowledge');
+
+/**
+ * 產生文字的 embedding（在前端呼叫 Gemini Embedding API）
+ * @param {string} text
+ * @returns {Promise<number[]>}
+ */
+const generateEmbeddingForText = async (text) => {
+  const apiKey = getApiKey();
+  if (!apiKey || !text) {
+    console.warn('[KnowledgeBase] 無法產生 embedding：缺少 API Key 或文字內容');
+    return [];
+  }
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: { parts: [{ text }] },
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('[KnowledgeBase] 產生 embedding 失敗:', res.status, errText);
+      return [];
+    }
+
+    const data = await res.json();
+    const embedding = data.embedding?.values || [];
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      console.warn('[KnowledgeBase] embedding 回傳為空');
+      return [];
+    }
+
+    return embedding;
+  } catch (error) {
+    console.error('[KnowledgeBase] 呼叫 Gemini Embedding API 失敗:', error);
+    return [];
+  }
+};
 
 /**
  * 新增一筆個人知識庫紀錄
@@ -40,13 +82,24 @@ export const addKnowledgeRecord = async ({ type = 'note', text, metadata = {} })
   if (!user || !text) return;
 
   try {
+    // 嘗試在前端產生 embedding（失敗時仍會寫入文字紀錄，只是沒有向量）
+    const embedding = await generateEmbeddingForText(text);
+
     const ref = collection(db, 'users', user.uid, 'knowledge_base');
-    const docRef = await addDoc(ref, {
+    const payload = {
       type,
       text,
       metadata,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    if (Array.isArray(embedding) && embedding.length > 0) {
+      payload.embedding = embedding;
+      payload.embeddingModel = 'text-embedding-004';
+      payload.embeddingUpdatedAt = new Date().toISOString();
+    }
+
+    const docRef = await addDoc(ref, payload);
     return docRef.id;
   } catch (error) {
     console.error('新增知識庫紀錄失敗:', error);
@@ -124,6 +177,62 @@ export const updateKnowledgeEmbedding = async (recordId, embedding, model = 'tex
 };
 
 /**
+ * 讀取使用者的知識庫紀錄清單
+ * @param {Object} options
+ * @param {number} [options.limitCount] - 讀取筆數上限（預設 100）
+ * @param {'all'|'note'|'injury'|'rehab'} [options.type] - 篩選類型
+ * @returns {Promise<Array<{id:string, type:string, text:string, metadata:Object, createdAt:string}>>}
+ */
+export const listKnowledgeRecords = async ({ limitCount = 100, type = 'all' } = {}) => {
+  const user = getCurrentUser();
+  if (!user) return [];
+
+  try {
+    const ref = collection(db, 'users', user.uid, 'knowledge_base');
+    let q = query(ref, orderBy('createdAt', 'desc'), limit(limitCount));
+
+    // 若要依 type 篩選，可在前端過濾；
+    // 為避免複雜複合索引，這裡先不使用 where('type', '==', ...)
+    const snap = await getDocs(q);
+    const all = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!data || !data.text) return;
+      all.push({
+        id: docSnap.id,
+        type: data.type || 'note',
+        text: String(data.text),
+        metadata: data.metadata || {},
+        createdAt: data.createdAt,
+      });
+    });
+
+    if (type === 'all') return all;
+    return all.filter((r) => r.type === type);
+  } catch (error) {
+    console.error('[KnowledgeBase] 讀取知識庫清單失敗:', error);
+    return [];
+  }
+};
+
+/**
+ * 刪除一筆知識庫紀錄
+ * @param {string} recordId
+ */
+export const deleteKnowledgeRecord = async (recordId) => {
+  const user = getCurrentUser();
+  if (!user || !recordId) return;
+
+  try {
+    const ref = doc(db, 'users', user.uid, 'knowledge_base', recordId);
+    await deleteDoc(ref);
+  } catch (error) {
+    console.error('[KnowledgeBase] 刪除紀錄失敗:', error);
+    throw error;
+  }
+};
+
+/**
  * 使用向量進行相似度搜尋（介面預留）
  *
  * ⚠️ 目前尚未接實際向量搜尋服務，故會：
@@ -137,13 +246,66 @@ export const updateKnowledgeEmbedding = async (recordId, embedding, model = 'tex
  * @returns {Promise<Array<{text:string, metadata:Object, createdAt:string}>>}
  */
 export const searchKnowledgeByEmbedding = async (queryEmbedding, { queryText = '', topK = 5 } = {}) => {
-  if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
-    // 沒有有效向量時，直接走關鍵字版本
+  const user = getCurrentUser();
+  if (!user) return [];
+
+  // 若未提供向量，先以查詢文字產生一個
+  let embedding = Array.isArray(queryEmbedding) && queryEmbedding.length > 0
+    ? queryEmbedding
+    : await generateEmbeddingForText(queryText);
+
+  if (!Array.isArray(embedding) || embedding.length === 0) {
+    // 無法產生向量時退回關鍵字搜尋
     return searchKnowledgeRecords(queryText, topK);
   }
 
-  console.info('[KnowledgeBase] 向量搜尋尚未實作，改用關鍵字搜尋 fallback');
-  return searchKnowledgeRecords(queryText, topK);
+  try {
+    const ref = collection(db, 'users', user.uid, 'knowledge_base');
+    // 為控制成本與效能，僅抓最近 200 筆來計算相似度
+    const q = query(ref, orderBy('createdAt', 'desc'), limit(200));
+    const snap = await getDocs(q);
+
+    const docs = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!data || !Array.isArray(data.embedding)) return;
+
+      docs.push({
+        id: docSnap.id,
+        text: String(data.text || ''),
+        metadata: data.metadata || {},
+        createdAt: data.createdAt,
+        embedding: data.embedding,
+      });
+    });
+
+    if (docs.length === 0) {
+      return searchKnowledgeRecords(queryText, topK);
+    }
+
+    // 計算 cosine similarity
+    const dot = (a, b) => a.reduce((sum, v, i) => sum + v * (b[i] || 0), 0);
+    const norm = (a) => Math.sqrt(dot(a, a));
+    const queryNorm = norm(embedding) || 1;
+
+    const scored = docs.map((d) => {
+      const e = d.embedding;
+      const score = dot(embedding, e) / (queryNorm * (norm(e) || 1));
+      return { ...d, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    return scored.slice(0, topK).map((d) => ({
+      id: d.id,
+      text: d.text,
+      metadata: d.metadata,
+      createdAt: d.createdAt,
+    }));
+  } catch (error) {
+    console.error('[KnowledgeBase] 向量搜尋失敗，改用關鍵字搜尋:', error);
+    return searchKnowledgeRecords(queryText, topK);
+  }
 };
 
 /**
@@ -154,16 +316,8 @@ export const searchKnowledgeByEmbedding = async (queryEmbedding, { queryText = '
 export const getKnowledgeContextForQuery = async (queryText) => {
   if (!queryText) return '';
 
-  // 1) 優先嘗試呼叫 Cloud Function 進行向量搜尋
-  let records = [];
-  try {
-    const res = await searchKnowledgeCallable({ queryText, topK: 5 });
-    if (Array.isArray(res.data?.records)) {
-      records = res.data.records;
-    }
-  } catch (error) {
-    console.warn('向量搜尋 Cloud Function 呼叫失敗，改用關鍵字搜尋', error);
-  }
+  // 1) 優先嘗試在前端使用向量搜尋
+  let records = await searchKnowledgeByEmbedding(null, { queryText, topK: 5 });
 
   // 2) 若沒有結果，退回關鍵字搜尋
   if (!records || records.length === 0) {

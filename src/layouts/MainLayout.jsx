@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // 新增 ShoppingBag, Utensils, LineChart
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen } from 'lucide-react';
 import { signOut } from '../services/authService'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -105,6 +105,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             text="訓練計劃推薦" 
             active={currentView === 'training-plan'} 
             onClick={() => { setCurrentView('training-plan'); setIsSidebarOpen(false); }} 
+          />
+          <SidebarItem 
+            icon={BookOpen} 
+            text="個人知識庫 Knowledge" 
+            active={currentView === 'knowledge-base'} 
+            onClick={() => { setCurrentView('knowledge-base'); setIsSidebarOpen(false); }} 
           />
           
           <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">

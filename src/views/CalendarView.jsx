@@ -6,6 +6,7 @@ import { listGears, listCalendarWorkouts, updateCalendarWorkout, setCalendarWork
 import { handleError } from '../services/errorService';
 import { detectMuscleGroup } from '../utils/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
+import { addKnowledgeRecord } from '../services/ai/knowledgeBaseService';
 import FitParser from 'fit-file-parser';
 // 確保這裡正確匯入兩個函式
 import { generateDailyWorkout, generateWeeklyWorkout } from '../services/ai/workoutGenerator';
@@ -331,6 +332,39 @@ export default function CalendarView() {
       if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
       else await createCalendarWorkout(dataToSave);
       updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
+
+      // 若為已完成訓練且有備註，將關鍵資訊寫入個人知識庫（供 RAG 使用）
+      if (dataToSave.status === 'completed' && dataToSave.notes) {
+        const baseMetadata = {
+          date: dateStr,
+          source: 'calendar',
+          calendarType: dataToSave.type || 'strength',
+          calendarId: currentDocId || null,
+        };
+
+        // 粗略偵測是否為傷痛相關描述
+        const injuryKeywords = ['痛', '膝', '腳踝', '肩', '腰', '拉傷', '痠痛', '不舒服'];
+        const isInjury = injuryKeywords.some((k) => String(dataToSave.notes).includes(k));
+
+        const type = isInjury ? 'injury' : 'note';
+        const typeLabel = isInjury ? '傷痛紀錄' : '訓練日記';
+
+        const text =
+          `[${dateStr}] ${dataToSave.title || '訓練'}\n` +
+          `類型：${dataToSave.type === 'run' ? '跑步' : '力量/其他'}\n` +
+          `${dataToSave.notes}`;
+
+        addKnowledgeRecord({
+          type,
+          text,
+          metadata: {
+            ...baseMetadata,
+            typeLabel,
+          },
+        }).catch((err) => {
+          console.warn('寫入知識庫失敗（不影響行事曆）：', err);
+        });
+      }
       // 如果狀態為完成，檢查成就（非阻塞）
       if (dataToSave.status === 'completed') {
         checkAndUnlockAchievements().catch(err => {

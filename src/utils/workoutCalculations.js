@@ -112,27 +112,29 @@ export const formatSecondsToTime = (totalSeconds) => {
 };
 
 /**
- * 生成半馬比賽配速策略（Negative Split）
+ * 通用比賽配速策略（Negative Split）
  * @param {Object} params
+ * @param {number} params.distanceKm - 比賽距離（公里），例如 10, 21.1, 42.2
  * @param {string} params.targetTime - 目標完賽時間，例如 "1:59:00"
  * @param {'flat'|'hilly'} params.courseType - 賽道類型：平路(flat) / 起伏(hilly)
- * @returns {Object} 策略物件，包含分段配速與補給時間建議
+ * @returns {Object|null} 策略物件，包含分段配速與補給時間建議
  */
-export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }) => {
-  const HALF_MARATHON_KM = 21.1;
+export const generateRaceStrategy = ({ distanceKm, targetTime, courseType = 'flat' }) => {
+  const raceDistance = parseFloat(distanceKm) || 0;
   const totalSeconds = parseTimeToSeconds(targetTime);
-  if (!totalSeconds || totalSeconds <= 0) {
+  if (!raceDistance || raceDistance <= 0 || !totalSeconds || totalSeconds <= 0) {
     return null;
   }
 
   // 基本平均配速（秒/公里）
-  const basePacePerKm = totalSeconds / HALF_MARATHON_KM;
+  const basePacePerKm = totalSeconds / raceDistance;
 
   // 根據賽道類型調整前後段比例（平路稍微後半加速，起伏則前後更保守）
   const negativeSplitFactor = courseType === 'hilly' ? 0.03 : 0.05; // 後半段快 3–5%
 
-  const firstPartKm = 10;
-  const secondPartKm = HALF_MARATHON_KM - firstPartKm;
+  // 前後段切分：前半程 vs 後半程（四捨五入至整數公里，避免過度複雜）
+  const firstPartKm = Math.round(raceDistance / 2);
+  const secondPartKm = raceDistance - firstPartKm;
 
   const firstPacePerKm = basePacePerKm * (1 + negativeSplitFactor / 2); // 前段略慢
   const secondPacePerKm = basePacePerKm * (1 - negativeSplitFactor / 2); // 後段略快
@@ -140,12 +142,12 @@ export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }
   const firstPartTime = firstPacePerKm * firstPartKm;
   const secondPartTime = totalSeconds - firstPartTime; // 確保總時間一致
 
-  // 補給策略：每 45 分鐘一包能量膠
+  // 補給策略：每 45 分鐘一包能量膠（10K 比較短時，可能沒有補給點）
   const gelIntervalSec = 45 * 60;
   const gelPoints = [];
   for (let t = gelIntervalSec; t < totalSeconds; t += gelIntervalSec) {
     const progress = t / totalSeconds;
-    const approxKm = HALF_MARATHON_KM * progress;
+    const approxKm = raceDistance * progress;
     gelPoints.push({
       time: formatSecondsToTime(t),
       approxKm: Math.round(approxKm * 10) / 10,
@@ -153,7 +155,7 @@ export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }
   }
 
   return {
-    distanceKm: HALF_MARATHON_KM,
+    distanceKm: raceDistance,
     targetTime: formatSecondsToTime(totalSeconds),
     averagePacePerKm: formatSecondsToTime(basePacePerKm),
     segments: [
@@ -170,14 +172,24 @@ export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }
       {
         label: '後段',
         startKm: firstPartKm,
-        endKm: HALF_MARATHON_KM,
+        endKm: raceDistance,
         pacePerKm: formatSecondsToTime(secondPacePerKm),
         segmentTime: formatSecondsToTime(secondPartTime),
         description: courseType === 'hilly'
           ? '視當天狀況微調配速，在下坡與平路穩定推進'
-          : '逐步提速，最後 3–5km 若還有餘力可再加速',
+          : '逐步提速，最後幾公里若還有餘力可再加速',
       },
     ],
     gels: gelPoints,
   };
+};
+
+/**
+ * 向下相容：半馬比賽配速策略
+ * @param {Object} params
+ * @param {string} params.targetTime
+ * @param {'flat'|'hilly'} params.courseType
+ */
+export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }) => {
+  return generateRaceStrategy({ distanceKm: 21.1, targetTime, courseType });
 };

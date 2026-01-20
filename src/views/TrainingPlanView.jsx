@@ -4,7 +4,7 @@ import { generateTrainingPlan, PLAN_TYPES } from '../services/ai/workoutGenerato
 import { handleError } from '../services/errorService';
 import { useViewStore } from '../store/viewStore';
 import { createCalendarWorkout } from '../services/calendarService';
-import { generateHalfMarathonStrategy } from '../utils/workoutCalculations';
+import { generateRaceStrategy } from '../utils/workoutCalculations';
 import { downloadHalfMarathonPaceBandPDF } from '../utils/reportGenerator';
 
 /**
@@ -21,9 +21,15 @@ export default function TrainingPlanView() {
   const [raceTargetTime, setRaceTargetTime] = useState('1:59:00');
   const [raceCourseType, setRaceCourseType] = useState('flat');
   const [raceStrategy, setRaceStrategy] = useState(null);
+  const [raceDistance, setRaceDistance] = useState('half'); // '10k' | 'half' | 'full'
 
   const isPBPlan = selectedPlanType === 'running_half_marathon_pb' || selectedPlanType === 'running_full_marathon_pb';
-  const canShowRaceStrategy = selectedPlanType === 'running_half_marathon_pb' || selectedPlanType === 'running_half_marathon_finish';
+  const canShowRaceStrategy =
+    selectedPlanType === 'running_half_marathon_pb' ||
+    selectedPlanType === 'running_half_marathon_finish' ||
+    selectedPlanType === 'running_full_marathon_finish' ||
+    selectedPlanType === 'running_full_marathon_pb' ||
+    selectedPlanType === 'running_5k'; // 5K/10K 等可共用介面
 
   const handleGeneratePlan = async () => {
     if (!selectedPlanType) {
@@ -57,7 +63,13 @@ export default function TrainingPlanView() {
       handleError('請先輸入目標完賽時間，例如 1:59:00', { context: 'TrainingPlanView', operation: 'handleGenerateRaceStrategy' });
       return;
     }
-    const strategy = generateHalfMarathonStrategy({
+    const distanceKm =
+      raceDistance === '10k' ? 10 :
+      raceDistance === 'full' ? 42.2 :
+      21.1;
+
+    const strategy = generateRaceStrategy({
+      distanceKm,
       targetTime: raceTargetTime,
       courseType: raceCourseType,
     });
@@ -320,7 +332,7 @@ export default function TrainingPlanView() {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 mb-3">
             <button
               type="button"
               onClick={handleGenerateRaceStrategy}
@@ -339,6 +351,45 @@ export default function TrainingPlanView() {
                 下載配速手環 PDF
               </button>
             )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+            <span>比賽距離：</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRaceDistance('10k')}
+                className={`px-3 py-1 rounded-full border ${
+                  raceDistance === '10k'
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                10K
+              </button>
+              <button
+                type="button"
+                onClick={() => setRaceDistance('half')}
+                className={`px-3 py-1 rounded-full border ${
+                  raceDistance === 'half'
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                半馬 21.1K
+              </button>
+              <button
+                type="button"
+                onClick={() => setRaceDistance('full')}
+                className={`px-3 py-1 rounded-full border ${
+                  raceDistance === 'full'
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                全馬 42.2K
+              </button>
+            </div>
           </div>
 
           {raceStrategy && (

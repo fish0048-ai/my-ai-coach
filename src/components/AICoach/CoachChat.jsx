@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2, RefreshCw } from 'lucide-react';
-import { runGemini } from '../../utils/gemini';
 import { getAIContext, updateAIContext } from '../../utils/contextManager';
 import { getKnowledgeContextForQuery } from '../../services/ai/knowledgeBaseService';
 import { useApiKey } from '../../hooks/useApiKey';
+import { sendCoachMessage } from '../../services/ai/coachService';
 
 export default function CoachChat({ isOpen, onClose, user }) {
   const { apiKey, setApiKey: updateApiKey, hasApiKey, isLoading: isApiKeyLoading } = useApiKey();
@@ -79,19 +79,8 @@ export default function CoachChat({ isOpen, onClose, user }) {
         // 2. 從個人知識庫（RAG）檢索相關歷史紀錄
         const knowledgeContext = await getKnowledgeContextForQuery(userMessage);
 
-        // 3. 組合 Prompt
-        const systemPrompt = `
-角色：專業健身教練。
-風格：繁體中文、幽默鼓勵、極度精簡(50字內)。
-
-[使用者目前狀態與近期訓練]
-${userContext || '目前無詳細資料'}
-${knowledgeContext || ''}
-
-用戶問題：${userMessage}
-        `.trim();
-
-        const responseText = await runGemini(systemPrompt, apiKey);
+        // 3. 呼叫服務取得回覆
+        const responseText = await sendCoachMessage({ userMessage, userContext, knowledgeContext });
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
         setMessages(prev => [...prev, { role: 'model', text: "連線發生錯誤，請檢查網路或 API Key。" }]);

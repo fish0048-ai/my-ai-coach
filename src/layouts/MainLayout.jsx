@@ -8,8 +8,8 @@ const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
     onClick={onClick}
     className={`w-full flex items-center space-x-3 px-6 py-3 transition-colors duration-200
       ${active 
-        ? 'bg-blue-600 text-white border-r-4 border-blue-800' 
-        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+        ? 'bg-primary-600 text-white border-r-4 border-primary-800' 
+        : 'text-gray-400 hover:bg-surface-800 hover:text-white'
       }`}
   >
     <Icon size={20} />
@@ -127,7 +127,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
         <div className="p-4 border-t border-gray-800">
           <button 
             onClick={handleSignOut}
-            className="flex items-center space-x-3 px-4 py-3 w-full text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            className="flex items-center space-x-3 px-4 py-3 w-full text-gray-400 hover:text-white hover:bg-surface-800 rounded-lg transition-colors"
           >
             <LogOut size={20} />
             <span>登出</span>

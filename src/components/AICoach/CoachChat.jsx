@@ -113,19 +113,19 @@ export default function CoachChat({ isOpen, onClose, user }) {
         <div className="flex items-center gap-2">
           <button 
             onClick={handleClearHistory}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-surface-800 transition-colors"
             title="清除對話"
           >
             <Trash2 size={18} />
           </button>
           <button 
             onClick={() => setShowSettings(!showSettings)} 
-            className={`p-2 rounded-lg transition-colors ${showSettings || !apiKey ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+            className={`p-2 rounded-lg transition-colors ${showSettings || !apiKey ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-surface-800'}`}
             title="設定"
           >
             <Settings size={20} />
           </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors bg-gray-800 hover:bg-gray-700 p-2 rounded-lg">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors bg-surface-800 hover:bg-surface-800/80 p-2 rounded-lg">
             <X size={20} />
           </button>
         </div>
@@ -179,11 +179,13 @@ export default function CoachChat({ isOpen, onClose, user }) {
           <div className="p-4 space-y-4 min-h-full">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3.5 rounded-2xl shadow-sm ${
-                  msg.role === 'user' 
-                    ? 'bg-blue-600 text-white rounded-br-none' 
-                    : 'bg-gray-800 text-gray-100 rounded-bl-none border border-gray-700'
-                }`}>
+                <div
+                  className={`max-w-[85%] p-3.5 rounded-2xl shadow-sm ${
+                    msg.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-none'
+                      : 'bg-surface-800 text-gray-100 rounded-bl-none border border-gray-800'
+                  }`}
+                >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                 </div>
               </div>

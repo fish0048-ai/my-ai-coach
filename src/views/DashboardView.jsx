@@ -92,14 +92,14 @@ export default function DashboardView() {
           <div className="relative">
             <button
               onClick={() => setShowShareMenu(!showShareMenu)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-800/80 text-white rounded-lg transition-colors"
             >
               <Share2 size={18} />
               <span className="hidden md:inline">分享</span>
             </button>
             
             {showShareMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-surface-800 border border-gray-800 rounded-lg shadow-xl z-50">
                 <button
                   onClick={async () => {
                     setSharing(true);
@@ -116,7 +116,7 @@ export default function DashboardView() {
                     }
                   }}
                   disabled={sharing}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-surface-800 flex items-center gap-2 transition-colors"
                 >
                   <FileText size={16} />
                   複製文字報告
@@ -135,7 +135,7 @@ export default function DashboardView() {
                     }
                   }}
                   disabled={sharing}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-surface-800 flex items-center gap-2 transition-colors"
                 >
                   <Image size={16} />
                   下載圖片報告
@@ -154,7 +154,7 @@ export default function DashboardView() {
                     }
                   }}
                   disabled={sharing}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-surface-800 flex items-center gap-2 transition-colors"
                 >
                   <FileText size={16} />
                   下載 PDF 報告
@@ -192,7 +192,7 @@ export default function DashboardView() {
                     }
                   }}
                   disabled={sharing}
-                  className="w-full px-4 py-2 text-left text-white hover:bg-gray-700 flex items-center gap-2 transition-colors border-t border-gray-700"
+                  className="w-full px-4 py-2 text-left text-white hover:bg-surface-800 flex items-center gap-2 transition-colors border-t border-gray-800"
                 >
                   <Download size={16} />
                   匯出 CSV

@@ -115,7 +115,7 @@ export default function KnowledgeBaseView() {
       </div>
 
       {/* 新增表單 */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5 space-y-4">
+      <div className="bg-surface-800 rounded-xl border border-gray-800 p-5 space-y-4 shadow-lg shadow-black/40">
         <div className="flex items-center gap-2 mb-1">
           <Plus className="text-green-400" size={18} />
           <h2 className="text-sm font-semibold text-white">新增紀錄</h2>
@@ -130,7 +130,7 @@ export default function KnowledgeBaseView() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
+              className="w-full bg-surface-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white"
             >
               <option value="note">訓練日記</option>
               <option value="injury">傷痛紀錄</option>
@@ -143,7 +143,7 @@ export default function KnowledgeBaseView() {
               type="date"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
+              className="w-full bg-surface-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white"
             />
           </div>
           <div className="md:col-span-2">
@@ -153,7 +153,7 @@ export default function KnowledgeBaseView() {
               onChange={(e) => setNewText(e.target.value)}
               rows={2}
               placeholder="例：2024/12/20 長距離後左膝外側緊繃，物理治療師建議加強臀中肌訓練與泡滾筒。"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none"
+              className="w-full bg-surface-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none"
             />
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function KnowledgeBaseView() {
             type="button"
             onClick={handleCreate}
             disabled={saving}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-800 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
           >
             {saving ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
             新增到知識庫
@@ -172,7 +172,7 @@ export default function KnowledgeBaseView() {
       </div>
 
       {/* 篩選 & 列表 */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+      <div className="bg-surface-800 rounded-xl border border-gray-800 p-5 shadow-lg shadow-black/40">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 text-sm text-gray-300">
             <Filter size={14} className="text-gray-400" />
@@ -209,7 +209,7 @@ export default function KnowledgeBaseView() {
             目前尚無紀錄。可以從上方新增，或之後從 Calendar / Profile 自動寫入重要事件。
           </div>
         ) : (
-          <div className="space-y-3">
+                  <div className="space-y-3">
             {records.map((rec) => {
               const date =
                 rec.metadata?.date ||
@@ -219,7 +219,7 @@ export default function KnowledgeBaseView() {
               return (
                 <div
                   key={rec.id}
-                  className="flex items-start justify-between gap-3 bg-gray-900/60 border border-gray-700 rounded-lg px-3 py-2.5"
+                  className="flex items-start justify-between gap-3 bg-surface-900/60 border border-gray-800 rounded-lg px-3 py-2.5"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -240,7 +240,7 @@ export default function KnowledgeBaseView() {
                   <button
                     type="button"
                     onClick={() => handleDelete(rec.id)}
-                    className="text-gray-500 hover:text-red-400 flex-shrink-0 p-1 rounded-lg hover:bg-gray-800"
+                    className="text-gray-500 hover:text-red-400 flex-shrink-0 p-1 rounded-lg hover:bg-surface-800"
                     title="刪除紀錄"
                   >
                     <Trash2 size={14} />

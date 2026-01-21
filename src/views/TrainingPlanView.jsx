@@ -165,7 +165,7 @@ export default function TrainingPlanView() {
 
       {/* 計劃類型選擇 */}
       {!generatedPlan && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 space-y-6">
+        <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 space-y-6 shadow-lg shadow-black/40">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Sparkles className="text-yellow-400" size={20} />
             選擇訓練計劃類型
@@ -220,7 +220,7 @@ export default function TrainingPlanView() {
             <select
               value={weeks}
               onChange={(e) => setWeeks(parseInt(e.target.value))}
-              className="w-full md:w-48 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white"
+              className="w-full md:w-48 bg-surface-900 border border-gray-800 rounded-lg px-4 py-2 text-white"
             >
               <option value={4}>4 周</option>
               <option value={6}>6 周</option>
@@ -241,7 +241,7 @@ export default function TrainingPlanView() {
                   value={targetPB}
                   onChange={(e) => setTargetPB(e.target.value)}
                   placeholder="請輸入目標完賽時間"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-500"
+                  className="w-full bg-surface-900 border border-gray-800 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-500"
                 />
               </div>
               <div>
@@ -252,7 +252,7 @@ export default function TrainingPlanView() {
                   type="date"
                   value={targetRaceDate}
                   onChange={(e) => setTargetRaceDate(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm"
+                  className="w-full bg-surface-900 border border-gray-800 rounded-lg px-4 py-2 text-white text-sm"
                 />
               </div>
             </div>
@@ -262,7 +262,7 @@ export default function TrainingPlanView() {
           <button
             onClick={handleGeneratePlan}
             disabled={!selectedPlanType || loading}
-            className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="w-full md:w-auto px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-800 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -281,7 +281,7 @@ export default function TrainingPlanView() {
 
       {/* 比賽配速策略區塊（半馬相關計畫時顯示，獨立於計劃生成狀態） */}
       {canShowRaceStrategy && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 shadow-lg shadow-black/40">
           <div className="flex items-center gap-2 mb-4">
             <Map className="text-green-400" size={20} />
             <h2 className="text-lg font-bold text-white">比賽配速策略（半馬）</h2>
@@ -298,7 +298,7 @@ export default function TrainingPlanView() {
                 type="text"
                 value={raceTargetTime}
                 onChange={(e) => setRaceTargetTime(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-500"
+                className="w-full bg-surface-900 border border-gray-800 rounded-lg px-4 py-2 text-white text-sm placeholder-gray-500"
                 placeholder="1:59:00"
               />
             </div>
@@ -313,7 +313,7 @@ export default function TrainingPlanView() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium border ${
                     raceCourseType === 'flat'
                       ? 'bg-green-600 border-green-500 text-white'
-                      : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                      : 'bg-surface-900 border-gray-800 text-gray-300 hover:border-gray-500'
                   }`}
                 >
                   平路

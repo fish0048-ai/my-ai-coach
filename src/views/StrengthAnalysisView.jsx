@@ -7,6 +7,8 @@ import { handleError } from '../services/errorService';
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';
 import { generateStrengthAnalysisFeedback } from '../services/ai/analysisService';
+import { computeJointAngle } from '../services/analysis/poseAnalysis';
+import { calculateStrengthScore } from '../services/analysis/metricsCalculator';
 
 // --- 評分組件 ---
 const ScoreGauge = ({ score }) => {
@@ -59,28 +61,6 @@ export default function StrengthAnalysisView() {
   const [loadingCorrection, setLoadingCorrection] = useState(false);
   const [deviationAnalysis, setDeviationAnalysis] = useState(null); 
 
-  // --- 幾何運算 ---
-  const calculateAngle = (a, b, c) => {
-    if (!a || !b || !c) return 0;
-    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-    let angle = Math.abs(radians * 180.0 / Math.PI);
-    if (angle > 180.0) angle = 360 - angle;
-    return Math.round(angle);
-  };
-
-  const calculateStrengthScore = (m, mode) => {
-    if (!m) return 0;
-    let s = 100;
-    const ecc = parseFloat(m.eccentricTime?.value || 2);
-    if (ecc < 1.0) s -= 20; else if (ecc < 1.5) s -= 10;
-    
-    const angle = parseFloat(mode === 'bench' ? (m.elbowAngle?.value || 90) : (m.kneeAngle?.value || 90));
-    if (mode === 'bench') { if (angle > 90) s -= 20; } 
-    else { if (angle > 100) s -= 20; }
-    
-    return Math.max(0, Math.round(s));
-  };
-
   // --- MediaPipe Callback ---
   const onPoseResults = (results) => {
     const canvas = canvasRef.current;
@@ -102,7 +82,7 @@ export default function StrengthAnalysisView() {
 
             if (currentMode === 'bench') {
                 if (results.poseLandmarks[12] && results.poseLandmarks[14] && results.poseLandmarks[16]) {
-                    angle = calculateAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
+                    angle = computeJointAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
                     
                     const elbow = results.poseLandmarks[14];
                     if (showSkeletonRef.current) {
@@ -113,7 +93,7 @@ export default function StrengthAnalysisView() {
                 }
             } else {
                 if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
-                    angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
+                    angle = computeJointAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
                     
                     const knee = results.poseLandmarks[26];
                     if (showSkeletonRef.current) {

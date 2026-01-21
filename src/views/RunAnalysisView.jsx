@@ -4,8 +4,9 @@ import { getCurrentUser } from '../services/authService';
 import { saveRunAnalysis } from '../services/analysisService';
 import { handleError } from '../services/errorService';
 import { generateRunAnalysisFeedback } from '../services/ai/analysisService';
-// 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
+import { computeJointAngle, calculateRealHipExtension, processRunScanData } from '../services/analysis/poseAnalysis';
+import { calculateRunScore } from '../services/analysis/metricsCalculator';
 
 // 分數圈圈
 const ScoreGauge = ({ score }) => {
@@ -63,45 +64,6 @@ export default function RunAnalysisView() {
   const [isSaving, setIsSaving] = useState(false);
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
   const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
-
-  // --- 評分與幾何運算 ---
-  const calculateRunScore = (m) => {
-      if (!m) return 0;
-      let s = 100;
-      const cad = parseFloat(m.cadence?.value || 0);
-      if (cad < 150) s -= 30; else if (cad < 160) s -= 20; else if (cad < 170) s -= 10;
-      const hip = parseFloat(m.hipDrive?.value || 0);
-      if (hip < 10) s -= 25; else if (hip < 20) s -= 15;
-      const osc = parseFloat(m.vertOscillation?.value || 10);
-      if (osc > 12) s -= 25;
-      const ratio = parseFloat(m.vertRatio?.value || 8);
-      if (ratio > 10) s -= 20;
-      return Math.max(0, Math.round(s));
-  };
-
-  const calculateAngle = (a, b, c) => {
-    if (!a || !b || !c) return 0;
-    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-    let angle = Math.abs(radians * 180.0 / Math.PI);
-    if (angle > 180.0) angle = 360 - angle;
-    return Math.round(angle);
-  };
-
-  const calculateRealHipExtension = (landmarks) => {
-      if (!landmarks) return 0;
-      const nose = landmarks[0];
-      const shoulder = landmarks[12];
-      const hip = landmarks[24];
-      const knee = landmarks[26];
-      if (!nose || !shoulder || !hip || !knee) return 0;
-      const isFacingRight = nose.x > shoulder.x;
-      const isLegInFront = isFacingRight ? (knee.x > hip.x) : (knee.x < hip.x);
-      if (isLegInFront) {
-          const angle = calculateAngle(shoulder, hip, knee);
-          return Math.max(0, 180 - angle);
-      }
-      return 0; 
-  };
 
   const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
       if (!hip || !knee) return;
@@ -211,7 +173,7 @@ export default function RunAnalysisView() {
             let hipDrive = 0;
             
             if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
-                angle = calculateAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
+                angle = computeJointAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
             }
             
             if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
@@ -346,36 +308,11 @@ export default function RunAnalysisView() {
     isScanningRef.current = false;
     poseModel.setOptions({ smoothLandmarks: true }); 
 
-    const computedMetrics = processScanData(fullScanDataRef.current);
+    const computedMetrics = processRunScanData(fullScanDataRef.current);
     setMetrics(computedMetrics);
     setScore(calculateRunScore(computedMetrics));
     setAnalysisStep('internal_complete');
     video.currentTime = 0;
-  };
-
-  const processScanData = (data) => {
-    if (!data || data.length === 0) return null;
-    
-    const hipDrives = data.map(d => calculateRealHipExtension(d.landmarks));
-    const maxHipDrive = Math.max(...hipDrives);
-
-    const hipYs = data.map(d => (d.landmarks[23].y + d.landmarks[24].y) / 2);
-    let steps = 0;
-    const avgY = hipYs.reduce((a,b)=>a+b,0) / hipYs.length;
-    for (let i=1; i<hipYs.length; i++) {
-            if (hipYs[i] < avgY && hipYs[i-1] >= avgY) steps++;
-    }
-    const durationSec = data[data.length-1].timestamp - data[0].timestamp;
-    const cadence = durationSec > 0 ? Math.round((steps * 2 * 60) / durationSec) : 0;
-    const safeCadence = cadence > 100 && cadence < 250 ? cadence : 170;
-
-    return {
-        hipDrive: { label: '最大送髖(前擺)', value: maxHipDrive.toFixed(1), unit: '°', status: maxHipDrive >= 20 ? 'good' : 'warning', hint: '目標: 20-60°', icon: Zap },
-        cadence: { label: '平均步頻', value: safeCadence.toString(), unit: 'spm', status: safeCadence >= 170 ? 'good' : 'warning', icon: Activity },
-        vertOscillation: { label: '垂直振幅', value: '9.2', unit: 'cm', status: 'good', icon: MoveVertical },
-        vertRatio: { label: '移動參數', value: '7.8', unit: '%', status: 'good', icon: Activity },
-        groundTime: { label: '觸地時間', value: '245', unit: 'ms', status: 'good', icon: Timer },
-    };
   };
 
   const handleUploadClick = () => fileInputRef.current?.click();

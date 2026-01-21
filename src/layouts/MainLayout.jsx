@@ -23,7 +23,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
   const handleSignOut = () => signOut();
 
   return (
-    <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-surface-900 text-gray-100 overflow-hidden font-sans">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -34,7 +34,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
 
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-gray-900 border-r border-gray-800 
+        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-surface-900 border-r border-gray-800 
         transform transition-transform duration-300 ease-in-out flex flex-col
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
@@ -136,9 +136,9 @@ export default function MainLayout({ children, currentView, setCurrentView, user
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-900">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface-900">
         {/* Header */}
-        <header className="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 lg:px-8">
+        <header className="h-16 bg-surface-900 border-b border-gray-800 flex items-center justify-between px-4 lg:px-8">
           <button 
             onClick={() => setIsSidebarOpen(true)}
             className="lg:hidden p-2 text-gray-400 hover:text-white"
@@ -149,7 +149,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
           <div className="flex items-center justify-end w-full space-x-4">
             <button 
               onClick={() => setIsChatOpen(true)}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors relative"
+              className="p-2 text-gray-400 hover:text-white hover:bg-surface-800 rounded-full transition-colors relative"
             >
               <MessageSquare size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></span>

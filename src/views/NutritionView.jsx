@@ -3,19 +3,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, ChefHat, Loader, Search, Sparkles } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
-import { subscribeFoodLogsByDate, createFoodLog, deleteFoodLog } from '../services/nutritionService';
+import { createFoodLog, deleteFoodLog } from '../services/nutritionService';
 import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { parseLLMJson } from '../utils/aiJson';
 import { updateAIContext } from '../utils/contextManager';
 import { useUserStore } from '../store/userStore';
 import { generateNutritionRecommendation } from '../services/ai/nutritionRecommendation';
+import { useNutrition } from '../hooks/useNutrition';
 
 export default function NutritionView() {
   // 使用 zustand store 獲取用戶資料
   const userData = useUserStore((state) => state.userData);
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // 使用 Hook 取得今日營養紀錄與 summary
+  const { logs, summary, loading } = useNutrition();
   const [analyzing, setAnalyzing] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const fileInputRef = useRef(null);
@@ -30,8 +31,6 @@ export default function NutritionView() {
   const targetProtein = Math.round((targetCal * 0.3) / 4);
   const targetCarbs = Math.round((targetCal * 0.4) / 4);
   const targetFat = Math.round((targetCal * 0.3) / 9);
-
-  const [summary, setSummary] = useState({ cal: 0, protein: 0, carbs: 0, fat: 0 });
   const [foodName, setFoodName] = useState('');
   const [foodCal, setFoodCal] = useState('');
   const [foodProtein, setFoodProtein] = useState('');
@@ -41,40 +40,6 @@ export default function NutritionView() {
   const [suggesting, setSuggesting] = useState(false);
   const [smartRecommendation, setSmartRecommendation] = useState(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
-
-  useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
-        setLoading(false);
-        return;
-    }
-    
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        const unsubscribe = subscribeFoodLogsByDate(today, (data) => {
-          data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-          setLogs(data);
-
-          const sum = data.reduce((acc, curr) => ({
-            cal: acc.cal + (parseFloat(curr.calories) || 0),
-            protein: acc.protein + (parseFloat(curr.protein) || 0),
-            carbs: acc.carbs + (parseFloat(curr.carbs) || 0),
-            fat: acc.fat + (parseFloat(curr.fat) || 0),
-          }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
-
-          setSummary(sum);
-          setLoading(false);
-        }, (error) => {
-          console.error("Firestore read error:", error);
-          setLoading(false);
-        });
-
-        return () => unsubscribe();
-    } catch (err) {
-        console.error("Init error:", err);
-        setLoading(false);
-    }
-  }, []);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -265,7 +230,7 @@ export default function NutritionView() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col items-center justify-center">
+          <div className="bg-surface-800 p-6 rounded-2xl border border-gray-800 flex flex-col items-center justify-center shadow-lg shadow-black/40">
               <div className="relative w-32 h-32 flex items-center justify-center border-4 border-gray-700 rounded-full mb-4">
                   <div className="text-center">
                       <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-red-400' : 'text-white'}`}>{Math.round(remaining)}</span>
@@ -304,7 +269,7 @@ export default function NutritionView() {
               <div className="space-y-4">
                   {/* 訓練資訊 */}
                   {smartRecommendation.trainingInfo?.hasTraining && (
-                      <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                      <div className="bg-surface-800/50 p-3 rounded-lg border border-gray-800">
                           <p className="text-xs text-gray-400 mb-1">今日訓練</p>
                           <p className="text-sm text-white">
                               {smartRecommendation.trainingInfo.type} · 
@@ -336,7 +301,7 @@ export default function NutritionView() {
                           <p className="text-xs text-gray-400 mb-2">推薦餐點</p>
                           <div className="space-y-2">
                               {smartRecommendation.mealSuggestions.map((meal, idx) => (
-                                  <div key={idx} className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                                  <div key={idx} className="bg-surface-800/50 p-3 rounded-lg border border-gray-800">
                                       <div className="flex justify-between items-start mb-1">
                                           <p className="text-sm font-semibold text-white">{meal.name}</p>
                                           <span className="text-xs text-blue-400">{meal.calories} kcal</span>
@@ -384,13 +349,13 @@ export default function NutritionView() {
       </div>
 
       {showAddForm && (
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 animate-slideUp">
+          <div className="bg-surface-800 p-6 rounded-2xl border border-gray-800 animate-slideUp shadow-lg shadow-black/40">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                  <input placeholder="食物名稱" value={foodName} onChange={e=>setFoodName(e.target.value)} className="col-span-2 bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="熱量" value={foodCal} onChange={e=>setFoodCal(e.target.value)} className="bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="蛋白質" value={foodProtein} onChange={e=>setFoodProtein(e.target.value)} className="bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="碳水" value={foodCarbs} onChange={e=>setFoodCarbs(e.target.value)} className="bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="脂肪" value={foodFat} onChange={e=>setFoodFat(e.target.value)} className="bg-gray-900 border-gray-700 rounded px-3 py-2 text-white border"/>
+                  <input placeholder="食物名稱" value={foodName} onChange={e=>setFoodName(e.target.value)} className="col-span-2 bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
+                  <input type="number" placeholder="熱量" value={foodCal} onChange={e=>setFoodCal(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
+                  <input type="number" placeholder="蛋白質" value={foodProtein} onChange={e=>setFoodProtein(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
+                  <input type="number" placeholder="碳水" value={foodCarbs} onChange={e=>setFoodCarbs(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
+                  <input type="number" placeholder="脂肪" value={foodFat} onChange={e=>setFoodFat(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
               </div>
               <button onClick={handleAddFood} className="w-full py-2 bg-green-600 text-white rounded font-bold">確認新增</button>
           </div>
@@ -398,7 +363,7 @@ export default function NutritionView() {
 
       <div className="space-y-2">
           {logs.map(log => (
-              <div key={log.id} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
+              <div key={log.id} className="bg-surface-800 p-4 rounded-xl border border-gray-800 flex justify-between items-center shadow-lg shadow-black/40">
                   <div>
                       <h4 className="font-bold text-white">{log.name}</h4>
                       <span className="text-xs text-green-400">{log.calories} kcal</span>

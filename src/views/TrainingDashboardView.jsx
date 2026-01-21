@@ -42,7 +42,7 @@ export default function TrainingDashboardView() {
         return (
           <div key={idx} className="flex-1 flex flex-col items-center group relative min-w-[20px]">
             {/* 數值標籤 (Hover 顯示，如果是今天且有值則常駐) */}
-            <div className={`absolute -top-8 bg-gray-700 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none transition-opacity z-10 ${item.value > 0 ? 'group-hover:opacity-100 opacity-0' : 'opacity-0'}`}>
+            <div className={`absolute -top-8 bg-surface-800 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none transition-opacity z-10 ${item.value > 0 ? 'group-hover:opacity-100 opacity-0' : 'opacity-0'}`}>
               {item.value}
             </div>
             
@@ -51,8 +51,8 @@ export default function TrainingDashboardView() {
                 <div 
                 className={`w-[80%] rounded-t-sm transition-all duration-500 relative ${
                     item.value > 0 
-                        ? (isToday ? 'bg-blue-400' : 'bg-blue-600 group-hover:bg-blue-500') 
-                        : 'bg-gray-700/20'
+                        ? (isToday ? 'bg-primary-500' : 'bg-primary-600 group-hover:bg-primary-500') 
+                        : 'bg-surface-800/30'
                 }`}
                 style={{ height: `${item.value > 0 ? Math.max(heightPct, 5) : 5}%` }}
                 >
@@ -81,7 +81,7 @@ export default function TrainingDashboardView() {
           <p className="text-gray-400 text-sm">追蹤您的長期訓練成效</p>
         </div>
         
-        <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
+        <div className="flex bg-surface-800 p-1 rounded-lg border border-gray-800">
           {['week', 'month', 'year'].map((p) => (
             <button 
               key={p}
@@ -131,7 +131,7 @@ export default function TrainingDashboardView() {
       {/* Main Chart Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Activity Chart */}
-        <div className="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div className="lg:col-span-2 bg-surface-800 rounded-xl border border-gray-800 p-6 shadow-lg shadow-black/40">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-white flex items-center gap-2">
               <Activity size={18} className="text-blue-400" />
@@ -153,7 +153,7 @@ export default function TrainingDashboardView() {
 
         {/* Right: Insights / Goals */}
         <div className="space-y-6">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 shadow-lg shadow-black/40">
             <h3 className="font-bold text-white mb-4">訓練分佈</h3>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -163,9 +163,9 @@ export default function TrainingDashboardView() {
                     {stats.totalWorkouts > 0 ? Math.round((stats.strengthCount / stats.totalWorkouts) * 100) : 0}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-blue-500" 
+                    className="h-full bg-primary-500" 
                     style={{ width: `${stats.totalWorkouts > 0 ? (stats.strengthCount / stats.totalWorkouts) * 100 : 0}%` }}
                   ></div>
                 </div>
@@ -178,7 +178,7 @@ export default function TrainingDashboardView() {
                     {stats.totalWorkouts > 0 ? Math.round((stats.runCount / stats.totalWorkouts) * 100) : 0}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-orange-500" 
                     style={{ width: `${stats.totalWorkouts > 0 ? (stats.runCount / stats.totalWorkouts) * 100 : 0}%` }}
@@ -209,7 +209,7 @@ export default function TrainingDashboardView() {
 
 // 數據卡片組件
 const StatCard = ({ icon: Icon, label, value, unit, color }) => (
-  <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-start justify-between">
+  <div className="bg-surface-800 p-4 rounded-xl border border-gray-800 flex items-start justify-between shadow-lg shadow-black/40">
     <div>
       <p className="text-gray-400 text-xs mb-1">{label}</p>
       <h3 className="text-xl md:text-2xl font-bold text-white">

@@ -414,7 +414,7 @@ export default function CalendarView() {
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, .fit" className="hidden" />
       <input type="file" ref={csvInputRef} onChange={handleCSVUpload} accept=".csv" className="hidden" />
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-800 p-4 rounded-xl border border-gray-700 gap-3">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-800 p-4 rounded-xl border border-gray-800 gap-3 shadow-lg shadow-black/40">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <CalendarIcon className="text-blue-500" />
@@ -434,7 +434,7 @@ export default function CalendarView() {
             </button>
             <button
               onClick={() => setCurrentView('training-plan')}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-bold border border-gray-600 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-800/80 text-white rounded-lg text-sm font-bold border border-gray-800 transition-all"
             >
               <Sparkles size={16} /> 訓練計劃推薦
             </button>
@@ -451,7 +451,7 @@ export default function CalendarView() {
           <button onClick={handleExport} className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600" title="下載雲端資料備份 (CSV)">
             <Download size={16} /> <span className="hidden md:inline">備份</span>
           </button>
-          <div className="flex items-center gap-2 bg-gray-900 rounded-lg p-1">
+          <div className="flex items-center gap-2 bg-surface-900 rounded-lg p-1">
             <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-gray-700 rounded-md text-white"><ChevronLeft size={20}/></button>
             <span className="text-sm md:text-base font-mono text-white min-w-[100px] text-center">{currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</span>
             <button onClick={() => changeMonth(1)} className="p-1 hover:bg-gray-700 rounded-md text-white"><ChevronRight size={20}/></button>
@@ -459,12 +459,12 @@ export default function CalendarView() {
         </div>
       </div>
 
-      <div className="bg-gray-800/50 p-2 rounded-lg text-xs text-gray-400 flex items-center justify-center gap-4">
+      <div className="bg-surface-800/50 p-2 rounded-lg text-xs text-gray-400 flex items-center justify-center gap-4">
         <span className="flex items-center gap-1"><Move size={12}/> 拖曳可移動日期</span>
         <span className="flex items-center gap-1"><Copy size={12}/> 按住 Ctrl 拖曳可複製</span>
       </div>
 
-      <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 p-4 overflow-y-auto">
+      <div className="flex-1 bg-surface-800 rounded-xl border border-gray-800 p-4 overflow-y-auto shadow-lg shadow-black/40">
         <div className="grid grid-cols-7 gap-2 mb-2 text-center text-gray-400 font-bold">
           {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d}>{d}</div>)}
         </div>
@@ -479,7 +479,7 @@ export default function CalendarView() {
             const isDragOver = dragOverDate === dateStr;
             
             // 修正：明確定義變數 (預設灰色)
-            let bgClass = 'bg-gray-900 border-gray-700';
+            let bgClass = 'bg-surface-900 border-gray-800';
             let textClass = 'text-gray-300';
             
             if (isDragOver) {
@@ -537,14 +537,14 @@ export default function CalendarView() {
 
       {isModalOpen && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-             <div className="bg-gray-900 w-full max-w-4xl rounded-2xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
+             <div className="bg-surface-900 w-full max-w-4xl rounded-2xl border border-gray-800 shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b border-gray-800 flex justify-between items-center">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                         <h2 className="text-xl font-bold text-white">
                             {selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日
                         </h2>
-                        {modalView === 'list' && <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">當日清單</span>}
+                        {modalView === 'list' && <span className="text-xs text-gray-500 bg-surface-800 px-2 py-1 rounded">當日清單</span>}
                         {modalView === 'form' && <span className="text-xs text-blue-400 bg-blue-900/20 px-2 py-1 rounded">{currentDocId ? '編輯' : '新增'}</span>}
                         </div>
                     </div>
@@ -561,7 +561,7 @@ export default function CalendarView() {
                                 workouts[formatDate(selectedDate)].map((workout) => {
                                     const usedGear = gears.find(g => g.id === workout.gearId);
                                     return (
-                                    <div key={workout.id} onClick={() => { setCurrentDocId(workout.id); setEditForm(workout); setModalView('form'); }} className="bg-gray-800 p-4 rounded-xl border border-gray-700 cursor-pointer flex justify-between items-center group hover:border-blue-500 transition-colors">
+                                    <div key={workout.id} onClick={() => { setCurrentDocId(workout.id); setEditForm(workout); setModalView('form'); }} className="bg-surface-800 p-4 rounded-xl border border-gray-800 cursor-pointer flex justify-between items-center group hover:border-primary-500 transition-colors">
                                         <div className="flex items-center gap-4">
                                             <div className={`p-3 rounded-lg ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-500' : 'bg-green-500/20 text-green-500'}`}>
                                                 {workout.type === 'run' ? <Activity size={24}/> : <Dumbbell size={24}/>}

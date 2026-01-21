@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge, Calculator } from 'lucide-react';
-import { subscribeGears, createGear, updateGear, deleteGear, listRunLogs } from '../services/calendarService';
+import { createGear, updateGear, deleteGear, listRunLogs } from '../services/calendarService';
 import { getCurrentUser } from '../services/authService';
 import { handleError } from '../services/errorService';
+import { useGears } from '../hooks/useGears';
 
 export default function GearView() {
-  const [gears, setGears] = useState([]);
+  // 使用 Hook 取得裝備清單（實時訂閱）
+  const { gears, loading } = useGears();
   const [runLogs, setRunLogs] = useState([]); 
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingGear, setEditingGear] = useState(null);
 
@@ -22,18 +23,9 @@ export default function GearView() {
     status: 'active' 
   });
 
-  // 1. 讀取裝備列表
+  // 讀取跑步紀錄（用於計算裝備里程）
   useEffect(() => {
-    const unsubscribeGears = subscribeGears((gearData) => {
-      setGears(gearData);
-      setLoading(false);
-    });
-
     fetchRunLogs();
-
-    return () => {
-      if (unsubscribeGears) unsubscribeGears();
-    };
   }, []);
 
   const fetchRunLogs = async () => {
@@ -173,7 +165,7 @@ export default function GearView() {
           if (isRetired) statusColor = "bg-gray-600";
 
           return (
-            <div key={gear.id} className={`bg-gray-800 rounded-2xl border ${isRetired ? 'border-gray-700 opacity-70' : 'border-gray-600'} overflow-hidden relative group`}>
+            <div key={gear.id} className={`bg-surface-800 rounded-2xl border ${isRetired ? 'border-gray-800 opacity-70' : 'border-gray-800'} overflow-hidden relative group shadow-lg shadow-black/40`}>
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <ShoppingBag size={80} />
               </div>
@@ -232,7 +224,7 @@ export default function GearView() {
         {gears.length === 0 && !loading && (
              <div 
                 onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
-                className="bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center p-8 cursor-pointer hover:border-blue-500 hover:bg-gray-800 transition-all group min-h-[200px]"
+                className="bg-surface-800/50 rounded-2xl border-2 border-dashed border-gray-800 flex flex-col items-center justify-center p-8 cursor-pointer hover:border-primary-500 hover:bg-surface-800 transition-all group min-h-[200px]"
              >
                 <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-600 text-gray-400 group-hover:text-white transition-colors">
                    <Plus size={24} />
@@ -244,7 +236,7 @@ export default function GearView() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-900 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl p-6">
+          <div className="bg-surface-900 w-full max-w-md rounded-2xl border border-gray-800 shadow-2xl p-6">
             <h3 className="text-xl font-bold text-white mb-6">
               {editingGear ? '編輯裝備' : '新增裝備'}
             </h3>
@@ -274,7 +266,7 @@ export default function GearView() {
                     value={formData.brand} 
                     onChange={e => setFormData({...formData, brand: e.target.value})}
                     placeholder="Nike"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                   />
                 </div>
                 <div>
@@ -283,7 +275,7 @@ export default function GearView() {
                     value={formData.model} 
                     onChange={e => setFormData({...formData, model: e.target.value})}
                     placeholder="Pegasus 40"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                   />
                 </div>
               </div>
@@ -294,7 +286,7 @@ export default function GearView() {
                     type="date"
                     value={formData.startDate} 
                     onChange={e => setFormData({...formData, startDate: e.target.value})}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                   />
               </div>
 
@@ -305,7 +297,7 @@ export default function GearView() {
                         type="number"
                         value={formData.maxDistance} 
                         onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})}
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                        className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                       />
                   </div>
                   <div>
@@ -314,7 +306,7 @@ export default function GearView() {
                         type="number"
                         value={formData.initialDistance} 
                         onChange={e => setFormData({...formData, initialDistance: e.target.value})}
-                        className="w-full bg-gray-800 border border-blue-500/50 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                        className="w-full bg-surface-800 border border-primary-500/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                         placeholder="例如: 50 或 -10"
                       />
                   </div>
@@ -325,7 +317,7 @@ export default function GearView() {
                   <select 
                     value={formData.status} 
                     onChange={e => setFormData({...formData, status: e.target.value})}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
+                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                   >
                     <option value="active">服役中 (Active)</option>
                     <option value="retired">已退役 (Retired)</option>

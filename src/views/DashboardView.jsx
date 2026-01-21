@@ -4,8 +4,8 @@ import WeatherWidget from '../components/WeatherWidget.jsx';
 // 新增 CalendarClock, CheckCircle2, Circle
 import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight, Share2, Download, FileText, Image } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
-import { listTodayWorkouts } from '../services/calendarService';
 import { getDashboardStats } from '../services/workoutService';
+import { useTodayWorkouts } from '../hooks/useWorkouts';
 import StatCard from '../components/Dashboard/StatCard';
 import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
@@ -42,7 +42,7 @@ export default function DashboardView() {
     longestRun: 0,
     zone2Percent: 0
   });
-  const [todayWorkouts, setTodayWorkouts] = useState([]); // 新增：今日課表狀態
+  const { workouts: todayWorkouts } = useTodayWorkouts(); // 使用 Hook 取得今日課表
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -57,7 +57,6 @@ export default function DashboardView() {
 
   useEffect(() => {
     fetchWorkoutStats();
-    fetchTodaySchedule(); // 新增：讀取今日課表
 
     // 讀取備份提醒狀態（依使用者帳號）
     const user = getCurrentUser();
@@ -66,16 +65,6 @@ export default function DashboardView() {
       setBackupReminder(info);
     }
   }, [userData]);
-
-  // 新增：讀取今日課表邏輯
-  const fetchTodaySchedule = async () => {
-      try {
-          const todays = await listTodayWorkouts();
-          setTodayWorkouts(todays);
-      } catch (e) {
-          console.error("Fetch today schedule failed:", e);
-      }
-  };
 
   const fetchWorkoutStats = async () => {
     setLoading(true);

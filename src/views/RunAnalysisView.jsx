@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
-import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
-import { getApiKey } from '../services/apiKeyService';
 import { saveRunAnalysis } from '../services/analysisService';
 import { handleError } from '../services/errorService';
+import { generateRunAnalysisFeedback } from '../services/ai/analysisService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 
@@ -412,28 +411,18 @@ export default function RunAnalysisView() {
   };
   
   const performAIAnalysis = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { 
-      handleError("請先設定 API Key", { context: 'RunAnalysisView', operation: 'performAIAnalysis' }); 
-      return; 
+    if (!metrics) {
+      handleError("請先完成內部分析", { context: 'RunAnalysisView', operation: 'performAIAnalysis' });
+      return;
     }
     setAnalysisStep('analyzing_ai');
-    
-    const prompt = `
-      角色：專業生物力學分析師。
-      任務：跑姿評分與診斷。
-      綜合評分：${score} 分。
-      數據：${JSON.stringify(metrics)}
-      
-      請依據評分給予鼓勵或警告，並針對低分項目提供修正訓練(Drill)。
-    `;
     try {
-        const response = await runGemini(prompt, apiKey);
-        setAiFeedback(response);
-        setAnalysisStep('ai_complete');
+      const feedback = await generateRunAnalysisFeedback({ score, metrics });
+      setAiFeedback(feedback);
+      setAnalysisStep('ai_complete');
     } catch (e) {
-        setAiFeedback("連線錯誤");
-        setAnalysisStep('internal_complete');
+      setAiFeedback("連線錯誤，請稍後再試。");
+      setAnalysisStep('internal_complete');
     }
   };
 

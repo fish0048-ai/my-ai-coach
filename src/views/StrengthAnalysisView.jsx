@@ -1,14 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy, Loader, ShieldCheck } from 'lucide-react';
-import { runGemini } from '../utils/gemini';
 import { getCurrentUser } from '../services/authService';
-import { getApiKey } from '../services/apiKeyService';
 import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analysisService';
 import { handleError } from '../services/errorService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';
-import { MOVEMENT_ANALYSIS_RULES } from '../services/ai/localAnalysisRules';
+import { generateStrengthAnalysisFeedback } from '../services/ai/analysisService';
 
 // --- 評分組件 ---
 const ScoreGauge = ({ score }) => {
@@ -251,39 +249,18 @@ export default function StrengthAnalysisView() {
   };
 
   const performAIAnalysis = async () => {
-    // 先使用本地規則生成基礎反饋
-    const localFeedback = MOVEMENT_ANALYSIS_RULES.getLocalFeedback(score, metrics, mode);
-    
-    // 如果不需要 AI，直接使用本地反饋
-    if (!localFeedback.needsAI && localFeedback.feedback) {
-      setAiFeedback(localFeedback.feedback);
-      setAnalysisStep('ai_complete');
+    if (!metrics) {
+      handleError("請先完成動作分析", { context: 'StrengthAnalysisView', operation: 'performAIAnalysis' });
       return;
     }
-
-    // 需要 AI 深度分析
-    const apiKey = getApiKey();
-    if (!apiKey) { 
-      handleError("請先設定 API Key", { context: 'StrengthAnalysisView', operation: 'performAIAnalysis' }); 
-      return; 
-    }
     setAnalysisStep('analyzing_ai');
-    
-    const prompt = `
-      角色：專業肌力與體能教練 (CSCS)。
-      任務：分析以下「${mode === 'bench' ? '臥推' : '深蹲'}」資料。
-      評分：${score} 分。
-      資料：${JSON.stringify(metrics)}
-      
-      請給出評分理由與優化建議。200字內，繁體中文。
-    `;
     try {
-        const response = await runGemini(prompt, apiKey);
-        setAiFeedback(response);
-        setAnalysisStep('ai_complete');
+      const feedback = await generateStrengthAnalysisFeedback({ mode, score, metrics });
+      setAiFeedback(feedback);
+      setAnalysisStep('ai_complete');
     } catch (e) {
-        setAiFeedback("連線錯誤");
-        setAnalysisStep('internal_complete');
+      setAiFeedback("連線錯誤，請稍後再試。");
+      setAnalysisStep('internal_complete');
     }
   };
 

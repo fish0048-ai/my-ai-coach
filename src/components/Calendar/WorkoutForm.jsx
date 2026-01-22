@@ -94,22 +94,91 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                     <button onClick={() => setEditForm(prev => ({ ...prev, exercises: [...prev.exercises, { name: '', sets: 3, reps: '10', weight: '', targetMuscle: '' }] }))} className="w-full py-2 border-2 border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-blue-500 hover:bg-gray-800 rounded-lg text-sm flex items-center justify-center gap-2 transition-all"><Plus size={16} /> 新增動作</button>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
+                    {/* 跑步類型選擇 */}
                     <div className="space-y-1">
-                        <label className="text-xs text-gray-400 flex items-center gap-1">距離 (km)</label>
-                        <input type="number" step="0.01" value={editForm.runDistance} onChange={e => setEditForm({...editForm, runDistance: e.target.value})} placeholder="0.00" className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold font-mono focus:border-orange-500 outline-none" />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs text-gray-400 flex items-center gap-1">時間 (分鐘)</label>
-                        <input type="number" step="1" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} placeholder="0" className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold font-mono focus:border-orange-500 outline-none" />
-                    </div>
-                    <div className="col-span-2 bg-gray-800 p-3 rounded-lg border border-gray-600 flex justify-between items-center">
-                        <span className="text-xs text-gray-400">平均配速</span>
-                        <div className="flex items-center gap-2 text-orange-400 font-mono font-bold text-lg">
-                            <Timer size={16} />
-                            {editForm.runPace || "--'--\" /km"}
+                        <label className="text-xs text-gray-400 flex items-center gap-1">跑步類型</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[
+                                { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600' },
+                                { value: 'Interval', label: '🐇 間歇', color: 'bg-red-600' },
+                                { value: 'LSD', label: '🐢 LSD', color: 'bg-orange-600' },
+                                { value: 'MP', label: '🔥 MP', color: 'bg-yellow-600' }
+                            ].map(type => (
+                                <button
+                                    key={type.value}
+                                    onClick={() => setEditForm({...editForm, runType: type.value})}
+                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                                        editForm.runType === type.value 
+                                            ? `${type.color} text-white shadow-lg` 
+                                            : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                    }`}
+                                >
+                                    {type.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
+
+                    {/* 基本資料 */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-xs text-gray-400 flex items-center gap-1">距離 (km)</label>
+                            <input type="number" step="0.01" value={editForm.runDistance} onChange={e => setEditForm({...editForm, runDistance: e.target.value})} placeholder="0.00" className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold font-mono focus:border-orange-500 outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs text-gray-400 flex items-center gap-1">時間 (分鐘)</label>
+                            <input type="number" step="1" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} placeholder="0" className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold font-mono focus:border-orange-500 outline-none" />
+                        </div>
+                        <div className="col-span-2 bg-gray-800 p-3 rounded-lg border border-gray-600 flex justify-between items-center">
+                            <span className="text-xs text-gray-400">平均配速</span>
+                            <div className="flex items-center gap-2 text-orange-400 font-mono font-bold text-lg">
+                                <Timer size={16} />
+                                {editForm.runPace || "--'--\" /km"}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 間歇跑專用欄位 */}
+                    {editForm.runType === 'Interval' && (
+                        <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 space-y-3">
+                            <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
+                                <Zap size={14} />
+                                間歇跑設定
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">組數</label>
+                                    <input 
+                                        type="number" 
+                                        step="1" 
+                                        min="1"
+                                        value={editForm.runIntervalSets} 
+                                        onChange={e => setEditForm({...editForm, runIntervalSets: e.target.value})} 
+                                        placeholder="例：8" 
+                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">休息時間 (秒)</label>
+                                    <input 
+                                        type="number" 
+                                        step="1" 
+                                        min="0"
+                                        value={editForm.runIntervalRest} 
+                                        onChange={e => setEditForm({...editForm, runIntervalRest: e.target.value})} 
+                                        placeholder="例：90" 
+                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                    />
+                                </div>
+                            </div>
+                            {editForm.runIntervalSets && editForm.runIntervalRest && (
+                                <div className="text-xs text-gray-400 bg-gray-900/50 p-2 rounded border border-gray-700">
+                                    <span className="text-red-400 font-bold">訓練內容：</span> {editForm.runIntervalSets} 組 × 休息 {editForm.runIntervalRest} 秒
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

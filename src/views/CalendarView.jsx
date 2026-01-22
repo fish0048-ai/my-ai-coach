@@ -40,7 +40,8 @@ export default function CalendarView() {
 
   const [editForm, setEditForm] = useState({
     status: 'completed', type: 'strength', title: '', exercises: [], 
-    runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '' 
+    runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
+    runType: '', runIntervalSets: '', runIntervalRest: '' // 間歇跑相關欄位
   });
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -304,7 +305,8 @@ export default function CalendarView() {
     const isFuture = dateStr > todayStr;
     setEditForm({
       status: isFuture ? 'planned' : 'completed', type: 'strength', title: '', exercises: [], 
-      runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: ''
+      runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
+      runType: '', runIntervalSets: '', runIntervalRest: '' // 間歇跑相關欄位
     });
     setCurrentDocId(null); setModalView('form');
   };
@@ -313,7 +315,8 @@ export default function CalendarView() {
       status: workout.status || 'completed', type: workout.type || 'strength', title: workout.title || '',
       exercises: workout.exercises || [], runDistance: workout.runDistance || '', runDuration: workout.runDuration || '',
       runPace: workout.runPace || '', runPower: workout.runPower || '', runHeartRate: workout.runHeartRate || '',
-      runRPE: workout.runRPE || '', notes: workout.notes || '', calories: workout.calories || '', gearId: workout.gearId || ''
+      runRPE: workout.runRPE || '', notes: workout.notes || '', calories: workout.calories || '', gearId: workout.gearId || '',
+      runType: workout.runType || '', runIntervalSets: workout.runIntervalSets || '', runIntervalRest: workout.runIntervalRest || '' // 間歇跑相關欄位
     });
     setCurrentDocId(workout.id); setModalView('form');
   };
@@ -510,10 +513,18 @@ export default function CalendarView() {
                                 workout.status === 'planned' ? 'border border-blue-500/50 text-blue-300 border-dashed' :
                                 isRun ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'
                             }`}
-                            title={workout.title}
+                            title={
+                                workout.title + 
+                                (isRun && workout.runType === 'Interval' && workout.runIntervalSets 
+                                    ? ` | ${workout.runIntervalSets}組 × 休息${workout.runIntervalRest}秒` 
+                                    : '')
+                            }
                         >
                             {workout.status === 'planned' && <Clock size={8} />}
                             {workout.title || (isRun ? '跑步' : '訓練')}
+                            {isRun && workout.runType === 'Interval' && workout.runIntervalSets && (
+                                <span className="text-[9px] opacity-75">({workout.runIntervalSets}組)</span>
+                            )}
                         </div>
                     );
                   })}
@@ -568,7 +579,12 @@ export default function CalendarView() {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-white">{workout.title}</h3>
-                                                <p className="text-xs text-gray-400">{workout.type === 'run' ? `${workout.runDistance}km` : `${workout.exercises?.length}動作`}</p>
+                                                <p className="text-xs text-gray-400">
+                                                    {workout.type === 'run' 
+                                                        ? `${workout.runDistance}km${workout.runType === 'Interval' && workout.runIntervalSets ? ` | ${workout.runIntervalSets}組 × 休息${workout.runIntervalRest}秒` : ''}`
+                                                        : `${workout.exercises?.length}動作`
+                                                    }
+                                                </p>
                                                 {usedGear && <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300"><ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}</div>}
                                             </div>
                                         </div>

@@ -177,7 +177,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                         type="text" 
                                         value={editForm.runIntervalPace || ''} 
                                         onChange={e => setEditForm({...editForm, runIntervalPace: e.target.value})} 
-                                        placeholder="例：4'00\" /km" 
+                                        placeholder="例：4'00&quot; /km" 
                                         className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
                                     />
                                 </div>

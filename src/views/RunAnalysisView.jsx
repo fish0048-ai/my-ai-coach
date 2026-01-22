@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { saveRunAnalysis } from '../services/analysisService';
 import { handleError } from '../services/errorService';
 import { generateRunAnalysisFeedback } from '../services/ai/analysisService';
 import { usePoseDetection } from '../hooks/usePoseDetection';
-import { computeJointAngle, calculateRealHipExtension, processRunScanData } from '../services/analysis/poseAnalysis';
+import { computeJointAngle, calculateRealHipExtension, processRunScanData, performFullVideoScan } from '../services/analysis/poseAnalysis';
 import { calculateRunScore } from '../services/analysis/metricsCalculator';
+import { initDrawingUtils, createRunPoseCallback } from '../services/analysis/poseDrawing';
 
 // 分數圈圈
 const ScoreGauge = ({ score }) => {
@@ -65,141 +66,7 @@ export default function RunAnalysisView() {
   const [realtimeAngle, setRealtimeAngle] = useState(0); 
   const [hipExtensionAngle, setHipExtensionAngle] = useState(0); 
 
-  const drawHipDriveOverlay = (ctx, hip, knee, isFacingRight, currentAngle) => {
-      if (!hip || !knee) return;
-      const w = ctx.canvas.width;
-      const h = ctx.canvas.height;
-      if (!Number.isFinite(hip.x) || !Number.isFinite(hip.y)) return;
-      const hipX = hip.x * w;
-      const hipY = hip.y * h;
-      const kneeX = knee.x * w;
-      const kneeY = knee.y * h;
-      const thighLen = Math.sqrt(Math.pow(kneeX - hipX, 2) + Math.pow(kneeY - hipY, 2));
-      const radius = thighLen * 1.2; 
-      if (!Number.isFinite(radius) || radius <= 0) return;
-
-      ctx.save(); 
-      try {
-          ctx.translate(hipX, hipY);
-          ctx.shadowColor = "rgba(0, 0, 0, 1)";
-          ctx.shadowBlur = 10;
-          ctx.shadowOffsetX = 2;
-          ctx.shadowOffsetY = 2;
-
-          // 參考線
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(0, radius);
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-          ctx.setLineDash([4, 4]);
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          // 扇形
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          const startAngle = Math.PI/2; 
-          const minDrive = 20 * Math.PI/180; 
-          const maxDrive = 60 * Math.PI/180; 
-          const isGood = currentAngle >= 20;
-
-          if (isFacingRight) {
-              ctx.arc(0, 0, radius, startAngle - maxDrive, startAngle - minDrive);
-          } else {
-              ctx.arc(0, 0, radius, startAngle + minDrive, startAngle + maxDrive);
-          }
-
-          ctx.lineTo(0, 0);
-          ctx.fillStyle = isGood ? 'rgba(251, 191, 36, 0.5)' : 'rgba(34, 197, 94, 0.3)'; 
-          ctx.fill();
-          
-          ctx.strokeStyle = isGood ? '#fbbf24' : '#22c55e';
-          ctx.setLineDash([]);
-          ctx.lineWidth = 3; 
-          ctx.stroke();
-
-          // 高亮大腿
-          const vecX = kneeX - hipX;
-          const vecY = kneeY - hipY;
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(vecX, vecY);
-          ctx.strokeStyle = isGood ? '#fbbf24' : '#ef4444'; 
-          ctx.lineWidth = 6;
-          ctx.lineCap = 'round';
-          ctx.stroke();
-
-          const labelDist = radius + 30;
-          const labelAngle = isFacingRight ? (Math.PI/2 - 40*Math.PI/180) : (Math.PI/2 + 40*Math.PI/180);
-          const labelX = Math.cos(labelAngle) * labelDist;
-          const labelY = Math.sin(labelAngle) * labelDist;
-
-          if (Number.isFinite(labelX) && Number.isFinite(labelY)) {
-              ctx.font = 'bold 16px sans-serif';
-              ctx.textAlign = 'center';
-              ctx.shadowColor = "black";
-              ctx.shadowBlur = 4;
-              ctx.fillStyle = isGood ? '#fbbf24' : '#ef4444'; 
-              ctx.fillText(`${currentAngle}°`, labelX, labelY);
-          }
-      } catch(err) {} finally { ctx.restore(); }
-  };
-
-  // --- Main Pose Callback ---
-  const onPoseResults = (results) => {
-    // 掃描模式：存資料
-    if (isScanningRef.current && results.poseLandmarks) {
-        fullScanDataRef.current.push({
-            timestamp: videoRef.current ? videoRef.current.currentTime : 0,
-            landmarks: results.poseLandmarks
-        });
-    }
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.save();
-    try {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (results.poseLandmarks && drawingUtils && poseConnections) {
-            if (showSkeletonRef.current) {
-                drawingUtils.drawConnectors(ctx, results.poseLandmarks, poseConnections, { color: '#00FF00', lineWidth: 2 }); 
-                drawingUtils.drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 }); 
-            }
-
-            let angle = 0;
-            let hipDrive = 0;
-            
-            if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
-                angle = computeJointAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
-            }
-            
-            if (results.poseLandmarks[12] && results.poseLandmarks[24] && results.poseLandmarks[26]) {
-                hipDrive = calculateRealHipExtension(results.poseLandmarks);
-                
-                if (showIdealFormRef.current) {
-                    const nose = results.poseLandmarks[0];
-                    const shoulder = results.poseLandmarks[12];
-                    const isFacingRight = nose && shoulder ? nose.x > shoulder.x : true;
-                    drawHipDriveOverlay(ctx, results.poseLandmarks[24], results.poseLandmarks[26], isFacingRight, Math.round(hipDrive));
-                }
-            }
-            
-            // 節流 UI 更新
-            const now = Date.now();
-            if (now - lastUiUpdateRef.current > 100) { 
-                setHipExtensionAngle(Math.round(hipDrive));
-                setRealtimeAngle(angle);
-                lastUiUpdateRef.current = now;
-            }
-        }
-    } catch(e) { console.error("Canvas error:", e); } finally { ctx.restore(); }
-  };
-
-  // 使用 Custom Hook（延遲加載 MediaPipe）
-  const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
+  // drawHipDriveOverlay 已移至 poseDrawing.js 服務
 
   // 延遲加載 MediaPipe 繪圖工具
   const [drawingUtils, setDrawingUtils] = useState(null);
@@ -207,16 +74,41 @@ export default function RunAnalysisView() {
 
   useEffect(() => {
     if (poseModel && !drawingUtils) {
-      // 動態導入 MediaPipe 繪圖工具
-      Promise.all([
-        import('@mediapipe/drawing_utils').then(m => m),
-        import('@mediapipe/pose').then(m => m.POSE_CONNECTIONS)
-      ]).then(([drawing, connections]) => {
-        setDrawingUtils(drawing);
-        setPoseConnections(connections);
-      }).catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
+      // 使用新的繪圖服務初始化
+      initDrawingUtils()
+        .then(({ drawingUtils: drawing, poseConnections: connections }) => {
+          setDrawingUtils(drawing);
+          setPoseConnections(connections);
+        })
+        .catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
     }
   }, [poseModel, drawingUtils]);
+
+  // --- Main Pose Callback ---
+  // 使用新的繪圖服務建立回調（使用 useMemo 確保依賴正確）
+  const onPoseResults = useMemo(() => {
+    if (drawingUtils && poseConnections) {
+      return createRunPoseCallback({
+        canvasRef,
+        setRealtimeAngle,
+        setHipExtensionAngle,
+        showSkeletonRef,
+        showIdealFormRef,
+        isScanningRef,
+        fullScanDataRef,
+        videoRef,
+        lastUiUpdateRef,
+        drawingUtils,
+        poseConnections,
+        computeJointAngle,
+        calculateRealHipExtension
+      });
+    }
+    return () => {}; // 如果繪圖工具未載入，使用空函數
+  }, [drawingUtils, poseConnections]);
+
+  // 使用 Custom Hook（延遲加載 MediaPipe）
+  const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
 
   // --- Video Loop & Scan Logic ---
   const processFrame = async () => {
@@ -271,48 +163,38 @@ export default function RunAnalysisView() {
     if (!video || !poseModel) return;
 
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    // 重置並設定選項
-    if (poseModel.reset) await poseModel.reset(); 
 
     setAnalysisStep('scanning');
     setScanProgress(0);
     fullScanDataRef.current = [];
     isScanningRef.current = true;
 
-    poseModel.setOptions({ 
-        modelComplexity: 1, 
-        smoothLandmarks: false, // 關閉平滑
-        enableSegmentation: false,
-        smoothSegmentation: false
-    });
-
-    video.pause();
-    const duration = video.duration;
-    
-    for (let t = 0; t <= duration; t += 0.1) {
-        if (!isScanningRef.current) break; 
-        video.currentTime = t;
-        
-        await new Promise(resolve => {
-            const onSeek = () => { video.removeEventListener('seeked', onSeek); setTimeout(resolve, 50); };
-            video.addEventListener('seeked', onSeek);
-            setTimeout(onSeek, 500); 
-        });
-
-        if (video.readyState >= 2 && video.videoWidth > 0) {
-             try { await poseModel.send({ image: video }); } catch(e) {}
+    try {
+      // 使用新的掃描服務
+      await performFullVideoScan(
+        video,
+        poseModel,
+        (progress) => {
+          setScanProgress(progress);
+        },
+        (landmarks, timestamp) => {
+          // 在 onPoseResults 回調中已經處理，這裡不需要額外處理
         }
-        setScanProgress(Math.round((t / duration) * 100));
+      );
+
+      // 處理掃描資料
+      const computedMetrics = processRunScanData(fullScanDataRef.current);
+      if (computedMetrics) {
+        setMetrics(computedMetrics);
+        setScore(calculateRunScore(computedMetrics));
+      }
+      setAnalysisStep('internal_complete');
+    } catch (error) {
+      handleError(error, { context: 'RunAnalysisView', operation: 'startFullVideoScan' });
+      setAnalysisStep('idle');
+    } finally {
+      isScanningRef.current = false;
     }
-
-    isScanningRef.current = false;
-    poseModel.setOptions({ smoothLandmarks: true }); 
-
-    const computedMetrics = processRunScanData(fullScanDataRef.current);
-    setMetrics(computedMetrics);
-    setScore(calculateRunScore(computedMetrics));
-    setAnalysisStep('internal_complete');
-    video.currentTime = 0;
   };
 
   const handleUploadClick = () => fileInputRef.current?.click();
@@ -339,7 +221,6 @@ export default function RunAnalysisView() {
         handleError(error.message || "FIT 解析失敗", { context: 'RunAnalysisView', operation: 'handleFitAnalysis' });
         setAnalysisStep('idle');
       }
-      reader.readAsArrayBuffer(file);
   };
   
   const performAIAnalysis = async () => {

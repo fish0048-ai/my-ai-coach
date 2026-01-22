@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Dumbbell, Trophy, Loader, ShieldCheck } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analysisService';
@@ -7,8 +7,9 @@ import { handleError } from '../services/errorService';
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';
 import { generateStrengthAnalysisFeedback } from '../services/ai/analysisService';
-import { computeJointAngle } from '../services/analysis/poseAnalysis';
+import { analyzePoseAngle } from '../services/analysis/poseAnalysis';
 import { calculateStrengthScore } from '../services/analysis/metricsCalculator';
+import { initDrawingUtils, createStrengthPoseCallback } from '../services/analysis/poseDrawing';
 
 // --- 評分組件 ---
 const ScoreGauge = ({ score }) => {
@@ -61,76 +62,41 @@ export default function StrengthAnalysisView() {
   const [loadingCorrection, setLoadingCorrection] = useState(false);
   const [deviationAnalysis, setDeviationAnalysis] = useState(null); 
 
-  // --- MediaPipe Callback ---
-  const onPoseResults = (results) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.save();
-    try {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (results.poseLandmarks && drawingUtils && poseConnections) {
-            if (showSkeletonRef.current) {
-                drawingUtils.drawConnectors(ctx, results.poseLandmarks, poseConnections, { color: '#00FF00', lineWidth: 3 }); 
-                drawingUtils.drawLandmarks(ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 2, radius: 4 }); 
-            }
-
-            let angle = 0;
-            const currentMode = modeRef.current;
-
-            if (currentMode === 'bench') {
-                if (results.poseLandmarks[12] && results.poseLandmarks[14] && results.poseLandmarks[16]) {
-                    angle = computeJointAngle(results.poseLandmarks[12], results.poseLandmarks[14], results.poseLandmarks[16]);
-                    
-                    const elbow = results.poseLandmarks[14];
-                    if (showSkeletonRef.current) {
-                        ctx.fillStyle = '#fbbf24';
-                        ctx.font = 'bold 20px Arial';
-                        ctx.fillText(`${angle}°`, elbow.x * canvas.width + 15, elbow.y * canvas.height);
-                    }
-                }
-            } else {
-                if (results.poseLandmarks[24] && results.poseLandmarks[26] && results.poseLandmarks[28]) {
-                    angle = computeJointAngle(results.poseLandmarks[24], results.poseLandmarks[26], results.poseLandmarks[28]);
-                    
-                    const knee = results.poseLandmarks[26];
-                    if (showSkeletonRef.current) {
-                        ctx.fillStyle = '#fbbf24';
-                        ctx.font = 'bold 20px Arial';
-                        ctx.fillText(`${angle}°`, knee.x * canvas.width + 15, knee.y * canvas.height);
-                    }
-                }
-            }
-            setRealtimeAngle(angle);
-        }
-    } catch(e) {
-        console.error("Canvas error", e);
-    } finally {
-        ctx.restore();
-    }
-  };
-
-  // 使用 Hook（延遲加載 MediaPipe）
-  const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
-
   // 延遲加載 MediaPipe 繪圖工具
   const [drawingUtils, setDrawingUtils] = useState(null);
   const [poseConnections, setPoseConnections] = useState(null);
 
   useEffect(() => {
     if (poseModel && !drawingUtils) {
-      // 動態導入 MediaPipe 繪圖工具
-      Promise.all([
-        import('@mediapipe/drawing_utils').then(m => m),
-        import('@mediapipe/pose').then(m => m.POSE_CONNECTIONS)
-      ]).then(([drawing, connections]) => {
-        setDrawingUtils(drawing);
-        setPoseConnections(connections);
-      }).catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
+      // 使用新的繪圖服務初始化
+      initDrawingUtils()
+        .then(({ drawingUtils: drawing, poseConnections: connections }) => {
+          setDrawingUtils(drawing);
+          setPoseConnections(connections);
+        })
+        .catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
     }
   }, [poseModel, drawingUtils]);
+
+  // --- MediaPipe Callback ---
+  // 使用新的繪圖服務建立回調（使用 useMemo 確保依賴正確）
+  const onPoseResults = useMemo(() => {
+    if (drawingUtils && poseConnections) {
+      return createStrengthPoseCallback({
+        canvasRef,
+        setRealtimeAngle,
+        showSkeletonRef,
+        modeRef,
+        drawingUtils,
+        poseConnections,
+        analyzePoseAngle
+      });
+    }
+    return () => {}; // 如果繪圖工具未載入，使用空函數
+  }, [drawingUtils, poseConnections]);
+
+  // 使用 Hook（延遲加載 MediaPipe）
+  const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
 
   const onVideoPlay = () => {
       const video = videoRef.current;
@@ -187,7 +153,6 @@ export default function StrengthAnalysisView() {
       handleError(error.message || "FIT 解析失敗", { context: 'StrengthAnalysisView', operation: 'handleFitAnalysis' });
       setAnalysisStep('idle');
     }
-    reader.readAsArrayBuffer(file);
   };
 
   const performInternalAnalysis = () => {

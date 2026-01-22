@@ -1,5 +1,5 @@
 // --- 總教練 (Head Coach) - 單日排程 ---
-export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyStats) => {
+export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyStats, preferredRunType = null) => {
   const dateObj = new Date(targetDate);
   const dayOfWeek = dateObj.getDay(); 
   
@@ -9,13 +9,25 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
   const currentDist = monthlyStats.currentDist || 0;
   const gapStatus = currentDist < target80 ? "落後進度" : "進度良好";
 
+  // 跑步類型對應說明
+  const runTypeMap = {
+    'Easy': '輕鬆跑（恢復跑，Zone 2 心率）',
+    'Interval': '間歇跑（高強度間歇訓練）',
+    'LSD': '長距離慢跑（Long Slow Distance）',
+    'MP': '馬拉松配速跑（Marathon Pace）'
+  };
+
+  const runTypeInstruction = preferredRunType 
+    ? `\n    **重要**：使用者已指定跑步類型為「${runTypeMap[preferredRunType] || preferredRunType}」，請務必生成此類型的跑步課表。`
+    : '';
+
   return `
     角色：你是使用者的「健身總教練」，負責協調重訓與跑步。
     
     [使用者狀態]
     - 目標：${userProfile.goal}
     - 本月跑量：${currentDist.toFixed(1)} km (${gapStatus})
-    - 安排日期：${targetDate} (週${dayOfWeek})
+    - 安排日期：${targetDate} (週${dayOfWeek})${runTypeInstruction}
     
     [近期紀錄]
     ${recentLogs}
@@ -26,6 +38,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
        - 平日(週一~五)時間限制在 **60分鐘** 內。
        - 週日優先安排 LSD。
        - **數據一致性**：請確保「距離 (km)」x「配速 (min/km)」約等於「總時間 (min)」。
+       ${preferredRunType ? `- **使用者偏好**：請生成「${preferredRunType}」類型的跑步課表。` : ''}
     3. **重訓規則**：必須包含 5 個動作，標註肌群。
 
     [輸出任務]

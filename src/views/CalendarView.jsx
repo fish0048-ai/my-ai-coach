@@ -113,7 +113,7 @@ export default function CalendarView() {
       } catch (err) { console.error(err); }
   };
 
-  const handleHeadCoachGenerate = async () => {
+  const handleHeadCoachGenerate = async (preferredRunType = null) => {
     const user = getCurrentUser();
     if (!user) {
       handleError('請先登入', { context: 'CalendarView', operation: 'handleHeadCoachGenerate' });
@@ -124,7 +124,8 @@ export default function CalendarView() {
     try {
       const plan = await generateDailyWorkout({
         selectedDate,
-        monthlyMileage
+        monthlyMileage,
+        preferredRunType // 傳遞用戶選擇的跑步類型
       });
 
       setEditForm(prev => ({

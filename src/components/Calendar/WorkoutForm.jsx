@@ -48,8 +48,42 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                 className="w-full bg-gray-800 text-white text-lg font-bold border border-gray-700 rounded-xl px-4 py-3 focus:border-blue-500 outline-none" 
             />
             
+            {/* 跑步類型選擇（僅在跑步模式下顯示） */}
+            {editForm.type === 'run' && (
+                <div className="space-y-2">
+                    <label className="text-xs text-gray-400 flex items-center gap-1">選擇跑步類型（AI 將依此生成課表）</label>
+                    <div className="grid grid-cols-4 gap-2">
+                        {[
+                            { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600', selected: editForm.runType === 'Easy' },
+                            { value: 'Interval', label: '🐇 間歇', color: 'bg-red-600', selected: editForm.runType === 'Interval' },
+                            { value: 'LSD', label: '🐢 LSD', color: 'bg-orange-600', selected: editForm.runType === 'LSD' },
+                            { value: 'MP', label: '🔥 MP', color: 'bg-yellow-600', selected: editForm.runType === 'MP' }
+                        ].map(type => (
+                            <button
+                                key={type.value}
+                                type="button"
+                                onClick={() => setEditForm({...editForm, runType: type.value})}
+                                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                                    type.selected 
+                                        ? `${type.color} text-white shadow-lg` 
+                                        : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                }`}
+                            >
+                                {type.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="text-xs text-gray-500 bg-gray-900/50 p-2 rounded border border-gray-700">
+                        {editForm.runType 
+                            ? `已選擇：${editForm.runType === 'Easy' ? '輕鬆跑' : editForm.runType === 'Interval' ? '間歇跑' : editForm.runType === 'LSD' ? '長距離跑' : '馬拉松配速跑'}`
+                            : '可選：不選擇則由 AI 自動決定'
+                        }
+                    </div>
+                </div>
+            )}
+            
             <button 
-                onClick={handleHeadCoachGenerate} 
+                onClick={() => handleHeadCoachGenerate(editForm.runType)} 
                 disabled={isGenerating} 
                 className={`w-full text-white px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 border border-white/10 shadow-lg ${editForm.type === 'run' ? 'bg-gradient-to-r from-orange-600 to-red-600' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}
             >

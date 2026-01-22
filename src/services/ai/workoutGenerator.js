@@ -18,9 +18,10 @@ import { handleError } from '../errorService';
  * @param {Object} params - 參數物件
  * @param {Date|string} params.selectedDate - 選擇的日期
  * @param {number} params.monthlyMileage - 本月跑量
+ * @param {string} [params.preferredRunType] - 偏好的跑步類型 (Easy/Interval/LSD/MP)，可選
  * @returns {Promise<Object>} 生成的訓練計畫物件，包含 type, title, advice, exercises, runDistance, runDuration, runPace, runHeartRate
  */
-export const generateDailyWorkout = async ({ selectedDate, monthlyMileage }) => {
+export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, preferredRunType = null }) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     const error = new Error('請先設定 API Key');
@@ -34,7 +35,7 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage }) => 
     const monthlyStats = { currentDist: monthlyMileage };
     const targetDateStr = formatDate(selectedDate);
     
-    let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats);
+    let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats, preferredRunType);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON.";
     const response = await runGemini(prompt, apiKey);
     const plan = parseLLMJson(response, { rootType: 'object' });

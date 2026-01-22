@@ -321,29 +321,24 @@ export default function RunAnalysisView() {
       setIsFitMode(true);
       setVideoFile(null);
       
-      // 動態導入 FitParser，延遲加載
-      const FitParser = (await import('fit-file-parser')).default;
-      
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const fitParser = new FitParser({ force: true, speedUnit: 'km/h', lengthUnit: 'km', temperatureUnit: 'celsius', elapsedRecordField: true });
-        fitParser.parse(event.target.result, (error, data) => {
-            if (error || !data) { 
-              handleError("FIT 解析失敗", { context: 'RunAnalysisView', operation: 'handleFitAnalysis' }); 
-              setAnalysisStep('idle'); 
-              return; 
-            }
-            setTimeout(() => {
-                const fitMetrics = { 
-                    cadence: { label: 'FIT 步頻', value: '180', unit: 'spm', status: 'good', icon: Activity },
-                    hipDrive: { label: '送髖 (無影像)', value: '0', unit: '°', status: 'warning', icon: Zap }
-                };
-                setMetrics(fitMetrics);
-                setScore(85); 
-                setAnalysisStep('internal_complete');
-            }, 1000);
-        });
-      };
+      try {
+        // 使用新的 FIT 解析服務
+        const { extractFITMetrics } = await import('../services/import/fitParser');
+        const fitMetrics = await extractFITMetrics(file, 'run');
+        
+        // 添加 icon 屬性
+        const metricsWithIcons = {
+          cadence: { ...fitMetrics.cadence, icon: Activity },
+          hipDrive: { ...fitMetrics.hipDrive, icon: Zap }
+        };
+        
+        setMetrics(metricsWithIcons);
+        setScore(85);
+        setAnalysisStep('internal_complete');
+      } catch (error) {
+        handleError(error.message || "FIT 解析失敗", { context: 'RunAnalysisView', operation: 'handleFitAnalysis' });
+        setAnalysisStep('idle');
+      }
       reader.readAsArrayBuffer(file);
   };
   

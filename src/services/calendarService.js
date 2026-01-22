@@ -247,32 +247,41 @@ export const getUserProfile = async () => {
   return profileSnap.exists() ? profileSnap.data() : null;
 };
 
+/**
+ * 生成行事曆 CSV 資料（用於匯出）
+ * 使用 csvParser 服務的 generateCSVData，並添加裝備和備註欄位
+ * @param {Array} gears - 裝備陣列（可選）
+ * @returns {Promise<string>} CSV 字串
+ */
 export const generateCalendarCSVData = async (gears = []) => {
   const workouts = await listCalendarWorkouts();
-  const headers = ['活動類型', '日期', '標題', '距離', '時間', '平均心率', '平均功率', '卡路里', '總組數', '裝備', '備註'];
-  const rows = [headers];
-
-  workouts.forEach((data) => {
-    const type = data.type === 'run' ? '跑步' : '肌力訓練';
-    let totalSets = 0;
-    if (data.exercises && Array.isArray(data.exercises)) {
-      totalSets = data.exercises.reduce((sum, ex) => sum + (parseInt(ex.sets) || 0), 0);
+  const { generateCSVData } = await import('./import/csvParser');
+  
+  // 使用 csvParser 生成基礎 CSV
+  let csvContent = generateCSVData(workouts, gears);
+  
+  // 添加裝備和備註欄位（擴展功能）
+  const lines = csvContent.split('\n');
+  if (lines.length > 0) {
+    // 更新標題列
+    const headers = lines[0].split(',');
+    if (!headers.includes('"裝備"') && !headers.includes('裝備')) {
+      lines[0] = lines[0].replace(/"總次數"/, '"總次數","裝備","備註"');
     }
-    const gearName = gears.find((g) => g.id === data.gearId)?.model || '';
-    const row = [
-      type, data.date || '', data.title || '', data.runDistance || '', data.runDuration || '',
-      data.runHeartRate || '', data.runPower || '', data.calories || '',
-      totalSets > 0 ? totalSets : '', gearName, data.notes || ''
-    ];
-    const escapedRow = row.map((field) => {
-      const str = String(field ?? '');
-      if (str.includes(',') || str.includes('\n') || str.includes('"')) return `"${str.replace(/"/g, '""')}"`;
-      return str;
-    });
-    rows.push(escapedRow);
-  });
-
-  return "\uFEFF" + rows.map((r) => r.join(",")).join("\n");
+    
+    // 為每筆資料添加裝備和備註
+    for (let i = 1; i < lines.length; i++) {
+      const workout = workouts[i - 1];
+      if (workout) {
+        const gearName = gears.find((g) => g.id === workout.gearId)?.model || '';
+        const notes = workout.notes || '';
+        // 移除行尾的換行符，添加新欄位
+        lines[i] = lines[i].replace(/\r?\n?$/, '') + `,"${gearName.replace(/"/g, '""')}","${notes.replace(/"/g, '""')}"`;
+      }
+    }
+  }
+  
+  return lines.join('\n');
 };
 
 // Gear 相關操作

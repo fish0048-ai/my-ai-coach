@@ -169,29 +169,24 @@ export default function StrengthAnalysisView() {
     setIsFitMode(true);
     setVideoFile(null);
     
-    // 動態導入 FitParser，延遲加載
-    const FitParser = (await import('fit-file-parser')).default;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const fitParser = new FitParser({ force: true, speedUnit: 'km/h', lengthUnit: 'km', temperatureUnit: 'celsius', elapsedRecordField: true });
-        fitParser.parse(event.target.result, (error, data) => {
-            if (error || !data) { 
-              handleError("FIT 解析失敗", { context: 'StrengthAnalysisView', operation: 'handleFitAnalysis' }); 
-              setAnalysisStep('idle'); 
-              return; 
-            }
-            setTimeout(() => {
-                const fitM = {
-                    reps: { label: 'FIT 總次數', value: '12', unit: 'reps', status: 'good', icon: Activity },
-                    weight: { label: 'FIT 平均重量', value: '60', unit: 'kg', status: 'good', icon: Scale },
-                };
-                setMetrics(fitM);
-                setScore(80);
-                setAnalysisStep('internal_complete');
-            }, 1000);
-        });
-    };
+    try {
+      // 使用新的 FIT 解析服務
+      const { extractFITMetrics } = await import('../services/import/fitParser');
+      const fitMetrics = await extractFITMetrics(file, 'strength');
+      
+      // 添加 icon 屬性
+      const metricsWithIcons = {
+        reps: { ...fitMetrics.reps, icon: Activity },
+        weight: { ...fitMetrics.weight, icon: Scale }
+      };
+      
+      setMetrics(metricsWithIcons);
+      setScore(80);
+      setAnalysisStep('internal_complete');
+    } catch (error) {
+      handleError(error.message || "FIT 解析失敗", { context: 'StrengthAnalysisView', operation: 'handleFitAnalysis' });
+      setAnalysisStep('idle');
+    }
     reader.readAsArrayBuffer(file);
   };
 

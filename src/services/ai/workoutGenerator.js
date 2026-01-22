@@ -53,8 +53,9 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, prefe
       runHeartRate: plan.runHeartRate || '',
       runType: plan.runType || '',
       runIntervalSets: plan.runIntervalSets ? String(plan.runIntervalSets) : '',
-      runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '',
       runIntervalPace: plan.runIntervalPace || '', // 每組配速
+      runIntervalDuration: plan.runIntervalDuration ? String(plan.runIntervalDuration) : '', // 維持時間（秒）
+      runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '', // 休息時間（秒）
     };
   } catch (error) {
     handleError(error, { context: 'workoutGenerator', operation: 'generateDailyWorkout' });

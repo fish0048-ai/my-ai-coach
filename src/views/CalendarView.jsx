@@ -41,7 +41,7 @@ export default function CalendarView() {
   const [editForm, setEditForm] = useState({
     status: 'completed', type: 'strength', title: '', exercises: [], 
     runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
-    runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '' // 間歇跑相關欄位
+    runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '' // 間歇跑相關欄位
   });
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -307,7 +307,7 @@ export default function CalendarView() {
     setEditForm({
       status: isFuture ? 'planned' : 'completed', type: 'strength', title: '', exercises: [], 
       runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
-      runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '' // 間歇跑相關欄位
+      runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '' // 間歇跑相關欄位
     });
     setCurrentDocId(null); setModalView('form');
   };
@@ -517,7 +517,7 @@ export default function CalendarView() {
                             title={
                                 workout.title + 
                                 (isRun && workout.runType === 'Interval' && workout.runIntervalSets 
-                                    ? ` | ${workout.runIntervalSets}組 × 休息${workout.runIntervalRest}秒${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}` 
+                                    ? ` | ${workout.runIntervalSets}組${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
                                     : '')
                             }
                         >
@@ -584,7 +584,7 @@ export default function CalendarView() {
                                                     {workout.type === 'run' 
                                                         ? `${workout.runDistance}km${
                                                             workout.runType === 'Interval' && workout.runIntervalSets 
-                                                                ? ` | ${workout.runIntervalSets}組 × 休息${workout.runIntervalRest}秒${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}` 
+                                                                ? ` | ${workout.runIntervalSets}組${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
                                                                 : ''
                                                           }`
                                                         : `${workout.exercises?.length}動作`

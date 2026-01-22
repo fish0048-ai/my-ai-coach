@@ -57,8 +57,9 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
       
       // 間歇跑專用欄位 (僅當 runType === "Interval" 時填寫)
       "runIntervalSets": 數字 (例: 8, 表示幾組),
-      "runIntervalRest": 數字 (例: 90, 表示休息幾秒),
       "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示每組配速)",
+      "runIntervalDuration": 數字 (例: 60, 表示每組維持時間，單位：秒),
+      "runIntervalRest": 數字 (例: 90, 表示休息幾秒),
 
       // 重訓欄位
       "exercises": [
@@ -131,8 +132,9 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
       "runDuration": 20,
       "runPace": "5'00\" /km",  // 平均配速
       "runIntervalSets": 8,     // 8組
-      "runIntervalRest": 90,    // 休息90秒
-      "runIntervalPace": "4'00\" /km"  // 每組配速
+      "runIntervalPace": "4'00\" /km",  // 每組配速
+      "runIntervalDuration": 60,  // 每組維持60秒
+      "runIntervalRest": 90    // 休息90秒
     }
     
     Output ONLY JSON. No Markdown.

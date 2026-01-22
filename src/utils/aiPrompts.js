@@ -41,6 +41,11 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
       "runDuration": 數字 (例: 30),
       "runPace": 字串 (例: "5'30\" /km"),
       "runHeartRate": 字串 (例: "140-150"),
+      
+      // 間歇跑專用欄位 (僅當 runType === "Interval" 時填寫)
+      "runIntervalSets": 數字 (例: 8, 表示幾組),
+      "runIntervalRest": 數字 (例: 90, 表示休息幾秒),
+      "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示每組配速)",
 
       // 重訓欄位
       "exercises": [
@@ -95,9 +100,28 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
         "advice": "規劃理由",
         "runType": "LSD" | "Interval" | "Easy" | "MP",
         "runDistance": 數字, "runDuration": 數字, "runPace": "字串", "runHeartRate": "字串",
+        // 間歇跑專用欄位 (僅當 runType === "Interval" 時填寫)
+        "runIntervalSets": 數字 (例: 8, 表示幾組),
+        "runIntervalRest": 數字 (例: 90, 表示休息幾秒),
+        "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示每組配速)",
         "exercises": [{ "name": "...", "targetMuscle": "...", "sets": "...", "reps": "...", "weight": "..." }]
       }
     ]
+    
+    [間歇跑範例]
+    如果是間歇跑，請提供完整資訊：
+    {
+      "type": "run",
+      "runType": "Interval",
+      "title": "400m 間歇跑",
+      "runDistance": 3.2,
+      "runDuration": 20,
+      "runPace": "5'00\" /km",  // 平均配速
+      "runIntervalSets": 8,     // 8組
+      "runIntervalRest": 90,    // 休息90秒
+      "runIntervalPace": "4'00\" /km"  // 每組配速
+    }
+    
     Output ONLY JSON. No Markdown.
   `;
 };

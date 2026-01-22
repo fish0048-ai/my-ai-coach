@@ -146,7 +146,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                 <Zap size={14} />
                                 間歇跑設定
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-xs text-gray-400 flex items-center gap-1">組數</label>
                                     <input 
@@ -171,10 +171,23 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                         className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
                                     />
                                 </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">每組配速</label>
+                                    <input 
+                                        type="text" 
+                                        value={editForm.runIntervalPace || ''} 
+                                        onChange={e => setEditForm({...editForm, runIntervalPace: e.target.value})} 
+                                        placeholder="例：4'00\" /km" 
+                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                    />
+                                </div>
                             </div>
                             {editForm.runIntervalSets && editForm.runIntervalRest && (
                                 <div className="text-xs text-gray-400 bg-gray-900/50 p-2 rounded border border-gray-700">
                                     <span className="text-red-400 font-bold">訓練內容：</span> {editForm.runIntervalSets} 組 × 休息 {editForm.runIntervalRest} 秒
+                                    {editForm.runIntervalPace && (
+                                        <span className="ml-2 text-red-300">每組配速：{editForm.runIntervalPace}</span>
+                                    )}
                                 </div>
                             )}
                         </div>

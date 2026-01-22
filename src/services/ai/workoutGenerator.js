@@ -50,6 +50,10 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage }) => 
       runDuration: cleanNumber(plan.runDuration),
       runPace: plan.runPace || '',
       runHeartRate: plan.runHeartRate || '',
+      runType: plan.runType || '',
+      runIntervalSets: plan.runIntervalSets ? String(plan.runIntervalSets) : '',
+      runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '',
+      runIntervalPace: plan.runIntervalPace || '', // 每組配速
     };
   } catch (error) {
     handleError(error, { context: 'workoutGenerator', operation: 'generateDailyWorkout' });
@@ -109,6 +113,10 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
         runDuration: cleanNumber(plan.runDuration),
         runPace: plan.runPace || '',
         runHeartRate: plan.runHeartRate || '',
+        runType: plan.runType || '',
+        runIntervalSets: plan.runIntervalSets ? String(plan.runIntervalSets) : '',
+        runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '',
+        runIntervalPace: plan.runIntervalPace || '', // 每組配速
         updatedAt: new Date().toISOString()
       }));
   } catch (error) {

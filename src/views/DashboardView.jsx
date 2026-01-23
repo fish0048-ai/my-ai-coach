@@ -6,6 +6,7 @@ import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarCha
 import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
 import { useTodayWorkouts } from '../hooks/useWorkouts';
+import { useWorkoutStore } from '../store/workoutStore';
 import StatCard from '../components/Dashboard/StatCard';
 import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
@@ -30,6 +31,11 @@ export default function DashboardView() {
   // 使用 zustand store 獲取全局狀態
   const userData = useUserStore((state) => state.userData);
   const setCurrentView = useViewStore((state) => state.setCurrentView);
+  
+  // 使用響應式 Store 獲取訓練資料
+  const { workouts: allWorkouts } = useWorkoutStore();
+  const { workouts: todayWorkouts } = useTodayWorkouts(); // 使用 Hook 取得今日課表
+  
   const [stats, setStats] = useState({
     totalWorkouts: 0,
     caloriesBurned: 0,
@@ -42,7 +48,6 @@ export default function DashboardView() {
     longestRun: 0,
     zone2Percent: 0
   });
-  const { workouts: todayWorkouts } = useTodayWorkouts(); // 使用 Hook 取得今日課表
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -55,8 +60,25 @@ export default function DashboardView() {
   const z2Lower = Math.round(maxHR * 0.6);
   const z2Upper = Math.round(maxHR * 0.7);
 
+  // 當訓練資料或用戶資料變更時，重新計算統計
   useEffect(() => {
-    fetchWorkoutStats();
+    const calculateStats = async () => {
+      if (!userData) return;
+      
+      setLoading(true);
+      try {
+        // 將 Store 中的 workouts 轉換為陣列格式供 getDashboardStats 使用
+        const workoutsArray = Object.values(allWorkouts).flat();
+        const result = await getDashboardStats({ userData, workouts: workoutsArray });
+        setStats(result);
+      } catch (error) {
+        console.error("Error calculating dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    calculateStats();
 
     // 讀取備份提醒狀態（依使用者帳號）
     const user = getCurrentUser();
@@ -64,19 +86,7 @@ export default function DashboardView() {
       const info = getBackupReminder(user.uid, 30);
       setBackupReminder(info);
     }
-  }, [userData]);
-
-  const fetchWorkoutStats = async () => {
-    setLoading(true);
-    try {
-      const result = await getDashboardStats({ userData });
-      setStats(result);
-    } catch (error) {
-      console.error("Error calculating dashboard stats:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [userData, allWorkouts]);
 
   return (
     <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto pb-8">

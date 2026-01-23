@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
-import { listGears, listCalendarWorkouts, updateCalendarWorkout, setCalendarWorkout, createCalendarWorkout, deleteCalendarWorkout, getUserProfile, generateCalendarCSVData } from '../services/calendarService';
+import { listGears, updateCalendarWorkout, setCalendarWorkout, createCalendarWorkout, deleteCalendarWorkout, getUserProfile, generateCalendarCSVData } from '../services/calendarService';
 import { handleError } from '../services/errorService';
 import { detectMuscleGroup } from '../utils/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
@@ -17,15 +17,14 @@ import { checkAndUnlockAchievements } from '../services/achievementService';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 import WeeklyModal from '../components/Calendar/WeeklyModal';
 import { useViewStore } from '../store/viewStore';
+import { useWorkoutStore } from '../store/workoutStore';
+import { useGears } from '../hooks/useGears';
 
 
 // --- 組件主體 ---
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [workouts, setWorkouts] = useState({});
-  const [gears, setGears] = useState([]); 
-  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalView, setModalView] = useState('list'); 
   const [currentDocId, setCurrentDocId] = useState(null); 
@@ -45,18 +44,32 @@ export default function CalendarView() {
   });
   
   const [isGenerating, setIsGenerating] = useState(false);
-  const [monthlyMileage, setMonthlyMileage] = useState(0); 
+  const [fileLoading, setFileLoading] = useState(false); // 檔案操作的 loading 狀態
   const setCurrentView = useViewStore((state) => state.setCurrentView);
 
+  // 使用響應式 Hooks
+  const { workouts, loading, initializeWorkouts } = useWorkoutStore();
+  const { gears } = useGears();
+
+  // 計算本月跑量
+  const monthlyMileage = useMemo(() => {
+    const currentMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}`;
+    let totalDist = 0;
+    Object.values(workouts).flat().forEach((data) => {
+      if (data.type === 'run' && data.status === 'completed' && data.date?.startsWith(currentMonthStr)) {
+        totalDist += parseFloat(data.runDistance || 0);
+      }
+    });
+    return totalDist;
+  }, [workouts, currentDate]);
+
+  // 初始化訓練資料訂閱
   useEffect(() => {
-    const fetchGears = async () => {
-        try {
-            const gearList = await listGears();
-            setGears(gearList);
-        } catch (error) { console.error(error); }
+    const unsubscribe = initializeWorkouts();
+    return () => {
+      if (unsubscribe) unsubscribe();
     };
-    fetchGears();
-  }, []);
+  }, [initializeWorkouts]);
 
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {
@@ -71,38 +84,20 @@ export default function CalendarView() {
     }
   }, [editForm.runDistance, editForm.runDuration, editForm.type]);
 
-  useEffect(() => { fetchMonthWorkouts(); }, [currentDate]);
-
-  const fetchMonthWorkouts = async () => {
-    setLoading(true);
-    try {
-      const allWorkouts = await listCalendarWorkouts();
-      const groupedWorkouts = {};
-      let totalDist = 0;
-      const currentMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}`;
-      allWorkouts.forEach((data) => {
-        if (data.date) {
-          if (!groupedWorkouts[data.date]) groupedWorkouts[data.date] = [];
-          groupedWorkouts[data.date].push({ ...data });
-          if (data.type === 'run' && data.status === 'completed' && data.date.startsWith(currentMonthStr)) {
-              totalDist += parseFloat(data.runDistance || 0);
-          }
-        }
-      });
-      setWorkouts(groupedWorkouts);
-      setMonthlyMileage(totalDist);
-    } catch (error) { console.error(error); } finally { setLoading(false); }
-  };
-
   const handleStatusToggle = async (e, workout) => {
       e.stopPropagation();
       const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
       try {
+          // 先更新本地狀態（優化 UI 響應）
+          useWorkoutStore.getState().updateWorkout(workout.id, {
+              status: newStatus,
+              updatedAt: new Date().toISOString()
+          });
+          
           await updateCalendarWorkout(workout.id, {
               status: newStatus,
               updatedAt: new Date().toISOString()
           });
-          await fetchMonthWorkouts();
           await updateAIContext();
           // 如果標記為完成，檢查成就（非阻塞）
           if (newStatus === 'completed') {
@@ -110,7 +105,11 @@ export default function CalendarView() {
               console.error('檢查成就失敗:', err);
             });
           }
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+        console.error(err);
+        // 如果更新失敗，重新載入資料
+        initializeWorkouts();
+      }
   };
 
   const handleHeadCoachGenerate = async (preferredRunType = null) => {
@@ -147,7 +146,7 @@ export default function CalendarView() {
       return;
     }
     
-    setLoading(true);
+    setFileLoading(true);
     try {
       const plans = await generateWeeklyWorkout({
         currentDate,
@@ -160,12 +159,12 @@ export default function CalendarView() {
       });
 
       await Promise.all(batchPromises);
-      await fetchMonthWorkouts();
+      // 資料會透過訂閱自動更新，不需要手動 fetch
       setShowWeeklyModal(false);
     } catch (error) {
       // 錯誤已在 workoutGenerator 中處理
     } finally {
-      setLoading(false);
+      setFileLoading(false);
     }
   };
 
@@ -192,22 +191,18 @@ export default function CalendarView() {
   const handleSync = async () => {
     const user = getCurrentUser();
     if (!user) return;
-    setLoading(true);
     try { 
       await updateAIContext(); 
-      await fetchMonthWorkouts(); 
-      // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
+      // 資料會透過訂閱自動更新，不需要手動 fetch
     } catch (error) { 
       handleError(error, { context: 'CalendarView', operation: 'handleSync' }); 
-    } finally { 
-      setLoading(false); 
     }
   };
 
   const handleExport = async () => {
     const user = getCurrentUser();
     if (!user) return;
-    setLoading(true);
+    setFileLoading(true);
     try {
         const csvContent = await generateCalendarCSVData(gears);
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -222,7 +217,7 @@ export default function CalendarView() {
     } catch (error) { 
       handleError(error, { context: 'CalendarView', operation: 'handleExport' }); 
     } finally { 
-      setLoading(false); 
+      setFileLoading(false); 
     }
   };
 
@@ -230,11 +225,11 @@ export default function CalendarView() {
   const handleCSVUpload = async (e) => { 
       const file = e.target.files?.[0];
       if (!file) return;
-      setLoading(true);
+      setFileLoading(true);
       try {
           const result = await parseAndUploadCSV(file);
           if (result.success) {
-               await fetchMonthWorkouts();
+               // 資料會透過訂閱自動更新，不需要手動 fetch
                // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
           } else {
                handleError(result.message || "匯入失敗", { context: 'CalendarView', operation: 'handleCSVUpload' });
@@ -242,7 +237,7 @@ export default function CalendarView() {
       } catch (err) { 
         handleError(err, { context: 'CalendarView', operation: 'handleCSVUpload' }); 
       } finally { 
-        setLoading(false); 
+        setFileLoading(false);
         if (csvInputRef.current) csvInputRef.current.value = ''; 
       }
   };
@@ -250,7 +245,7 @@ export default function CalendarView() {
       const file = e.target.files?.[0];
       if (!file) return;
       const fileName = file.name.toLowerCase();
-      setLoading(true);
+      setFileLoading(true);
       try {
           const fileName = file.name.toLowerCase();
           let result;
@@ -258,18 +253,18 @@ export default function CalendarView() {
           else if (fileName.endsWith('.csv')) result = await parseAndUploadCSV(file);
           else { 
             handleError("僅支援 .fit 或 .csv 檔案", { context: 'CalendarView', operation: 'handleFileUpload' }); 
-            setLoading(false); 
+            setFileLoading(false);
             return; 
           }
           
           if (result.success) {
-            await fetchMonthWorkouts();
+            // 資料會透過訂閱自動更新，不需要手動 fetch
             // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
           }
       } catch (err) { 
         handleError(err, { context: 'CalendarView', operation: 'handleFileUpload' }); 
       } finally { 
-        setLoading(false); 
+        setFileLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = ''; 
       }
   };
@@ -284,7 +279,6 @@ export default function CalendarView() {
       const sourceDateStr = draggedWorkout.date;
       if (sourceDateStr === targetDateStr && !isCopy) return;
       try {
-        setLoading(true);
         const targetDate = new Date(targetDateStr);
         const today = new Date();
         const isFuture = targetDate > today;
@@ -294,10 +288,24 @@ export default function CalendarView() {
           updatedAt: new Date().toISOString()
         };
         const { id, ...dataToSave } = newData;
-        if (isCopy) await createCalendarWorkout(dataToSave);
-        else await updateCalendarWorkout(draggedWorkout.id, { date: targetDateStr, status: dataToSave.status, updatedAt: new Date().toISOString() });
-        updateAIContext(); await fetchMonthWorkouts(); 
-      } catch (error) {} finally { setLoading(false); setDraggedWorkout(null); }
+        if (isCopy) {
+          await createCalendarWorkout(dataToSave);
+          // 新增後會透過訂閱自動更新
+        } else {
+          // 先更新本地狀態（優化 UI 響應）
+          useWorkoutStore.getState().updateWorkout(draggedWorkout.id, { 
+            date: targetDateStr, 
+            status: dataToSave.status, 
+            updatedAt: new Date().toISOString() 
+          });
+          await updateCalendarWorkout(draggedWorkout.id, { date: targetDateStr, status: dataToSave.status, updatedAt: new Date().toISOString() });
+        }
+        updateAIContext(); 
+      } catch (error) {
+        console.error('拖曳操作失敗:', error);
+      } finally { 
+        setDraggedWorkout(null); 
+      }
   };
   const handleDateClick = (date) => { setSelectedDate(date); setModalView('list'); setIsModalOpen(true); };
   const handleAddNew = () => {
@@ -333,9 +341,16 @@ export default function CalendarView() {
     const dateStr = formatDate(selectedDate);
     const dataToSave = { ...editForm, date: dateStr, updatedAt: new Date().toISOString() };
     try {
-      if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
-      else await createCalendarWorkout(dataToSave);
-      updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
+      if (currentDocId) {
+        // 先更新本地狀態（優化 UI 響應）
+        useWorkoutStore.getState().updateWorkout(currentDocId, dataToSave);
+        await setCalendarWorkout(currentDocId, dataToSave);
+      } else {
+        await createCalendarWorkout(dataToSave);
+        // 新增後會透過訂閱自動更新
+      }
+      updateAIContext(); 
+      setModalView('list');
 
       // 若為已完成訓練且有備註，將關鍵資訊寫入個人知識庫（供 RAG 使用）
       if (dataToSave.status === 'completed' && dataToSave.notes) {
@@ -383,10 +398,15 @@ export default function CalendarView() {
     if (!currentDocId) return;
     if(!window.confirm("確定刪除？")) return;
     try {
+      // 先更新本地狀態（優化 UI 響應）
+      useWorkoutStore.getState().removeWorkout(currentDocId);
       await deleteCalendarWorkout(currentDocId);
-      updateAIContext(); await fetchMonthWorkouts(); setModalView('list');
+      updateAIContext(); 
+      setModalView('list');
     } catch (error) { 
-      handleError(error, { context: 'CalendarView', operation: 'handleDelete' }); 
+      handleError(error, { context: 'CalendarView', operation: 'handleDelete' });
+      // 如果刪除失敗，重新載入資料
+      initializeWorkouts();
     }
   };
   const handleExerciseNameChange = (idx, value) => {
@@ -544,7 +564,7 @@ export default function CalendarView() {
         toggleWeeklyPref={toggleWeeklyPref}
         onClose={() => setShowWeeklyModal(false)}
         onGenerate={handleWeeklyGenerate}
-        loading={loading}
+        loading={fileLoading}
       />
 
       {isModalOpen && (
@@ -642,10 +662,13 @@ export default function CalendarView() {
                                     const user = getCurrentUser();
                                     if (!user) return;
                                     const dataToSave = { ...editForm, date: formatDate(selectedDate), updatedAt: new Date().toISOString() };
-                                    if (currentDocId) await setCalendarWorkout(currentDocId, dataToSave);
-                                    else await createCalendarWorkout(dataToSave);
+                                    if (currentDocId) {
+                                      useWorkoutStore.getState().updateWorkout(currentDocId, dataToSave);
+                                      await setCalendarWorkout(currentDocId, dataToSave);
+                                    } else {
+                                      await createCalendarWorkout(dataToSave);
+                                    }
                                     updateAIContext();
-                                    await fetchMonthWorkouts();
                                     setModalView('list');
                                 }} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-500 transition-colors">儲存</button>
                             </div>

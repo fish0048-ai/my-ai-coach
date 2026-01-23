@@ -55,6 +55,7 @@ export const getWorkoutStatsForPeriod = async (period) => {
  *
  * @param {Object} params
  * @param {Object|null} params.userData - 使用者個人資料（用於 completedGoals 與心率計算）
+ * @param {Array} [params.workouts] - 可選的訓練資料陣列（如果提供則使用，否則查詢資料庫）
  * @returns {Promise<{
  *   totalWorkouts:number,
  *   caloriesBurned:number,
@@ -68,14 +69,20 @@ export const getWorkoutStatsForPeriod = async (period) => {
  *   zone2Percent:number
  * }>}
  */
-export const getDashboardStats = async ({ userData }) => {
+export const getDashboardStats = async ({ userData, workouts: providedWorkouts = null }) => {
   // 1. 計算日期範圍 (過去 30 天)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-  // 2. 使用 calendarService 取得資料
-  const workouts = await listCalendarWorkoutsByDateRange(startDateStr);
+  // 2. 取得資料（如果提供了 workouts 則使用，否則查詢資料庫）
+  let workouts;
+  if (providedWorkouts) {
+    // 過濾出過去 30 天的資料
+    workouts = providedWorkouts.filter(w => w.date && w.date >= startDateStr);
+  } else {
+    workouts = await listCalendarWorkoutsByDateRange(startDateStr);
+  }
 
   let totalSets = 0;
   let muscleScore = {};

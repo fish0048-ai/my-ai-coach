@@ -149,6 +149,40 @@ export const subscribeCompletedWorkouts = (callback) => {
   });
 };
 
+/**
+ * 訂閱所有訓練資料（實時更新）
+ * @param {Function} onUpdate - 資料更新回調函數
+ * @param {Function} [onError] - 錯誤回調函數（可選）
+ * @returns {Function} 取消訂閱函數
+ */
+export const subscribeCalendarWorkouts = (onUpdate, onError = null) => {
+  const user = getCurrentUser();
+  if (!user) {
+    if (onError) onError(new Error('請先登入'));
+    return () => {};
+  }
+
+  const q = query(
+    collection(db, 'users', user.uid, 'calendar'),
+    orderBy('date', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const data = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      onUpdate(data);
+    },
+    (error) => {
+      console.error('Error subscribing to calendar workouts:', error);
+      if (onError) onError(error);
+    }
+  );
+};
+
 export const listRunLogs = async () => {
   const user = getCurrentUser();
   if (!user) return [];

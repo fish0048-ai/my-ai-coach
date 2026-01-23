@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, ChefHat, Loader, Search, Sparkles } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/apiKeyService';
-import { createFoodLog, deleteFoodLog } from '../services/nutritionService';
+import { addFoodLog, removeFoodLog } from '../api/nutrition';
 import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { parseLLMJson } from '../utils/aiJson';
@@ -94,7 +94,7 @@ export default function NutritionView() {
     if (!user) return;
 
     try {
-        await createFoodLog({
+        await addFoodLog({
             date: new Date().toISOString().split('T')[0],
             name: foodName,
             calories: parseFloat(foodCal) || 0,
@@ -121,7 +121,7 @@ export default function NutritionView() {
   const handleDelete = async (id) => {
       if(!confirm("刪除此筆紀錄？")) return;
       try {
-        await deleteFoodLog(id);
+        await removeFoodLog(id);
         updateAIContext();
       } catch (err) {
           console.error(err);

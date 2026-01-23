@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff, Target } from 'lucide-react';
-import { subscribeBodyLogs, createBodyLog, deleteBodyLog } from '../services/bodyService';
-import { subscribeCompletedWorkouts } from '../services/calendarService';
+import { subscribeBodyLogsStream, addBodyLog, removeBodyLog } from '../api/body';
+import { subscribeCompletedWorkoutsStream } from '../api/workouts';
 import { parsePaceToDecimal, calculateVolume } from '../utils/workoutCalculations';
 import { processTrendData } from '../utils/trendCalculations';
 import { handleError } from '../services/errorService';
@@ -123,11 +123,11 @@ export default function TrendAnalysisView() {
   const [inputFat, setInputFat] = useState('');
 
   useEffect(() => {
-    const unsubBody = subscribeBodyLogs((logs) => {
+    const unsubBody = subscribeBodyLogsStream((logs) => {
       setBodyLogs(logs);
     });
 
-    const unsubCalendar = subscribeCompletedWorkouts((workouts) => {
+    const unsubCalendar = subscribeCompletedWorkoutsStream((workouts) => {
       const data = [...workouts];
       data.sort((a, b) => new Date(a.date) - new Date(b.date));
       setWorkoutLogs(data);
@@ -226,7 +226,7 @@ export default function TrendAnalysisView() {
     const w = parseFloat(inputWeight) || 0;
     const f = parseFloat(inputFat) || 0;
     try {
-      await createBodyLog(inputDate, w, f);
+      await addBodyLog(inputDate, w, f);
       setInputWeight('');
       setInputFat('');
       setShowAddForm(false);
@@ -239,7 +239,7 @@ export default function TrendAnalysisView() {
   const handleDelete = async (id) => {
     if (!confirm('刪除?')) return;
     try {
-      await deleteBodyLog(id);
+      await removeBodyLog(id);
     } catch (e) {
       console.error('刪除失敗:', e);
     }

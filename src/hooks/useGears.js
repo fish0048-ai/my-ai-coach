@@ -1,10 +1,12 @@
 /**
  * Gears 資料 Hook
  * 封裝裝備管理的訂閱與狀態管理
+ * 
+ * 已改為透過 API 層 (`api/gears.js`) 訂閱裝備資料。
  */
 
 import { useState, useEffect } from 'react';
-import { subscribeGears } from '../services/calendarService';
+import { subscribeGearsStream } from '../api/gears';
 
 /**
  * 訂閱裝備清單（實時更新）
@@ -16,7 +18,7 @@ export const useGears = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeGears((gearData) => {
+    const unsubscribe = subscribeGearsStream((gearData) => {
       setGears(gearData);
       setLoading(false);
       setError(null);

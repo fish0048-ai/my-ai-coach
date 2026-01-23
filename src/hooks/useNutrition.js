@@ -1,10 +1,12 @@
 /**
  * Nutrition 資料 Hook
  * 封裝營養紀錄的訂閱、summary 計算與狀態管理
+ * 
+ * 已改為透過 API 層 (`api/nutrition.js`) 訂閱資料。
  */
 
 import { useState, useEffect } from 'react';
-import { subscribeFoodLogsByDate } from '../services/nutritionService';
+import { subscribeNutritionByDate } from '../api/nutrition';
 import { formatDate } from '../utils/date';
 
 /**
@@ -25,7 +27,7 @@ export const useNutrition = (date = null) => {
         : formatDate(date)
       : formatDate(new Date());
 
-    const unsubscribe = subscribeFoodLogsByDate(
+    const unsubscribe = subscribeNutritionByDate(
       targetDate,
       (data) => {
         // 按建立時間排序（最新的在前）

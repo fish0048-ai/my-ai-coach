@@ -1,11 +1,19 @@
 /**
  * Workouts 資料 Hook
  * 封裝訓練資料的訂閱與狀態管理，提供響應式資料流
+ * 
+ * 注意：
+ * - 此 Hook 已改為透過 API 層 (`api/workouts.js`) 存取資料
+ * - 實際的 Firebase 讀寫由 API 層與底層 service 負責
  */
 
 import { useState, useEffect } from 'react';
-import { subscribeCompletedWorkouts } from '../services/calendarService';
-import { listCalendarWorkouts, listCalendarWorkoutsByDateRange, listTodayWorkouts } from '../services/calendarService';
+import {
+  subscribeCompletedWorkoutsStream,
+  fetchAllWorkouts,
+  fetchWorkoutsByDateRange,
+  fetchTodayWorkouts,
+} from '../api/workouts';
 
 /**
  * 訂閱已完成的訓練紀錄（實時更新）
@@ -17,7 +25,7 @@ export const useCompletedWorkouts = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeCompletedWorkouts((data) => {
+    const unsubscribe = subscribeCompletedWorkoutsStream((data) => {
       setWorkouts(data);
       setLoading(false);
       setError(null);
@@ -44,7 +52,7 @@ export const useAllWorkouts = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listCalendarWorkouts();
+      const data = await fetchAllWorkouts();
       setWorkouts(data);
     } catch (err) {
       setError(err);
@@ -82,7 +90,7 @@ export const useWorkoutsByDateRange = (startDate, endDate = null) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listCalendarWorkoutsByDateRange(startDate, endDate);
+      const data = await fetchWorkoutsByDateRange(startDate, endDate);
       setWorkouts(data);
     } catch (err) {
       setError(err);
@@ -112,7 +120,7 @@ export const useTodayWorkouts = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listTodayWorkouts();
+      const data = await fetchTodayWorkouts();
       setWorkouts(data);
     } catch (err) {
       setError(err);

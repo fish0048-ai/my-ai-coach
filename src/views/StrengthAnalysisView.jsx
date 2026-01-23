@@ -66,18 +66,6 @@ export default function StrengthAnalysisView() {
   const [drawingUtils, setDrawingUtils] = useState(null);
   const [poseConnections, setPoseConnections] = useState(null);
 
-  useEffect(() => {
-    if (poseModel && !drawingUtils) {
-      // 使用新的繪圖服務初始化
-      initDrawingUtils()
-        .then(({ drawingUtils: drawing, poseConnections: connections }) => {
-          setDrawingUtils(drawing);
-          setPoseConnections(connections);
-        })
-        .catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
-    }
-  }, [poseModel, drawingUtils]);
-
   // --- MediaPipe Callback ---
   // 使用新的繪圖服務建立回調（使用 useMemo 確保依賴正確）
   const onPoseResults = useMemo(() => {
@@ -96,7 +84,20 @@ export default function StrengthAnalysisView() {
   }, [drawingUtils, poseConnections, analyzePoseAngle]);
 
   // 使用 Hook（延遲加載 MediaPipe）
+  // 注意：必須在 onPoseResults 定義之後調用，因為 Hook 需要這個回調
   const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);
+
+  useEffect(() => {
+    if (poseModel && !drawingUtils) {
+      // 使用新的繪圖服務初始化
+      initDrawingUtils()
+        .then(({ drawingUtils: drawing, poseConnections: connections }) => {
+          setDrawingUtils(drawing);
+          setPoseConnections(connections);
+        })
+        .catch(err => console.error('Failed to load MediaPipe drawing utils:', err));
+    }
+  }, [poseModel, drawingUtils]);
 
   const onVideoPlay = () => {
       const video = videoRef.current;

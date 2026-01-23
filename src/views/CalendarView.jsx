@@ -45,6 +45,7 @@ export default function CalendarView() {
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [fileLoading, setFileLoading] = useState(false); // 檔案操作的 loading 狀態
+  const [isSyncing, setIsSyncing] = useState(false); // 同步操作的 loading 狀態
   const setCurrentView = useViewStore((state) => state.setCurrentView);
 
   // 使用響應式 Hooks
@@ -190,12 +191,19 @@ export default function CalendarView() {
 
   const handleSync = async () => {
     const user = getCurrentUser();
-    if (!user) return;
+    if (!user) {
+      handleError('請先登入', { context: 'CalendarView', operation: 'handleSync' });
+      return;
+    }
+    setIsSyncing(true);
     try { 
       await updateAIContext(); 
       // 資料會透過訂閱自動更新，不需要手動 fetch
+      // 可選：顯示成功訊息
     } catch (error) { 
       handleError(error, { context: 'CalendarView', operation: 'handleSync' }); 
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -465,8 +473,8 @@ export default function CalendarView() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 md:gap-4 md:justify-end">
-          <button onClick={handleSync} disabled={loading} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50">
-            {loading ? <Loader size={16} className="animate-spin"/> : <RefreshCw size={16} />}
+          <button onClick={handleSync} disabled={isSyncing || fileLoading} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50">
+            {isSyncing ? <Loader size={16} className="animate-spin"/> : <RefreshCw size={16} />}
             <span className="hidden md:inline">同步</span>
           </button>
           <button onClick={handleImportClick} className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600" title="匯入 Garmin/運動APP CSV 或 FIT">

@@ -93,7 +93,7 @@ export default function StrengthAnalysisView() {
       });
     }
     return () => {}; // 如果繪圖工具未載入，使用空函數
-  }, [drawingUtils, poseConnections]);
+  }, [drawingUtils, poseConnections, analyzePoseAngle]);
 
   // 使用 Hook（延遲加載 MediaPipe）
   const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);

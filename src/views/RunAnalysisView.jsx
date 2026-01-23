@@ -105,7 +105,7 @@ export default function RunAnalysisView() {
       });
     }
     return () => {}; // 如果繪圖工具未載入，使用空函數
-  }, [drawingUtils, poseConnections]);
+  }, [drawingUtils, poseConnections, computeJointAngle, calculateRealHipExtension]);
 
   // 使用 Custom Hook（延遲加載 MediaPipe）
   const { poseModel, isLoading: isLoadingPose } = usePoseDetection(onPoseResults);

@@ -94,7 +94,7 @@ export default function BodyHeatmap({ data = {} }) {
 
       {/* 精準肌肉解剖圖（OpenStax / Kebert）＋ 熱力疊加 */}
       <div
-        className="flex-1 flex items-center justify-center relative py-2 overflow-hidden bg-gray-800/30 rounded-lg min-h-[280px]"
+        className="flex-1 flex items-center justify-center relative py-2 overflow-hidden bg-white rounded-lg min-h-[280px]"
         style={{ aspectRatio: '203.5/354' }}
       >
         {/* 底圖：正/背各半，object-position 切換左半（正面）或右半（背面） */}
@@ -104,13 +104,13 @@ export default function BodyHeatmap({ data = {} }) {
           className="absolute inset-0 w-full h-full object-cover object-top pointer-events-none select-none"
           style={{ objectPosition: view === 'front' ? '0 0' : '100% 0' }}
         />
-        {/* 熱力疊加：僅肌群，半透明以保留底圖紋理 */}
+        {/* 熱力疊加：viewBox 與底圖半身 203.5×354.43 一致，scale 將 200×360 路徑對齊 */}
         <svg
-          viewBox="0 0 200 360"
+          viewBox="0 0 203.5 354.43411"
           preserveAspectRatio="xMidYMid meet"
           className="absolute inset-0 w-full h-full"
         >
-          <g>
+          <g transform="scale(1.0175, 0.98454)">
             {Object.entries(MUSCLE_PATHS[view]).map(([key, info]) => {
               const value = mapDataToMuscle(data, key, view);
               const fillColor = getHeatColor(value);

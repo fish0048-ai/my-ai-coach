@@ -397,11 +397,7 @@ export default function DashboardView() {
           </div>
           
           <div className="flex-1 min-h-[400px] flex items-center justify-center bg-gray-900/50 rounded-lg relative">
-             <BodyHeatmap 
-                data={stats.muscleFatigue} 
-                frontImage="/muscle_front.png" 
-                backImage="/muscle_back.png"
-             />
+             <BodyHeatmap data={stats.muscleFatigue} />
              
              {Object.keys(stats.muscleFatigue).length === 0 && !loading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">

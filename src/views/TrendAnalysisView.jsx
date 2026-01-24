@@ -259,6 +259,7 @@ export default function TrendAnalysisView() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (e) {
       handleError(e, { context: 'TrendAnalysisView', operation: 'handleExport' });
     }

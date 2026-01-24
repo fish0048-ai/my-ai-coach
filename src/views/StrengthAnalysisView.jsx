@@ -41,6 +41,8 @@ export default function StrengthAnalysisView() {
   const canvasRef = useRef(null);
   const videoRef = useRef(null); 
   const requestRef = useRef(null);
+  /** PWA 瘦身：追蹤影片 blob URL，清除/卸載時 revoke 釋放記憶體 */
+  const videoBlobUrlRef = useRef(null);
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [showSkeleton, setShowSkeleton] = useState(true);
@@ -113,16 +115,33 @@ export default function StrengthAnalysisView() {
   };
 
   useEffect(() => {
-    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); }
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (videoBlobUrlRef.current) {
+        URL.revokeObjectURL(videoBlobUrlRef.current);
+        videoBlobUrlRef.current = null;
+      }
+    };
   }, []);
+
+  const revokeVideoBlob = () => {
+    if (videoBlobUrlRef.current) {
+      URL.revokeObjectURL(videoBlobUrlRef.current);
+      videoBlobUrlRef.current = null;
+    }
+  };
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.name.toLowerCase().endsWith('.fit')) {
+        revokeVideoBlob();
         await handleFitAnalysis(file);
     } else {
-        setVideoFile(URL.createObjectURL(file));
+        revokeVideoBlob();
+        const url = URL.createObjectURL(file);
+        videoBlobUrlRef.current = url;
+        setVideoFile(url);
         setIsFitMode(false);
         setAnalysisStep('idle');
         setMetrics(null);
@@ -134,6 +153,7 @@ export default function StrengthAnalysisView() {
   const handleFitAnalysis = async (file) => {
     setAnalysisStep('analyzing_internal');
     setIsFitMode(true);
+    revokeVideoBlob();
     setVideoFile(null);
     
     try {
@@ -282,7 +302,15 @@ export default function StrengthAnalysisView() {
       });
   };
 
-  const clearAll = () => { setAnalysisStep('idle'); setMetrics(null); setScore(0); setAiFeedback(''); setVideoFile(null); setIsFitMode(false); };
+  const clearAll = () => {
+    revokeVideoBlob();
+    setAnalysisStep('idle');
+    setMetrics(null);
+    setScore(0);
+    setAiFeedback('');
+    setVideoFile(null);
+    setIsFitMode(false);
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">

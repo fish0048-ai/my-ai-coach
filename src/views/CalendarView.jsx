@@ -222,6 +222,7 @@ export default function CalendarView() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     } catch (error) { 
       handleError(error, { context: 'CalendarView', operation: 'handleExport' }); 
     } finally { 

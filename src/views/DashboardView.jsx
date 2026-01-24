@@ -7,7 +7,6 @@ import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
 import { useTodayWorkouts } from '../hooks/useWorkouts';
 import { useWorkoutStore } from '../store/workoutStore';
-import StatCard from '../components/Dashboard/StatCard';
 import PRTracker from '../components/Dashboard/PRTracker';
 import AchievementPanel from '../components/Dashboard/AchievementPanel';
 import { useUserStore } from '../store/userStore';
@@ -89,9 +88,9 @@ export default function DashboardView() {
   }, [userData, allWorkouts]);
 
   return (
-    <div className="space-y-6 animate-fadeIn max-w-6xl mx-auto pb-8">
+    <div className="space-y-5 animate-fadeIn max-w-6xl mx-auto pb-8">
       {/* 頂部歡迎區 */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white">
@@ -259,17 +258,17 @@ export default function DashboardView() {
           </div>
         )}
 
-        {/* 新增：今日課表提醒區塊 */}
-        <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 p-5 rounded-xl border border-blue-500/30">
-            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-               <CalendarClock className="text-blue-400" /> 
+        {/* 今日課表 */}
+        <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-4">
+            <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+               <CalendarClock className="text-blue-400" size={18} />
                今日訓練課表
             </h3>
             
             {todayWorkouts.length > 0 ? (
                 <div className="space-y-3">
                     {todayWorkouts.map(workout => (
-                        <div key={workout.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${workout.status === 'completed' ? 'bg-green-900/20 border-green-500/30' : 'bg-gray-800/80 border-gray-600'}`}>
+                        <div key={workout.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${workout.status === 'completed' ? 'bg-green-900/15 border-green-500/25' : 'bg-gray-800/50 border-gray-700/50'}`}>
                             <div className="flex items-center gap-4">
                                 <div className={`p-2 rounded-lg ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
                                     {workout.type === 'run' ? <TrendingUp size={20}/> : <Dumbbell size={20}/>}
@@ -326,77 +325,89 @@ export default function DashboardView() {
         <WeatherWidget />
       </div>
 
-      {/* 第一層：總覽統計 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          icon={Activity} 
-          label="近30天訓練" 
-          value={stats.totalWorkouts} 
-          color="bg-blue-500" 
-        />
-        <StatCard 
-          icon={Flame} 
-          label="消耗熱量 (估)" 
-          value={`${stats.caloriesBurned} kcal`} 
-          color="bg-orange-500" 
-        />
-        <StatCard 
-          icon={Timer} 
-          label="訓練時數 (估)" 
-          value={`${stats.totalHours} h`} 
-          color="bg-purple-500" 
-        />
-        <StatCard 
-          icon={Trophy} 
-          label="達成目標" 
-          value={String(userData?.goal || '未設定')} 
-          color="bg-yellow-500" 
-        />
-      </div>
+      {/* 總覽 */}
+      <section className="bg-gray-800/60 rounded-xl border border-gray-700/50 overflow-hidden">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4">
+          <div className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+              <Activity className="text-blue-400" size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">近30天訓練</p>
+              <p className="text-lg font-bold text-white tabular-nums">{stats.totalWorkouts}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+              <Flame className="text-orange-400" size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">消耗熱量 (估)</p>
+              <p className="text-lg font-bold text-white tabular-nums">{stats.caloriesBurned} <span className="text-sm font-medium text-gray-500">kcal</span></p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
+              <Timer className="text-purple-400" size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">訓練時數 (估)</p>
+              <p className="text-lg font-bold text-white tabular-nums">{stats.totalHours} <span className="text-sm font-medium text-gray-500">h</span></p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4 col-span-2 lg:col-span-1">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+              <Trophy className="text-amber-400" size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">達成目標</p>
+              <p className="text-lg font-bold text-white">{userData?.goal || '未設定'}</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* 第二層：PR 追蹤與成就 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* PR 追蹤與成就 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <PRTracker />
         <AchievementPanel />
       </div>
 
-      {/* 第三層：跑步週統計 */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-        <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="text-green-400" />
-            <h3 className="text-lg font-bold text-white">本週跑步統計</h3>
+      {/* 本週跑步 */}
+      <section className="bg-gray-800/60 rounded-xl border border-gray-700/50 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700/50">
+          <TrendingUp className="text-green-400" size={18} />
+          <h3 className="text-base font-bold text-white">本週跑步</h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
-                <span className="text-xs text-gray-400 uppercase mb-1">週跑量</span>
-                <span className="text-2xl font-bold text-white">{stats.weeklyDistance} <span className="text-sm font-normal text-gray-500">km</span></span>
-            </div>
-            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
-                <span className="text-xs text-gray-400 uppercase mb-1">週次數</span>
-                <span className="text-2xl font-bold text-white">{stats.weeklyRuns} <span className="text-sm font-normal text-gray-500">次</span></span>
-            </div>
-            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
-                <span className="text-xs text-gray-400 uppercase mb-1">最長距離</span>
-                <span className="text-2xl font-bold text-white">{stats.longestRun} <span className="text-sm font-normal text-gray-500">km</span></span>
-            </div>
-            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex flex-col items-center justify-center">
-                <span className="text-xs text-gray-400 uppercase mb-1">Zone 2 佔比</span>
-                <span className="text-2xl font-bold text-green-400">{stats.zone2Percent} <span className="text-sm font-normal text-gray-500">%</span></span>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4">
+          <div className="p-4 text-center md:border-r border-gray-700/40">
+            <p className="text-xs text-gray-500 mb-0.5">週跑量</p>
+            <p className="text-xl font-bold text-white tabular-nums">{stats.weeklyDistance} <span className="text-sm font-medium text-gray-500">km</span></p>
+          </div>
+          <div className="p-4 text-center md:border-r border-gray-700/40">
+            <p className="text-xs text-gray-500 mb-0.5">週次數</p>
+            <p className="text-xl font-bold text-white tabular-nums">{stats.weeklyRuns} <span className="text-sm font-medium text-gray-500">次</span></p>
+          </div>
+          <div className="p-4 text-center md:border-r border-gray-700/40">
+            <p className="text-xs text-gray-500 mb-0.5">最長距離</p>
+            <p className="text-xl font-bold text-white tabular-nums">{stats.longestRun} <span className="text-sm font-medium text-gray-500">km</span></p>
+          </div>
+          <div className="p-4 text-center">
+            <p className="text-xs text-gray-500 mb-0.5">Zone 2 佔比</p>
+            <p className="text-xl font-bold text-green-400 tabular-nums">{stats.zone2Percent} <span className="text-sm font-medium text-gray-500">%</span></p>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Heatmap */}
-        <div className="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-             <h3 className="text-lg font-bold text-white">肌群負荷</h3>
-             <span className="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700">
-               來源: 您的行事曆紀錄
-             </span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* 肌群負荷 */}
+        <div className="lg:col-span-2 bg-gray-800/60 rounded-xl border border-gray-700/50 p-4 flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-bold text-white">肌群負荷</h3>
+            <span className="text-[10px] text-gray-500">行事曆紀錄</span>
           </div>
           
-          <div className="flex-1 min-h-[320px] flex flex-col bg-gray-900/50 rounded-lg relative">
+          <div className="flex-1 min-h-[280px] flex flex-col bg-gray-900/40 rounded-lg relative">
              <BodyHeatmap data={stats.muscleFatigue} />
              
              {Object.keys(stats.muscleFatigue).length === 0 && !loading && (
@@ -411,20 +422,20 @@ export default function DashboardView() {
           </div>
         </div>
 
-        {/* Right Column: Training Insights */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Sparkles className="text-yellow-400" size={20} />
+        {/* 綜合訓練建議 */}
+        <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-4 flex flex-col">
+          <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+            <Sparkles className="text-yellow-400" size={18} />
             綜合訓練建議
           </h3>
           
-          <div className="space-y-4 flex-1">
+          <div className="space-y-3 flex-1">
             
-            {/* 1. 重訓建議 (肌群平衡) */}
-            <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
-                <div className="flex items-center gap-2 mb-2">
-                    <Dumbbell className="text-blue-400" size={16} />
-                    <h4 className="font-bold text-white text-sm">重訓：肌群平衡</h4>
+            {/* 重訓：肌群平衡 */}
+            <div className="p-3 rounded-lg bg-gray-900/40 border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <Dumbbell className="text-blue-400" size={14} />
+                    <h4 className="font-semibold text-white text-sm">重訓：肌群平衡</h4>
                 </div>
                 {Object.keys(stats.muscleFatigue).length > 0 ? (
                     <p className="text-sm text-gray-400 leading-relaxed">
@@ -439,11 +450,11 @@ export default function DashboardView() {
                 )}
             </div>
 
-            {/* 2. 跑步建議 (動態化) */}
-            <div className="p-4 bg-gray-900 rounded-lg border border-gray-700">
-                <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="text-orange-400" size={16} />
-                    <h4 className="font-bold text-white text-sm">跑步：進度管理</h4>
+            {/* 跑步：進度管理 */}
+            <div className="p-3 rounded-lg bg-gray-900/40 border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <TrendingUp className="text-orange-400" size={14} />
+                    <h4 className="font-semibold text-white text-sm">跑步：進度管理</h4>
                 </div>
                 {parseFloat(stats.weeklyDistance) > 0 ? (
                     <div className="space-y-2">
@@ -451,27 +462,27 @@ export default function DashboardView() {
                             本週跑量 <span className="text-white font-bold">{stats.weeklyDistance} km</span>。
                             為預防受傷，下週總里程建議控制在 <span className="text-orange-400 font-bold">{(parseFloat(stats.weeklyDistance) * 1.1).toFixed(1)} km</span> 以內 (10%原則)。
                         </p>
-                        <div className="text-xs text-gray-500 bg-gray-800/50 p-2 rounded border border-gray-700/50 flex justify-between items-center">
+                        <div className="text-xs text-gray-500 bg-gray-800/40 px-2 py-1.5 rounded flex justify-between items-center mt-2">
                             <span>Zone 2 目標心率</span>
-                            <span className="font-mono text-blue-300 font-bold">{z2Lower} - {z2Upper} bpm</span>
+                            <span className="font-mono text-blue-300 font-semibold">{z2Lower}–{z2Upper} bpm</span>
                         </div>
                     </div>
                 ) : (
                     <div className="space-y-2">
                         <p className="text-sm text-gray-400 leading-relaxed">
-                            本週尚未有跑步紀錄。建議安排一次輕鬆跑，將心率維持在 <span className="text-blue-400 font-bold">Zone 2</span> 以建立有氧底層。
+                            本週尚未有跑步紀錄。建議安排一次輕鬆跑，將心率維持在 <span className="text-blue-400 font-semibold">Zone 2</span> 以建立有氧底層。
                         </p>
-                        <div className="text-xs text-gray-500 bg-gray-800/50 p-2 rounded border border-gray-700/50 flex justify-between items-center">
+                        <div className="text-xs text-gray-500 bg-gray-800/40 px-2 py-1.5 rounded flex justify-between items-center mt-2">
                             <span>Zone 2 目標心率</span>
-                            <span className="font-mono text-blue-300 font-bold">{z2Lower} - {z2Upper} bpm</span>
+                            <span className="font-mono text-blue-300 font-semibold">{z2Lower}–{z2Upper} bpm</span>
                         </div>
                     </div>
                 )}
             </div>
             
-            {/* 3. 動作分析報告 (連動部分) */}
-            <div className={`p-4 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900 border-gray-700'}`}>
-               <h4 className="font-bold text-purple-400 mb-2 text-sm flex items-center gap-2">
+            {/* 動作優化建議 */}
+            <div className={`p-3 rounded-lg border transition-colors ${stats.latestAnalysis ? 'bg-purple-900/15 border-purple-500/25' : 'bg-gray-900/40 border-gray-700/50'}`}>
+               <h4 className="font-semibold text-purple-400 mb-1.5 text-sm flex items-center gap-2">
                  {stats.latestAnalysis ? <Sparkles size={14}/> : <AlertCircle size={14}/>}
                  動作優化建議
                </h4>

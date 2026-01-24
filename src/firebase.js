@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // 使用您提供的設定直接初始化，避開環境變數讀取失敗的問題
 const firebaseConfig = {
@@ -19,12 +19,21 @@ const app = initializeApp(firebaseConfig);
 // 匯出 App / Auth / Firestore 實例供其他檔案使用
 export { app };
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 
-/** PWA 儲存瘦身：Firestore IndexedDB 快取上限 20 MB，避免大量訓練/營養紀錄拖爆使用者硬碟 */
-const FIRESTORE_CACHE_MAX_BYTES = 20 * 1024 * 1024;
-
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    cacheSizeBytes: FIRESTORE_CACHE_MAX_BYTES
-  })
-});
+// 啟用離線持久化（Offline Persistence）
+try {
+  enableIndexedDbPersistence(db).then(() => {
+    console.log('✅ Firebase 離線持久化已啟用');
+  }).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('⚠️ 多個分頁開啟，離線持久化僅在主要分頁中啟用');
+    } else if (err.code === 'unimplemented') {
+      console.warn('⚠️ 瀏覽器不支援離線持久化');
+    } else {
+      console.error('❌ 啟用離線持久化失敗:', err);
+    }
+  });
+} catch (error) {
+  console.error('❌ 初始化離線持久化時發生錯誤:', error);
+}

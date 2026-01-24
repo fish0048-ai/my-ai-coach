@@ -106,7 +106,7 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
 };
 
 export default function TrendAnalysisView() {
-  const { workouts, initializeWorkouts } = useWorkoutStore();
+  const { workouts } = useWorkoutStore();
   const [bodyLogs, setBodyLogs] = useState([]);
 
   // 從 workoutStore（與行事曆同源）導出已完成訓練，與行事曆同步；舊資料無 status 視為 completed
@@ -133,12 +133,12 @@ export default function TrendAnalysisView() {
     const unsubBody = subscribeBodyLogs((logs) => {
       setBodyLogs(logs);
     });
-    initializeWorkouts();
+    // 訓練資料由 App 層登入後訂閱並整段登入期間保持，趨勢直接使用 workoutStore，不需在此 init
 
     return () => {
       if (unsubBody) unsubBody();
     };
-  }, [initializeWorkouts]);
+  }, []);
 
   const rawData = useMemo(() => {
       if (category === 'body') return bodyLogs;

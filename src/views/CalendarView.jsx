@@ -62,13 +62,7 @@ export default function CalendarView() {
     return totalDist;
   }, [workouts, currentDate]);
 
-  // 初始化訓練資料訂閱
-  useEffect(() => {
-    const unsubscribe = initializeWorkouts();
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [initializeWorkouts]);
+  // 訓練資料由 App 層登入後訂閱並整段登入期間保持，此處不再 mount 時 init / unmount 時 unsub，以確保歷史與新資料持續同步
 
   useEffect(() => {
     if (editForm.type === 'run' && editForm.runDistance && editForm.runDuration) {

@@ -1,6 +1,7 @@
 import React, { useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useUserStore } from './store/userStore';
 import { useViewStore } from './store/viewStore';
+import { useWorkoutStore } from './store/workoutStore';
 import MainLayout from './layouts/MainLayout';
 // 移除靜態引入，改用 Lazy Load
 // import CoachChat from './components/AICoach/CoachChat.jsx';
@@ -107,6 +108,16 @@ export default function App() {
       if (unsubscribe) unsubscribe();
     };
   }, [initializeAuth]);
+
+  // 登入後啟動行事曆 Firestore 訂閱，整段登入期間保持連線，確保趨勢與行事曆的歷史、新資料都即時同步；登出時清理
+  useEffect(() => {
+    if (!user) {
+      useWorkoutStore.getState().cleanup();
+      return;
+    }
+    useWorkoutStore.getState().initializeWorkouts();
+    return () => { useWorkoutStore.getState().cleanup(); };
+  }, [user]);
 
   // 優化：使用 useCallback 穩定 callback 參考
   const handleCloseChat = useCallback(() => {

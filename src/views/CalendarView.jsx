@@ -7,10 +7,8 @@ import { handleError } from '../services/errorService';
 import { detectMuscleGroup } from '../utils/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import { addKnowledgeRecord } from '../services/ai/knowledgeBaseService';
-import FitParser from 'fit-file-parser';
-// 確保這裡正確匯入兩個函式
 import { generateDailyWorkout, generateWeeklyWorkout } from '../services/ai/workoutGenerator';
-import { parseAndUploadFIT, parseAndUploadCSV } from '../utils/importHelpers';
+import { parseAndUploadFIT, parseAndUploadCSV } from '../services/importService';
 import { formatDate, getWeekDates } from '../utils/date';
 import { cleanNumber } from '../utils/number';
 import { checkAndUnlockAchievements } from '../services/achievementService';
@@ -250,20 +248,19 @@ export default function CalendarView() {
         if (csvInputRef.current) csvInputRef.current.value = ''; 
       }
   };
-  const handleFileUpload = async (e) => { 
+  const handleFileUpload = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       const fileName = file.name.toLowerCase();
       setFileLoading(true);
       try {
-          const fileName = file.name.toLowerCase();
           let result;
           if (fileName.endsWith('.fit')) result = await parseAndUploadFIT(file);
           else if (fileName.endsWith('.csv')) result = await parseAndUploadCSV(file);
-          else { 
-            handleError("僅支援 .fit 或 .csv 檔案", { context: 'CalendarView', operation: 'handleFileUpload' }); 
+          else {
+            handleError("僅支援 .fit 或 .csv 檔案", { context: 'CalendarView', operation: 'handleFileUpload' });
             setFileLoading(false);
-            return; 
+            return;
           }
           
           if (result.success) {

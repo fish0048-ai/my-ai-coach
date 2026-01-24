@@ -70,18 +70,21 @@ export const getWorkoutStatsForPeriod = async (period) => {
  * }>}
  */
 export const getDashboardStats = async ({ userData, workouts: providedWorkouts = null }) => {
-  // 1. 計算日期範圍 (過去 30 天)
-  const thirtyDaysAgo = new Date();
+  // 1. 計算日期範圍 (過去 30 天，含今天；排除未來)
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
 
   // 2. 取得資料（如果提供了 workouts 則使用，否則查詢資料庫）
   let workouts;
   if (providedWorkouts) {
-    // 過濾出過去 30 天的資料
-    workouts = providedWorkouts.filter(w => w.date && w.date >= startDateStr);
+    workouts = providedWorkouts.filter(
+      (w) => w.date && w.date >= startDateStr && w.date <= todayStr
+    );
   } else {
-    workouts = await listCalendarWorkoutsByDateRange(startDateStr);
+    workouts = await listCalendarWorkoutsByDateRange(startDateStr, todayStr);
   }
 
   let totalSets = 0;
@@ -103,7 +106,6 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
   const zone2UpperLimit = maxHR * 0.7;
 
   // 計算本週起始日
-  const now = new Date();
   const day = now.getDay() || 7;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - day + 1);
@@ -114,8 +116,8 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
     const data = workout;
     if (!data) return;
 
-    // 統計邏輯只看已完成
-    if (data.status === 'completed') {
+    // 統計邏輯：已完成（舊資料無 status 視為 completed，與趨勢／statsCalculations 一致）
+    if ((data.status || 'completed') === 'completed') {
       if (data.type !== 'analysis') {
         totalWorkouts++;
       }

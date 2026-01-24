@@ -390,13 +390,13 @@ export default function DashboardView() {
         {/* Left Column: Heatmap */}
         <div className="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
-             <h3 className="text-lg font-bold text-white">近期肌肉訓練熱圖</h3>
+             <h3 className="text-lg font-bold text-white">肌群負荷</h3>
              <span className="text-xs text-gray-500 bg-gray-900 px-2 py-1 rounded border border-gray-700">
                來源: 您的行事曆紀錄
              </span>
           </div>
           
-          <div className="flex-1 min-h-[400px] flex items-center justify-center bg-gray-900/50 rounded-lg relative">
+          <div className="flex-1 min-h-[320px] flex flex-col bg-gray-900/50 rounded-lg relative">
              <BodyHeatmap data={stats.muscleFatigue} />
              
              {Object.keys(stats.muscleFatigue).length === 0 && !loading && (

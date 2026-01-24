@@ -39,32 +39,34 @@ const mapDataToMuscle = (data, muscleKey, view) => {
 };
 
 /**
- * 肌群標記點：viewBox 0 0 203.5 354.43411，每肌群以圓點標示負荷
+ * 肌群標記點與中文標籤：viewBox 0 0 203.5 354.43411
+ * 座標依底圖 layer translate(43.96, 276.63) 與 g2108  local 推算，對應肌肉實際位置
  */
-const DOT_R = 7;
+const DOT_R = 6;
+const FONT_SIZE = 7.5;
 
 const MUSCLE_POINTS = {
   front: {
-    traps: { points: [{ x: 85, y: 42 }, { x: 118, y: 42 }], name: '斜方肌 (上)' },
-    pecs: { points: [{ x: 85, y: 92 }, { x: 118, y: 92 }], name: '胸大肌' },
-    delts: { points: [{ x: 75, y: 72 }, { x: 128, y: 72 }], name: '三角肌' },
-    biceps: { points: [{ x: 70, y: 138 }, { x: 133, y: 138 }], name: '肱二頭肌' },
-    forearms: { points: [{ x: 68, y: 238 }, { x: 135, y: 238 }], name: '前臂' },
-    abs: { points: [{ x: 101, y: 165 }, { x: 101, y: 218 }], name: '腹直肌' },
-    obliques: { points: [{ x: 78, y: 190 }, { x: 125, y: 190 }], name: '腹外斜肌' },
-    quads: { points: [{ x: 88, y: 308 }, { x: 115, y: 308 }], name: '股四頭肌' },
-    calves: { points: [{ x: 86, y: 342 }, { x: 117, y: 342 }], name: '小腿' },
+    traps: { points: [{ x: 78, y: 48 }, { x: 100, y: 48 }], labelPos: { x: 89, y: 36 }, name: '斜方肌' },
+    pecs: { points: [{ x: 80, y: 95 }, { x: 98, y: 95 }], labelPos: { x: 89, y: 85 }, name: '胸大肌' },
+    delts: { points: [{ x: 68, y: 75 }, { x: 110, y: 75 }], labelPos: { x: 89, y: 65 }, name: '三角肌' },
+    biceps: { points: [{ x: 65, y: 155 }, { x: 113, y: 155 }], labelPos: { x: 89, y: 145 }, name: '肱二頭肌' },
+    forearms: { points: [{ x: 63, y: 255 }, { x: 115, y: 255 }], labelPos: { x: 89, y: 245 }, name: '前臂' },
+    abs: { points: [{ x: 94, y: 178 }, { x: 94, y: 228 }], labelPos: { x: 102, y: 203 }, name: '腹直肌' },
+    obliques: { points: [{ x: 74, y: 205 }, { x: 104, y: 205 }], labelPos: { x: 89, y: 195 }, name: '腹外斜肌' },
+    quads: { points: [{ x: 82, y: 315 }, { x: 106, y: 315 }], labelPos: { x: 94, y: 305 }, name: '股四頭肌' },
+    calves: { points: [{ x: 80, y: 342 }, { x: 108, y: 342 }], labelPos: { x: 94, y: 332 }, name: '小腿' },
   },
   back: {
-    traps: { points: [{ x: 100, y: 70 }], name: '斜方肌' },
-    rear_delts: { points: [{ x: 75, y: 72 }, { x: 128, y: 72 }], name: '三角肌後束' },
-    triceps: { points: [{ x: 72, y: 138 }, { x: 131, y: 138 }], name: '肱三頭肌' },
-    forearms: { points: [{ x: 70, y: 238 }, { x: 133, y: 238 }], name: '前臂' },
-    lats: { points: [{ x: 82, y: 168 }, { x: 121, y: 168 }], name: '背闊肌' },
-    lower_back: { points: [{ x: 100, y: 248 }], name: '豎脊肌' },
-    glutes: { points: [{ x: 100, y: 285 }], name: '臀大肌' },
-    hamstrings: { points: [{ x: 100, y: 320 }], name: '膕旁肌' },
-    calves: { points: [{ x: 86, y: 342 }, { x: 117, y: 342 }], name: '小腿' },
+    traps: { points: [{ x: 100, y: 58 }], labelPos: { x: 100, y: 44 }, name: '斜方肌' },
+    rear_delts: { points: [{ x: 70, y: 75 }, { x: 108, y: 75 }], labelPos: { x: 89, y: 65 }, name: '三角肌後束' },
+    triceps: { points: [{ x: 67, y: 155 }, { x: 111, y: 155 }], labelPos: { x: 89, y: 145 }, name: '肱三頭肌' },
+    forearms: { points: [{ x: 65, y: 255 }, { x: 113, y: 255 }], labelPos: { x: 89, y: 245 }, name: '前臂' },
+    lats: { points: [{ x: 76, y: 195 }, { x: 112, y: 195 }], labelPos: { x: 94, y: 182 }, name: '背闊肌' },
+    lower_back: { points: [{ x: 100, y: 255 }], labelPos: { x: 100, y: 242 }, name: '豎脊肌' },
+    glutes: { points: [{ x: 100, y: 290 }], labelPos: { x: 100, y: 278 }, name: '臀大肌' },
+    hamstrings: { points: [{ x: 100, y: 322 }], labelPos: { x: 100, y: 310 }, name: '膕旁肌' },
+    calves: { points: [{ x: 80, y: 342 }, { x: 108, y: 342 }], labelPos: { x: 94, y: 332 }, name: '小腿' },
   },
 };
 
@@ -117,6 +119,7 @@ export default function BodyHeatmap({ data = {} }) {
               const fillColor = getHeatColor(value);
               const isHovered = hoveredMuscle?.key === key;
               const r = isHovered ? DOT_R + 2 : DOT_R;
+              const lp = info.labelPos;
               return (
                 <g
                   key={key}
@@ -132,11 +135,25 @@ export default function BodyHeatmap({ data = {} }) {
                       r={r}
                       fill={fillColor}
                       fillOpacity="0.9"
-                      stroke={isHovered ? '#fff' : 'rgba(0,0,0,0.25)'}
+                      stroke={isHovered ? '#fff' : 'rgba(0,0,0,0.3)'}
                       strokeWidth={isHovered ? 2 : 1}
                       className="transition-all duration-200"
                     />
                   ))}
+                  <text
+                    x={lp.x}
+                    y={lp.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#1f2937"
+                    stroke="#fff"
+                    strokeWidth="0.8"
+                    paintOrder="stroke"
+                    fontSize={FONT_SIZE}
+                    className="select-none"
+                  >
+                    {info.name}
+                  </text>
                 </g>
               );
             })}

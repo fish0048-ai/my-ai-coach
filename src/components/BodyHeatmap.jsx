@@ -38,54 +38,35 @@ const mapDataToMuscle = (data, muscleKey, view) => {
 };
 
 /**
- * 肌肉路徑：依解剖學比例繪製，viewBox 0 0 200 400
- * 正面：胸大肌、三角肌、肱二頭、前臂、腹直肌、腹外斜、股四頭、小腿
- * 背面：斜方肌、三角肌後束、肱三頭、前臂、背闊肌、豎脊肌、臀大肌、膕旁肌、小腿
+ * 肌肉路徑：人體解剖比例 (viewBox 0 0 200 360)，以平滑曲線繪製
+ * 參考：頭約 1/7 身長、肩寬約 2 頭、四肢對稱、肌群邊界清楚
  */
 const MUSCLE_PATHS = {
   front: {
-    head: { path: 'M100,8 C85,8 72,22 72,40 C72,58 85,72 100,72 C115,72 128,58 128,40 C128,22 115,8 100,8 Z', name: '頭部', isMuscle: false },
-    neck: { path: 'M92,72 L88,92 L100,96 L112,92 L108,72 Z', name: '頸部', isMuscle: false },
-    // 斜方肌上段（正面可見鎖骨上緣）
-    traps: { path: 'M88,92 L62,102 L68,92 Z M112,92 L138,102 L132,92 Z', name: '斜方肌 (上)', isMuscle: true },
-    // 胸大肌：從胸骨與鎖骨內側到肱骨，扇形
-    pecs: { path: 'M100,96 L100,138 Q100,142 96,142 L72,130 L64,108 L78,96 Z M100,96 L100,138 Q100,142 104,142 L128,130 L136,108 L122,96 Z', name: '胸大肌', isMuscle: true },
-    // 三角肌：肩蓋外側，前中束
-    delts: { path: 'M62,102 Q48,108 44,124 L58,128 L70,112 Z M138,102 Q152,108 156,124 L142,128 L130,112 Z', name: '三角肌', isMuscle: true },
-    // 肱二頭肌：上臂前側
-    biceps: { path: 'M58,128 L48,148 Q46,168 52,188 L66,184 L64,128 Z M142,128 L152,148 Q154,168 148,188 L134,184 L136,128 Z', name: '肱二頭肌', isMuscle: true },
-    // 前臂：橈側與屈肌群
-    forearms: { path: 'M52,188 L46,228 Q50,240 58,238 L66,192 Z M148,188 L154,228 Q150,240 142,238 L134,192 Z', name: '前臂', isMuscle: true },
-    // 腹直肌：胸骨劍突到恥骨，節狀
-    abs: { path: 'M86,142 L82,168 L84,194 L86,220 L88,248 L96,252 L104,248 L106,220 L108,194 L110,168 L106,142 Z', name: '腹直肌', isMuscle: true },
-    // 腹外斜肌：腰側
-    obliques: { path: 'M72,142 L58,180 L62,218 L80,248 L86,220 L82,168 Z M128,142 L142,180 L138,218 L120,248 L114,220 L118,168 Z', name: '腹外斜肌', isMuscle: true },
-    // 股四頭肌：大腿前側，股直肌與内外側
-    quads: { path: 'M82,252 Q76,280 78,308 L82,352 L92,358 L100,356 L108,358 L118,352 L122,308 Q124,280 118,252 L106,248 L94,248 Z', name: '股四頭肌', isMuscle: true },
-    // 小腿前外側（脛前與腓腸肌外緣，正面可見）
-    calves: { path: 'M82,358 Q78,372 82,388 L90,392 L94,388 L92,358 Z M118,358 Q122,372 118,388 L110,392 L106,388 L108,358 Z', name: '小腿', isMuscle: true },
+    head: { path: 'M100,6 C76,6 56,22 56,42 C56,62 76,78 100,78 C124,78 144,62 144,42 C144,22 124,6 100,6 Z', name: '頭部', isMuscle: false },
+    neck: { path: 'M84,78 L80,98 L100,102 L120,98 L116,78 Z', name: '頸部', isMuscle: false },
+    traps: { path: 'M80,98 L56,108 L64,92 L84,78 Z M120,98 L144,108 L136,92 L116,78 Z', name: '斜方肌 (上)', isMuscle: true },
+    pecs: { path: 'M100,98 L100,130 Q100,134 96,134 L70,122 L60,104 L80,98 Z M100,98 L100,130 Q100,134 104,134 L130,122 L140,104 L120,98 Z', name: '胸大肌', isMuscle: true },
+    delts: { path: 'M56,108 Q44,114 42,128 L56,132 L70,116 Z M144,108 Q156,114 158,128 L144,132 L130,116 Z', name: '三角肌', isMuscle: true },
+    biceps: { path: 'M56,132 L46,158 Q44,180 50,198 L64,194 L62,132 Z M144,132 L154,158 Q156,180 150,198 L136,194 L138,132 Z', name: '肱二頭肌', isMuscle: true },
+    forearms: { path: 'M50,198 L44,236 Q48,248 56,246 L62,202 Z M150,198 L156,236 Q152,248 144,246 L138,202 Z', name: '前臂', isMuscle: true },
+    abs: { path: 'M86,134 L82,164 L84,194 L86,224 L88,252 L96,256 L104,252 L106,224 L108,194 L110,164 L106,134 Z', name: '腹直肌', isMuscle: true },
+    obliques: { path: 'M70,134 L54,176 L58,212 L76,250 L86,224 L82,164 Z M130,134 L146,176 L142,212 L124,250 L114,224 L118,164 Z', name: '腹外斜肌', isMuscle: true },
+    quads: { path: 'M96,252 L82,252 Q76,278 78,306 L82,348 L92,354 L96,252 Z M104,252 L118,252 Q124,278 122,306 L118,348 L108,354 L104,252 Z', name: '股四頭肌', isMuscle: true },
+    calves: { path: 'M82,348 Q78,362 82,376 L90,380 L94,376 L92,348 Z M118,348 Q122,362 118,376 L110,380 L106,376 L108,348 Z', name: '小腿', isMuscle: true },
   },
   back: {
-    head: { path: 'M100,8 C85,8 72,22 72,40 C72,58 85,72 100,72 C115,72 128,58 128,40 C128,22 115,8 100,8 Z', name: '頭部', isMuscle: false },
-    neck: { path: 'M92,72 L88,92 L100,96 L112,92 L108,72 Z', name: '頸部', isMuscle: false },
-    // 斜方肌：枕部到肩峰、胸椎，菱形
-    traps: { path: 'M100,50 L78,92 L88,130 L100,120 L112,130 L122,92 Z', name: '斜方肌', isMuscle: true },
-    // 三角肌後束
-    rear_delts: { path: 'M62,102 Q48,110 46,124 L60,128 L76,108 Z M138,102 Q152,110 154,124 L140,128 L124,108 Z', name: '三角肌後束', isMuscle: true },
-    // 肱三頭肌：上臂後側
-    triceps: { path: 'M60,128 L50,150 Q48,172 54,192 L66,188 L64,128 Z M140,128 L150,150 Q152,172 146,192 L134,188 L136,128 Z', name: '肱三頭肌', isMuscle: true },
-    // 前臂背側
-    forearms: { path: 'M54,192 L48,232 Q52,244 60,242 L66,196 Z M146,192 L152,232 Q148,244 140,242 L134,196 Z', name: '前臂', isMuscle: true },
-    // 背闊肌：從胸腰筋膜、髂嵴到肱骨，V 型
-    lats: { path: 'M78,130 L56,150 L58,200 L78,218 L96,200 L94,150 Z M122,130 L144,150 L142,200 L122,218 L104,200 L106,150 Z', name: '背闊肌', isMuscle: true },
-    // 豎脊肌（下背）
-    lower_back: { path: 'M88,218 L82,258 L94,262 L100,258 L106,262 L118,258 L112,218 Z', name: '豎脊肌', isMuscle: true },
-    // 臀大肌
-    glutes: { path: 'M82,258 Q72,278 76,298 L88,302 L100,300 L112,302 L124,298 Q128,278 118,258 L106,262 L94,262 Z', name: '臀大肌', isMuscle: true },
-    // 膕旁肌：大腿後側
-    hamstrings: { path: 'M88,302 Q82,330 86,358 L94,362 L100,360 L106,362 L114,358 Q118,330 112,302 L106,300 L94,300 Z', name: '膕旁肌', isMuscle: true },
-    // 腓腸肌（小腿後側）
-    calves: { path: 'M86,362 Q82,376 86,392 L94,396 L100,394 L106,396 L114,392 Q118,376 114,362 L106,360 L94,360 Z', name: '小腿', isMuscle: true },
+    head: { path: 'M100,6 C76,6 56,22 56,42 C56,62 76,78 100,78 C124,78 144,62 144,42 C144,22 124,6 100,6 Z', name: '頭部', isMuscle: false },
+    neck: { path: 'M84,78 L80,98 L100,102 L120,98 L116,78 Z', name: '頸部', isMuscle: false },
+    traps: { path: 'M100,48 L78,90 L90,126 L100,118 L110,126 L122,90 Z', name: '斜方肌', isMuscle: true },
+    rear_delts: { path: 'M56,108 Q44,114 44,128 L58,132 L72,110 Z M144,108 Q156,114 156,128 L142,132 L128,110 Z', name: '三角肌後束', isMuscle: true },
+    triceps: { path: 'M58,132 L48,160 Q46,182 52,200 L64,196 L62,132 Z M142,132 L152,160 Q154,182 148,200 L136,196 L138,132 Z', name: '肱三頭肌', isMuscle: true },
+    forearms: { path: 'M52,200 L46,238 Q50,250 58,248 L64,204 Z M148,200 L154,238 Q150,250 142,248 L136,204 Z', name: '前臂', isMuscle: true },
+    lats: { path: 'M78,126 L52,156 L54,204 L76,222 L98,204 L96,156 Z M122,126 L148,156 L146,204 L124,222 L102,204 L104,156 Z', name: '背闊肌', isMuscle: true },
+    lower_back: { path: 'M88,222 L82,250 L94,254 L100,250 L106,254 L118,250 L112,222 Z', name: '豎脊肌', isMuscle: true },
+    glutes: { path: 'M82,252 L94,256 L106,256 L118,252 Q126,270 122,288 L110,292 L100,290 L90,292 L78,288 Q74,270 82,252 Z', name: '臀大肌', isMuscle: true },
+    hamstrings: { path: 'M90,292 Q84,318 88,342 L96,346 L100,344 L104,346 L112,342 Q116,318 110,292 L100,290 Z', name: '膕旁肌', isMuscle: true },
+    calves: { path: 'M84,346 Q80,358 84,370 L92,374 L96,370 L94,346 Z M116,346 Q120,358 116,370 L108,374 L104,370 L106,346 Z', name: '小腿', isMuscle: true },
   },
 };
 
@@ -119,7 +100,7 @@ export default function BodyHeatmap({ data = {} }) {
       {/* 熱力圖 SVG */}
       <div className="flex-1 flex items-center justify-center relative py-2 overflow-hidden bg-gray-800/30 rounded-lg">
         <svg
-          viewBox="0 0 200 400"
+          viewBox="0 0 200 360"
           className="h-full w-auto drop-shadow-[0_0_15px_rgba(0,0,0,0.5)] animate-fadeIn"
           style={{ filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.3))' }}
         >

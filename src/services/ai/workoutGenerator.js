@@ -99,6 +99,53 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
     const weekWorkouts = await fetchWorkoutsByDateRange(weekStart, weekEnd);
     const completedThisWeek = weekWorkouts.filter(w => (w.status || 'completed') === 'completed');
 
+    // 查詢最近 30 天的訓練（用於整體評估）
+    const now = new Date();
+    const todayStr = formatDate(now);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = formatDate(thirtyDaysAgo);
+    const recent30DaysWorkouts = await fetchWorkoutsByDateRange(thirtyDaysAgoStr, todayStr);
+    const completed30Days = recent30DaysWorkouts.filter(w => (w.status || 'completed') === 'completed');
+
+    // 計算最近 30 天的統計
+    let totalRunDist = 0;
+    let totalRunCount = 0;
+    let totalStrengthCount = 0;
+    let totalWorkouts = 0;
+    const runTypes = { LSD: 0, Interval: 0, Easy: 0, MP: 0 };
+    const weeklyRunDist = [0, 0, 0, 0]; // 最近 4 週的跑量
+
+    // 計算本週起始日（週一）
+    const day = now.getDay() || 7;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - day + 1);
+    weekStart.setHours(0, 0, 0, 0);
+
+    completed30Days.forEach(w => {
+      if (w.type === 'run' && w.runDistance) {
+        const dist = parseFloat(w.runDistance) || 0;
+        totalRunDist += dist;
+        totalRunCount++;
+        const runType = w.runType || '';
+        if (runType in runTypes) runTypes[runType]++;
+        
+        // 計算週跑量（以週一為起始）
+        if (w.date) {
+          const workoutDate = new Date(w.date + 'T00:00:00');
+          const daysDiff = Math.floor((workoutDate - weekStart) / (1000 * 60 * 60 * 24));
+          const weekIndex = Math.floor(daysDiff / 7);
+          // weekIndex: 0=本週, 1=上週, 2=上上週, 3=上上上週
+          if (weekIndex >= 0 && weekIndex < 4) {
+            weeklyRunDist[weekIndex] += dist;
+          }
+        }
+      } else if (w.type === 'strength') {
+        totalStrengthCount++;
+      }
+      totalWorkouts++;
+    });
+
     // 格式化本週已完成的訓練資訊
     const completedSummary = completedThisWeek.map(w => {
       const date = w.date || '';
@@ -111,11 +158,25 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
       return `${date}: ${w.title || '訓練'}`;
     }).join('\n');
 
+    // 格式化最近 30 天統計摘要
+    const recent30DaysSummary = {
+      totalWorkouts,
+      totalRunDist: totalRunDist.toFixed(1),
+      totalRunCount,
+      totalStrengthCount,
+      avgWeeklyRunDist: (totalRunDist / 4).toFixed(1),
+      runTypeDistribution: Object.entries(runTypes)
+        .filter(([_, count]) => count > 0)
+        .map(([type, count]) => `${type}:${count}次`)
+        .join(', ') || '無',
+      weeklyRunDist: weeklyRunDist.map((dist, i) => `第${4-i}週:${dist.toFixed(1)}km`).join(', ')
+    };
+
     const userProfile = (await getUserProfile()) || { goal: '健康' };
     const recentLogs = await getAIContext();
     const monthlyStats = { currentDist: monthlyMileage };
 
-    let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats, completedSummary);
+    let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats, completedSummary, recent30DaysSummary);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
     const response = await runGemini(prompt, apiKey);
     const plans = parseLLMJson(response, { rootType: 'array' });

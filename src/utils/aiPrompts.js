@@ -71,7 +71,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
 
 // --- 總教練：週課表安排 (Weekly Scheduler) ---
 // 這是之前遺漏的部分，現在補上
-export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats, completedThisWeek = '') => {
+export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats, completedThisWeek = '', recent30DaysSummary = null) => {
   return `
     角色：你是使用者的「健身總教練」，正在規劃本週剩餘日期的訓練課表。
     
@@ -82,7 +82,20 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     [近期訓練狀態 (Context)]
     ${contextSummary}
     
-    ${completedThisWeek ? `[本週已完成訓練]
+    ${recent30DaysSummary ? `[最近 30 天訓練統計]
+    - 總訓練次數：${recent30DaysSummary.totalWorkouts} 次（跑步 ${recent30DaysSummary.totalRunCount} 次，重訓 ${recent30DaysSummary.totalStrengthCount} 次）
+    - 總跑量：${recent30DaysSummary.totalRunDist} km
+    - 平均週跑量：${recent30DaysSummary.avgWeeklyRunDist} km/週
+    - 跑步類型分佈：${recent30DaysSummary.runTypeDistribution}
+    - 最近 4 週跑量趨勢：${recent30DaysSummary.weeklyRunDist}
+    
+    重要：請根據上述 30 天統計評估：
+    1. **訓練負荷**：如果週跑量持續上升，本週建議維持或微降，避免過度訓練
+    2. **訓練頻率**：如果訓練頻率偏低（<3次/週），可適度增加；如果偏高（>5次/週），注意恢復
+    3. **強度平衡**：檢查跑步類型分佈，確保有足夠的輕鬆跑和恢復日
+    4. **週期化**：根據最近 4 週跑量趨勢，判斷是否處於增量期、維持期或恢復期
+    
+    ` : ''}${completedThisWeek ? `[本週已完成訓練]
     ${completedThisWeek}
     
     重要：上述訓練已經完成，請在規劃剩餘日期時：

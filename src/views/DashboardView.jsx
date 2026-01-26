@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx'; 
 import WeatherWidget from '../components/WeatherWidget.jsx'; 
 // 新增 CalendarClock, CheckCircle2, Circle
-import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight, Share2, Download, FileText, Image } from 'lucide-react';
+import { Activity, Flame, Trophy, Timer, Dumbbell, Sparkles, AlertCircle, BarChart2, TrendingUp, Calendar, BookOpen, Heart, CalendarClock, CheckCircle2, Circle, ArrowRight, Share2, Download, FileText, Image, Gauge } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
 import { useTodayWorkouts } from '../hooks/useWorkouts';
@@ -45,7 +45,9 @@ export default function DashboardView() {
     weeklyDistance: 0,
     weeklyRuns: 0,
     longestRun: 0,
-    zone2Percent: 0
+    zone2Percent: 0,
+    trainingLoad: 0,
+    avgTrainingLoad: 0
   });
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -327,7 +329,7 @@ export default function DashboardView() {
 
       {/* 總覽 */}
       <section className="bg-gray-800/60 rounded-xl border border-gray-700/50 overflow-hidden">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 p-4">
           <div className="flex items-center gap-3 p-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
               <Activity className="text-blue-400" size={20} />
@@ -353,6 +355,15 @@ export default function DashboardView() {
             <div className="min-w-0">
               <p className="text-xs text-gray-500">訓練時數 (估)</p>
               <p className="text-lg font-bold text-white tabular-nums">{stats.totalHours} <span className="text-sm font-medium text-gray-500">h</span></p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-500/10">
+              <Gauge className="text-green-400" size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">訓練負荷</p>
+              <p className="text-lg font-bold text-white tabular-nums">{stats.trainingLoad || 0} <span className="text-xs font-medium text-gray-500">({stats.avgTrainingLoad || 0}/次)</span></p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4 col-span-2 lg:col-span-1">

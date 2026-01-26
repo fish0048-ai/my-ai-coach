@@ -26,6 +26,80 @@ const safeTimestamp = (dateStr) => {
 };
 
 /**
+ * 計算單次訓練的訓練負荷（Training Load）
+ * 使用混合方法：有心率數據用 TRIMP，無心率數據用簡化 sRPE
+ * 
+ * @param {Object} workout - 訓練資料
+ * @param {Object} userData - 使用者資料（包含 maxHeartRate, age, gender）
+ * @returns {number} 訓練負荷值
+ */
+const calculateTrainingLoad = (workout, userData) => {
+  const age = parseInt(userData?.age) || 30;
+  const maxHR = parseInt(userData?.maxHeartRate) || (220 - age);
+  const restingHR = parseInt(userData?.restingHeartRate) || 60;
+  const gender = userData?.gender || 'male'; // 'male' or 'female'
+  
+  const duration = parseFloat(workout.runDuration || workout.duration || 0); // 分鐘
+  
+  if (duration <= 0) return 0;
+  
+  // 方法 1: 如果有心率數據，使用 TRIMP
+  if (workout.type === 'run' && workout.runHeartRate) {
+    const hrStr = String(workout.runHeartRate || '');
+    // 處理心率格式：可能是 "140-150" 或 "145" 或 "145 bpm"
+    const hrMatch = hrStr.match(/(\d+)/);
+    if (hrMatch) {
+      const avgHR = parseFloat(hrMatch[1]);
+      
+      if (avgHR > restingHR && avgHR <= maxHR) {
+        // 計算 %HRR (Heart Rate Reserve)
+        const hrr = (avgHR - restingHR) / (maxHR - restingHR);
+        
+        // TRIMP 加權因子（根據性別）
+        // 男性: y = 0.64 * e^(1.92 * %HRR)
+        // 女性: y = 0.64 * e^(1.67 * %HRR)
+        const exponent = gender === 'female' ? 1.67 : 1.92;
+        const weightingFactor = 0.64 * Math.exp(exponent * hrr);
+        
+        // TRIMP = Time (minutes) × %HRR × Weighting Factor
+        const trimp = duration * hrr * weightingFactor;
+        return Math.round(trimp * 10) / 10; // 保留一位小數
+      }
+    }
+  }
+  
+  // 方法 2: 無心率數據時，使用簡化 sRPE（基於訓練類型估算 RPE）
+  let estimatedRPE = 5; // 預設中等強度
+  
+  if (workout.type === 'run') {
+    const runType = workout.runType || '';
+    if (runType === 'Interval' || runType === '間歇') {
+      estimatedRPE = 9; // 高強度間歇
+    } else if (runType === 'MP' || runType === '馬拉松配速') {
+      estimatedRPE = 7; // 中高強度
+    } else if (runType === 'LSD' || runType === '長距離') {
+      estimatedRPE = 6; // 中強度
+    } else if (runType === 'Easy' || runType === '輕鬆') {
+      estimatedRPE = 4; // 低強度
+    } else {
+      // 根據配速估算（如果有配速數據）
+      const pace = workout.runPace || '';
+      if (pace) {
+        // 簡化：配速越快，RPE 越高（這裡用粗略估算）
+        estimatedRPE = 5.5;
+      }
+    }
+  } else if (workout.type === 'strength') {
+    // 重訓通常為中高強度
+    estimatedRPE = 7;
+  }
+  
+  // sRPE = RPE × Duration (minutes)
+  const srpe = estimatedRPE * duration;
+  return Math.round(srpe * 10) / 10; // 保留一位小數
+};
+
+/**
  * 取得 TrainingDashboard 使用的統計結果
  * 封裝原本 TrainingDashboardView 的「抓取 calendar + 呼叫 processWorkoutStats」邏輯
  * @param {'week'|'month'|'year'} period
@@ -98,6 +172,7 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
   let longestRun = 0;
   let zone2Minutes = 0;
   let totalRunMinutes = 0;
+  let totalTrainingLoad = 0; // 總訓練負荷
 
   // 心率相關計算
   const age = parseInt(userData?.age) || 30;
@@ -120,6 +195,8 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
     if ((data.status || 'completed') === 'completed') {
       if (data.type !== 'analysis') {
         totalWorkouts++;
+        // 計算訓練負荷
+        totalTrainingLoad += calculateTrainingLoad(data, userData);
       }
 
       if (Array.isArray(data.exercises)) {
@@ -202,6 +279,10 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
       totalRunMinutes > 0
         ? Math.round((zone2Minutes / totalRunMinutes) * 100)
         : 0,
+    trainingLoad: Math.round(totalTrainingLoad), // 總訓練負荷（整數）
+    avgTrainingLoad: totalWorkouts > 0 
+      ? Math.round((totalTrainingLoad / totalWorkouts) * 10) / 10 
+      : 0, // 平均每次訓練負荷
   };
 };
 

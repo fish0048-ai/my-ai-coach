@@ -116,7 +116,7 @@ export const useTodayWorkouts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchTodayWorkouts = async () => {
+  const loadTodayWorkouts = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -131,8 +131,8 @@ export const useTodayWorkouts = () => {
   };
 
   useEffect(() => {
-    fetchTodayWorkouts();
+    loadTodayWorkouts();
   }, []);
 
-  return { workouts, loading, error, refetch: fetchTodayWorkouts };
+  return { workouts, loading, error, refetch: loadTodayWorkouts };
 };

@@ -33,7 +33,7 @@ const safeTimestamp = (dateStr) => {
  * @param {Object} userData - 使用者資料（包含 maxHeartRate, age, gender）
  * @returns {number} 訓練負荷值
  */
-const calculateTrainingLoad = (workout, userData) => {
+const calculateTrainingLoadAdvanced = (workout, userData) => {
   const age = parseInt(userData?.age) || 30;
   const maxHR = parseInt(userData?.maxHeartRate) || (220 - age);
   const restingHR = parseInt(userData?.restingHeartRate) || 60;
@@ -196,7 +196,7 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
       if (data.type !== 'analysis') {
         totalWorkouts++;
         // 計算訓練負荷
-        totalTrainingLoad += calculateTrainingLoad(data, userData);
+        totalTrainingLoad += calculateTrainingLoadAdvanced(data, userData);
       }
 
       if (Array.isArray(data.exercises)) {

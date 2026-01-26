@@ -12,6 +12,7 @@ import { formatDate, getWeekDates } from '../../utils/date';
 import { cleanNumber } from '../../utils/number';
 import { parseLLMJson } from '../../utils/aiJson';
 import { handleError } from '../errorService';
+import { fetchWorkoutsByDateRange } from '../../api/workouts';
 
 /**
  * 生成單日訓練課表
@@ -92,11 +93,29 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
       throw error;
     }
 
+    // 查詢本週已完成的訓練
+    const weekStart = weekDates[0];
+    const weekEnd = weekDates[weekDates.length - 1];
+    const weekWorkouts = await fetchWorkoutsByDateRange(weekStart, weekEnd);
+    const completedThisWeek = weekWorkouts.filter(w => (w.status || 'completed') === 'completed');
+
+    // 格式化本週已完成的訓練資訊
+    const completedSummary = completedThisWeek.map(w => {
+      const date = w.date || '';
+      if (w.type === 'run') {
+        return `${date}: ${w.title || '跑步'} - ${w.runDistance || 0}km @ ${w.runPace || ''} (${w.runType || ''})`;
+      } else if (w.type === 'strength') {
+        const exerciseCount = Array.isArray(w.exercises) ? w.exercises.length : 0;
+        return `${date}: ${w.title || '重訓'} - ${exerciseCount}個動作`;
+      }
+      return `${date}: ${w.title || '訓練'}`;
+    }).join('\n');
+
     const userProfile = (await getUserProfile()) || { goal: '健康' };
     const recentLogs = await getAIContext();
     const monthlyStats = { currentDist: monthlyMileage };
 
-    let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats);
+    let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats, completedSummary);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
     const response = await runGemini(prompt, apiKey);
     const plans = parseLLMJson(response, { rootType: 'array' });

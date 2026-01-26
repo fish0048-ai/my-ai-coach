@@ -71,7 +71,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
 
 // --- 總教練：週課表安排 (Weekly Scheduler) ---
 // 這是之前遺漏的部分，現在補上
-export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats) => {
+export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats, completedThisWeek = '') => {
   return `
     角色：你是使用者的「健身總教練」，正在規劃本週剩餘日期的訓練課表。
     
@@ -82,7 +82,15 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     [近期訓練狀態 (Context)]
     ${contextSummary}
     
-    [待規劃日期]
+    ${completedThisWeek ? `[本週已完成訓練]
+    ${completedThisWeek}
+    
+    重要：上述訓練已經完成，請在規劃剩餘日期時：
+    1. 避免重複建議相同類型的訓練（除非使用者明確要求）
+    2. 根據已完成訓練的強度，調整剩餘日期的訓練強度（例如：已完成高強度間歇，後續安排恢復跑）
+    3. 考慮恢復時間，避免連續高強度訓練
+    
+    ` : ''}[待規劃日期]
     ${JSON.stringify(planningDates)}
     
     [使用者指定偏好 (Multiselect)]

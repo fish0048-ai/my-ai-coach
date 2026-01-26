@@ -1,6 +1,6 @@
 // 動作名稱關鍵字對應表
 // Key: 動作關鍵字 (包含此字串即觸發)
-// Value: 對應 BodyHeatmap.jsx 的肌肉代碼
+// Value: 對應肌群負荷列表 (BodyHeatmap) 的肌肉代碼
 export const exerciseMapping = {
     // 胸部 (pecs)
     "臥推": "pecs",

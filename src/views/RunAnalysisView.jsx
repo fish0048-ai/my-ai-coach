@@ -43,6 +43,8 @@ export default function RunAnalysisView() {
   const isScanningRef = useRef(false);
   const requestRef = useRef(null); 
   const lastUiUpdateRef = useRef(0);
+  /** PWA 瘦身：追蹤影片 blob URL，清除/卸載時 revoke 釋放記憶體 */
+  const videoBlobUrlRef = useRef(null);
 
   const [analysisStep, setAnalysisStep] = useState('idle');
   const [scanProgress, setScanProgress] = useState(0);
@@ -132,25 +134,45 @@ export default function RunAnalysisView() {
 
   const onVideoPause = () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
 
-  useEffect(() => { return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); } }, []);
+  useEffect(() => {
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (videoBlobUrlRef.current) {
+        URL.revokeObjectURL(videoBlobUrlRef.current);
+        videoBlobUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const revokeVideoBlob = () => {
+    if (videoBlobUrlRef.current) {
+      URL.revokeObjectURL(videoBlobUrlRef.current);
+      videoBlobUrlRef.current = null;
+    }
+  };
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setVideoError(null); 
-    if (file.name.toLowerCase().endsWith('.fit')) { await handleFitAnalysis(file); } 
-    else {
-        if (file.type && !file.type.startsWith('video/')) { 
-          handleError("請上傳有效的影片", { context: 'RunAnalysisView', operation: 'handleFileChange' }); 
-          return; 
-        }
-        setVideoFile(URL.createObjectURL(file));
-        setIsFitMode(false);
-        setAnalysisStep('idle');
-        fullScanDataRef.current = [];
-        if (file.name.toLowerCase().endsWith('.mov')) {
-          handleError("MOV 格式可能無法播放", { context: 'RunAnalysisView', operation: 'handleFileChange' });
-        }
+    setVideoError(null);
+    if (file.name.toLowerCase().endsWith('.fit')) {
+      revokeVideoBlob();
+      await handleFitAnalysis(file);
+    } else {
+      if (file.type && !file.type.startsWith('video/')) {
+        handleError("請上傳有效的影片", { context: 'RunAnalysisView', operation: 'handleFileChange' });
+        return;
+      }
+      revokeVideoBlob();
+      const url = URL.createObjectURL(file);
+      videoBlobUrlRef.current = url;
+      setVideoFile(url);
+      setIsFitMode(false);
+      setAnalysisStep('idle');
+      fullScanDataRef.current = [];
+      if (file.name.toLowerCase().endsWith('.mov')) {
+        handleError("MOV 格式可能無法播放", { context: 'RunAnalysisView', operation: 'handleFileChange' });
+      }
     }
   };
 
@@ -202,6 +224,7 @@ export default function RunAnalysisView() {
   const handleFitAnalysis = async (file) => {
       setAnalysisStep('analyzing_internal');
       setIsFitMode(true);
+      revokeVideoBlob();
       setVideoFile(null);
       
       try {
@@ -279,6 +302,7 @@ export default function RunAnalysisView() {
   const clearAll = () => {
     isScanningRef.current = false;
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    revokeVideoBlob();
     setAnalysisStep('idle');
     setMetrics(null);
     setScore(0);
@@ -286,11 +310,11 @@ export default function RunAnalysisView() {
     setVideoFile(null);
     setVideoError(null);
     setIsFitMode(false);
-    
+
     const canvas = canvasRef.current;
     if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   };
 

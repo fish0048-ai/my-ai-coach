@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Plus, Trash2, Calendar, TrendingUp, TrendingDown, Activity, ChevronDown, Upload, FileText, Download, Dumbbell, Zap, Heart, Timer, Scale, Gauge, BarChart3, Layers, Eye, EyeOff, Target } from 'lucide-react';
 import { subscribeBodyLogsStream, addBodyLog, removeBodyLog } from '../api/body';
-import { subscribeCompletedWorkoutsStream } from '../api/workouts';
+import { useWorkoutStore } from '../store/workoutStore';
 import { parsePaceToDecimal, calculateVolume } from '../utils/workoutCalculations';
 import { processTrendData } from '../utils/trendCalculations';
 import { handleError } from '../services/errorService';
@@ -106,10 +106,17 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
 };
 
 export default function TrendAnalysisView() {
+  const { workouts } = useWorkoutStore();
   const [bodyLogs, setBodyLogs] = useState([]);
-  const [workoutLogs, setWorkoutLogs] = useState([]); 
-  const [loading, setLoading] = useState(true);
-  
+
+  // 從 workoutStore（與行事曆同源）導出已完成訓練，與行事曆同步；舊資料無 status 視為 completed
+  const workoutLogs = useMemo(() => {
+    const list = Object.values(workouts || {}).flat();
+    return list
+      .filter((w) => (w.status || 'completed') === 'completed')
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [workouts]);
+
   const [category, setCategory] = useState('body'); 
   const [metricType, setMetricType] = useState('weight'); 
   const [timeScale, setTimeScale] = useState('daily'); 
@@ -126,17 +133,10 @@ export default function TrendAnalysisView() {
     const unsubBody = subscribeBodyLogsStream((logs) => {
       setBodyLogs(logs);
     });
+    // 訓練資料由 App 層登入後訂閱並整段登入期間保持，趨勢直接使用 workoutStore，不需在此 init
 
-    const unsubCalendar = subscribeCompletedWorkoutsStream((workouts) => {
-      const data = [...workouts];
-      data.sort((a, b) => new Date(a.date) - new Date(b.date));
-      setWorkoutLogs(data);
-      setLoading(false);
-    });
-
-    return () => { 
+    return () => {
       if (unsubBody) unsubBody();
-      if (unsubCalendar) unsubCalendar();
     };
   }, []);
 
@@ -164,12 +164,12 @@ export default function TrendAnalysisView() {
       return processTrendData(rawData, metricType, timeScale);
   }, [rawData, metricType, timeScale]);
 
-  // 訓練周期分析
+  // 訓練周期分析（workoutLogs 已為已完成訓練，與行事曆同源）
   const cycleAnalysis = useMemo(() => {
     if (bodyLogs.length === 0 && workoutLogs.length === 0) return null;
     const result = analyzeTrainingCycle({ 
       bodyLogs, 
-      workouts: workoutLogs.filter(w => w.status === 'completed'),
+      workouts: workoutLogs,
       weeks: 12 
     });
     return result;
@@ -259,6 +259,7 @@ export default function TrendAnalysisView() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (e) {
       handleError(e, { context: 'TrendAnalysisView', operation: 'handleExport' });
     }

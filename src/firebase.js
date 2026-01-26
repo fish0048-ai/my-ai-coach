@@ -22,16 +22,13 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // 啟用離線持久化（Offline Persistence）
-// 這讓應用在離線時也能讀取快取的資料，並在離線時排隊寫入操作
 try {
   enableIndexedDbPersistence(db).then(() => {
     console.log('✅ Firebase 離線持久化已啟用');
   }).catch((err) => {
     if (err.code === 'failed-precondition') {
-      // 多個分頁開啟，離線持久化僅在一個分頁中啟用（這是正常的）
       console.warn('⚠️ 多個分頁開啟，離線持久化僅在主要分頁中啟用');
     } else if (err.code === 'unimplemented') {
-      // 瀏覽器不支援離線持久化
       console.warn('⚠️ 瀏覽器不支援離線持久化');
     } else {
       console.error('❌ 啟用離線持久化失敗:', err);

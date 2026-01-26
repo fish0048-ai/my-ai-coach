@@ -187,8 +187,8 @@ export const getDashboardStats = async ({ userData, workouts: providedWorkouts =
   weekStart.setHours(0, 0, 0, 0);
   const weekStartStr = weekStart.toISOString().split('T')[0];
 
-  workouts.forEach((workout) => {
-    const data = workout;
+  workouts.forEach((workoutItem) => {
+    const data = workoutItem;
     if (!data) return;
 
     // 統計邏輯：已完成（舊資料無 status 視為 completed，與趨勢／statsCalculations 一致）

@@ -116,11 +116,11 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
     const runTypes = { LSD: 0, Interval: 0, Easy: 0, MP: 0 };
     const weeklyRunDist = [0, 0, 0, 0]; // 最近 4 週的跑量
 
-    // 計算本週起始日（週一）
+    // 計算本週起始日（週一）用於計算週跑量
     const day = now.getDay() || 7;
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - day + 1);
-    weekStart.setHours(0, 0, 0, 0);
+    const weekStartDate = new Date(now);
+    weekStartDate.setDate(now.getDate() - day + 1);
+    weekStartDate.setHours(0, 0, 0, 0);
 
     completed30Days.forEach(w => {
       if (w.type === 'run' && w.runDistance) {
@@ -133,7 +133,7 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
         // 計算週跑量（以週一為起始）
         if (w.date) {
           const workoutDate = new Date(w.date + 'T00:00:00');
-          const daysDiff = Math.floor((workoutDate - weekStart) / (1000 * 60 * 60 * 24));
+          const daysDiff = Math.floor((workoutDate - weekStartDate) / (1000 * 60 * 60 * 24));
           const weekIndex = Math.floor(daysDiff / 7);
           // weekIndex: 0=本週, 1=上週, 2=上上週, 3=上上上週
           if (weekIndex >= 0 && weekIndex < 4) {

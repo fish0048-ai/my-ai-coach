@@ -15,6 +15,7 @@
     "@mediapipe/drawing_utils": "^0.3.1620248257",
     "@mediapipe/pose": "^0.5.1675469404",
     "buffer": "^6.0.3",
+    "three": "^0.170.0",
     "firebase": "^11.1.0",
     "fit-file-parser": "^1.10.0",
     "jspdf": "^2.5.2",

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // 新增 ShoppingBag, Utensils, LineChart
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe } from 'lucide-react';
 import { signOut } from '../services/authService'; 
 
 const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
@@ -54,6 +54,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
           <div className="px-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Menu
           </div>
+          <SidebarItem 
+            icon={Globe} 
+            text="3D 城市 World" 
+            active={currentView === 'world-3d'} 
+            onClick={() => { setCurrentView('world-3d'); setIsSidebarOpen(false); }} 
+          />
           <SidebarItem 
             icon={LayoutDashboard} 
             text="總覽 Dashboard" 

@@ -36,6 +36,10 @@ export default defineConfig({
           if (id.includes('node_modules/lucide-react')) {
             return 'icons-vendor';
           }
+          // Three.js（僅 3D 城市視圖使用，lazy 載入）
+          if (id.includes('node_modules/three')) {
+            return 'three-vendor';
+          }
           // 其他 node_modules 依賴
           if (id.includes('node_modules/')) {
             return 'vendor';

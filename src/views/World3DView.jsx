@@ -26,15 +26,14 @@ export default function World3DView() {
   const controlsRef = useRef(null);
   const avatarMeshRef = useRef(null);
   const linkMeshesRef = useRef([]);
-  const keysRef = useRef({ w: false, a: false, s: false, d: false });
-  const yawRef = useRef(0);
   const lastEnteredRef = useRef(null);
   const rafRef = useRef(null);
-  const hasMovedRef = useRef(false); // 使用者是否曾經按鍵移動過
+  const hasMovedRef = useRef(false); // 使用者是否曾經移動過
+  const targetRef = useRef(null); // 目標移動位置（滑鼠點擊地面）
 
   const setCurrentView = useViewStore((s) => s.setCurrentView);
   const setIsChatOpen = useViewStore((s) => s.setIsChatOpen);
-  const [tip, setTip] = useState('WASD 移動小人 · 靠近建築物即進入該功能');
+  const [tip] = useState('使用滑鼠點擊地面移動小人 · 靠近建築物即進入該功能');
 
   const runRoomAction = useCallback(
     (roomId) => {
@@ -214,23 +213,25 @@ export default function World3DView() {
     dir.shadow.camera.bottom = -30;
     scene.add(dir);
 
-    // 鍵盤
-    const onKeyDown = (e) => {
-      const k = e.key.toLowerCase();
-      if (k === 'w') { keysRef.current.w = true; hasMovedRef.current = true; }
-      if (k === 'a') { keysRef.current.a = true; hasMovedRef.current = true; }
-      if (k === 's') { keysRef.current.s = true; hasMovedRef.current = true; }
-      if (k === 'd') { keysRef.current.d = true; hasMovedRef.current = true; }
+    // 滑鼠點擊移動：使用 Raycaster 將點擊轉換為地面座標
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    const onClick = (event) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hitPoint = new THREE.Vector3();
+      const intersect = raycaster.ray.intersectPlane(groundPlane, hitPoint);
+      if (intersect) {
+        if (!targetRef.current) targetRef.current = new THREE.Vector3();
+        targetRef.current.copy(hitPoint);
+        targetRef.current.y = avatarConfig.startPosition[1];
+      }
     };
-    const onKeyUp = (e) => {
-      const k = e.key.toLowerCase();
-      if (k === 'w') keysRef.current.w = false;
-      if (k === 'a') keysRef.current.a = false;
-      if (k === 's') keysRef.current.s = false;
-      if (k === 'd') keysRef.current.d = false;
-    };
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
+    renderer.domElement.addEventListener('click', onClick);
 
     let t = 0;
     const loop = () => {
@@ -239,26 +240,31 @@ export default function World3DView() {
       t += dt;
 
       const avatarMesh = avatarMeshRef.current;
-      const keys = keysRef.current;
       const speed = avatarConfig.moveSpeed * 60 * dt;
-      let yaw = yawRef.current;
-      const rotSpeed = 2.5 * dt;
-      if (keys.a) yaw += rotSpeed;
-      if (keys.d) yaw -= rotSpeed;
-      yawRef.current = yaw;
-      const dx = -Math.sin(yaw) * speed;
-      const dz = -Math.cos(yaw) * speed;
-      if (avatarMesh) {
-        if (keys.w) {
-          avatarMesh.position.x += dx;
-          avatarMesh.position.z += dz;
+
+      // 點擊移動：朝目標位置前進
+      if (avatarMesh && targetRef.current) {
+        const target = targetRef.current;
+        const dir = new THREE.Vector3(
+          target.x - avatarMesh.position.x,
+          0,
+          target.z - avatarMesh.position.z
+        );
+        const dist = dir.length();
+        if (dist > 0.05) {
+          dir.normalize();
+          const step = Math.min(speed, dist);
+          avatarMesh.position.x += dir.x * step;
+          avatarMesh.position.z += dir.z * step;
+          avatarMesh.position.y = avatarConfig.startPosition[1];
+          hasMovedRef.current = true;
+
+          // 讓小人面向移動方向（Z 軸朝前）
+          const yaw = Math.atan2(dir.x, dir.z * -1);
+          avatarMesh.rotation.y = yaw;
+        } else {
+          targetRef.current = null;
         }
-        if (keys.s) {
-          avatarMesh.position.x -= dx;
-          avatarMesh.position.z -= dz;
-        }
-        avatarMesh.position.y = avatarConfig.startPosition[1];
-        avatarMesh.rotation.y = yaw;
       }
 
       // 進入建築判定（需使用者實際按鍵移動過才啟用）
@@ -304,11 +310,10 @@ export default function World3DView() {
     window.addEventListener('resize', onResize);
 
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('resize', onResize);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       controls.dispose();
+      renderer.domElement.removeEventListener('click', onClick);
       linkMeshesRef.current.forEach(({ line }) => {
         line.geometry.dispose();
         line.material.dispose();

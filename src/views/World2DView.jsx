@@ -46,7 +46,7 @@ export default function World2DView() {
   const [avatarPos, setAvatarPos] = useState(avatarStart2D);
   const [wobblePhase, setWobblePhase] = useState(0);
   const avatarPosRef = useRef(avatarStart2D);
-  const targetRef = useRef(null);
+  const pathRef = useRef([]); // 一條由水平/垂直線段組成的路徑
   const pendingRoomRef = useRef(null);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
@@ -62,8 +62,26 @@ export default function World2DView() {
   }, [setCurrentView, setIsChatOpen]);
 
   const handleBuildingClick = (b) => {
-    // 設定目標位置，小人會用動畫方式走過去，到了再觸發功能
-    targetRef.current = { ...b.pos2d };
+    // 建立「只能走直線」的路徑：先走 X 再走 Y（或反之）
+    const start = avatarPosRef.current;
+    const end = b.pos2d;
+    const segments = [];
+
+    // 先水平對齊 X，再垂直對齊 Y（皆為軸對齊，沒有斜線）
+    if (Math.abs(end.x - start.x) > 1) {
+      segments.push({ x: end.x, y: start.y });
+    }
+    if (Math.abs(end.y - start.y) > 1) {
+      segments.push({ x: end.x, y: end.y });
+    }
+
+    // 如果非常接近，直接當成到達
+    if (segments.length === 0) {
+      runRoomAction(b.lobby);
+      return;
+    }
+
+    pathRef.current = segments;
     pendingRoomRef.current = b.lobby;
   };
 
@@ -79,34 +97,39 @@ export default function World2DView() {
       const dt = (time - lastTimeRef.current) / 1000;
       lastTimeRef.current = time;
 
-      let changed = false;
       const current = avatarPosRef.current;
 
-      if (targetRef.current) {
-        const target = targetRef.current;
+      if (pathRef.current && pathRef.current.length > 0) {
+        const target = pathRef.current[0];
         const dx = target.x - current.x;
         const dy = target.y - current.y;
-        const dist = Math.hypot(dx, dy);
 
-        if (dist > 1) {
-          const step = Math.min(dist, speed * dt);
-          const nx = current.x + (dx / dist) * step;
-          const ny = current.y + (dy / dist) * step;
-          avatarPosRef.current = { x: nx, y: ny };
-          setAvatarPos(avatarPosRef.current);
-          changed = true;
+        // 只會有一個軸需要移動（確保不能走斜線）
+        let nx = current.x;
+        let ny = current.y;
+
+        if (Math.abs(dx) > 1) {
+          const step = Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
+          nx = current.x + step;
+        } else if (Math.abs(dy) > 1) {
+          const step = Math.sign(dy) * Math.min(Math.abs(dy), speed * dt);
+          ny = current.y + step;
         } else {
-          avatarPosRef.current = { ...target };
-          setAvatarPos(avatarPosRef.current);
-          targetRef.current = null;
-          changed = true;
+          // 抵達當前 segment 終點
+          nx = target.x;
+          ny = target.y;
+          pathRef.current.shift();
 
-          if (pendingRoomRef.current) {
+          // 所有 segment 完成後才觸發功能
+          if (pathRef.current.length === 0 && pendingRoomRef.current) {
             const room = pendingRoomRef.current;
             pendingRoomRef.current = null;
             runRoomAction(room);
           }
         }
+
+        avatarPosRef.current = { x: nx, y: ny };
+        setAvatarPos(avatarPosRef.current);
       }
 
       // idle / 移動時都做一點輕微搖動，增加遊戲感
@@ -140,17 +163,24 @@ export default function World2DView() {
             viewBox="0 0 400 240"
             className="w-full h-full"
           >
-            {/* 背景網格 */}
+            {/* 背景：柔和漸層 + 網格 */}
             <defs>
               <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
                 <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1f2937" strokeWidth="1" />
               </pattern>
+              <radialGradient id="worldGlow" cx="50%" cy="45%" r="60%">
+                <stop offset="0%" stopColor="#0f172a" />
+                <stop offset="45%" stopColor="#020617" />
+                <stop offset="100%" stopColor="#000000" />
+              </radialGradient>
             </defs>
-            <rect x="0" y="0" width="400" height="240" fill="#020617" />
-            <rect x="0" y="0" width="400" height="240" fill="url(#grid)" opacity="0.5" />
+            <rect x="0" y="0" width="400" height="240" fill="url(#worldGlow)" />
+            <rect x="0" y="0" width="400" height="240" fill="url(#grid)" opacity="0.35" />
 
-            {/* 中央圓形廣場 */}
-            <circle cx="200" cy="120" r="36" fill="#111827" stroke="#1f2937" strokeWidth="2" />
+            {/* 中央圓形廣場 + 光暈 */}
+            <circle cx="200" cy="120" r="42" fill="#020617" opacity="0.8" />
+            <circle cx="200" cy="120" r="36" fill="#020617" stroke="#1f2937" strokeWidth="2" />
+            <circle cx="200" cy="120" r="24" fill="#0f172a" opacity="0.9" />
 
             {/* 建築之間的連線（互動關係） */}
             {projectedLinks.map((l, idx) => (
@@ -167,7 +197,7 @@ export default function World2DView() {
               />
             ))}
 
-            {/* 建築節點 */}
+            {/* 建築節點（圓弧排列的小鎮，帶柔和陰影） */}
             {projectedBuildings.map((b) => (
               <g
                 key={b.id}
@@ -183,7 +213,7 @@ export default function World2DView() {
                   height={32}
                   rx={10}
                   fill="#020617"
-                  stroke="#0f172a"
+                  stroke="#020617"
                   strokeWidth="2"
                 />
                 {/* 建築主體 */}
@@ -194,7 +224,7 @@ export default function World2DView() {
                   height={24}
                   rx={8}
                   fill={`#${b.color.toString(16).padStart(6, '0')}`}
-                  stroke="#0f172a"
+                  stroke="#0b1120"
                   strokeWidth="1.5"
                 />
                 {/* 小窗戶 */}

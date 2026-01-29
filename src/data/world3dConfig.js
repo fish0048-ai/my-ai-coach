@@ -19,12 +19,13 @@ const BUILDING_POSITIONS = {
 
 /** 建築物尺寸 [寬, 高, 深] 與顏色（hex） */
 const BUILDING_SPEC = {
-  calendar: { size: [6, 5, 6], color: 0x3b82f6 },
-  dashboard: { size: [6, 6, 6], color: 0x8b5cf6 },
-  nutrition: { size: [5, 5, 5], color: 0xf59e0b },
-  ai_coach: { size: [6, 7, 6], color: 0x06b6d4 },
-  knowledge_base: { size: [7, 6, 6], color: 0x10b981 },
-  trend: { size: [5, 7, 5], color: 0xec4899 },
+  // 使用比較可愛的粉彩色系與略為不同的高度，營造小鎮感
+  calendar: { size: [6, 5, 6], color: 0x93c5fd },        // 淡藍
+  dashboard: { size: [6, 6.5, 6], color: 0xc4b5fd },     // 淡紫
+  nutrition: { size: [5.5, 5.2, 5.5], color: 0xfde68a }, // 淡黃
+  ai_coach: { size: [6, 7, 6], color: 0x7dd3fc },        // 淺青
+  knowledge_base: { size: [7, 6.2, 6], color: 0xbbf7d0 },// 淺綠
+  trend: { size: [5.2, 7.2, 5.2], color: 0xf9a8d4 },     // 淺粉
 };
 
 /** 進入建築時觸發的動作 → 對應 App 的 view 或 panel */

@@ -11,11 +11,12 @@ import {
 } from '../data/world3dConfig';
 
 const FLOOR_SIZE = 80;
-const FLOOR_COLOR = 0x1e293b;
-const LINK_IDLE_COLOR = 0x334155;
+const FLOOR_COLOR = 0x0f172a;
+const PLAZA_COLOR = 0x1f2937;
+const LINK_IDLE_COLOR = 0x4b5563;
 const LINK_ACTIVE_COLOR = 0x38bdf8;
-const AVATAR_HEIGHT = 1.2;
-const AVATAR_RADIUS = 0.4;
+const AVATAR_HEIGHT = 1.4;
+const AVATAR_RADIUS = 0.45;
 
 export default function World3DView() {
   const containerRef = useRef(null);
@@ -80,50 +81,104 @@ export default function World3DView() {
 
     // 地面
     const floorGeo = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE, 20, 20);
-    const floorMat = new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 0.9, metalness: 0.1 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 1, metalness: 0 });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
+
+    // 中央廣場（圓形，可愛風小鎮中心）
+    const plazaGeo = new THREE.CircleGeometry(10, 32);
+    const plazaMat = new THREE.MeshStandardMaterial({ color: PLAZA_COLOR, roughness: 0.9, metalness: 0.05 });
+    const plaza = new THREE.Mesh(plazaGeo, plazaMat);
+    plaza.rotation.x = -Math.PI / 2;
+    plaza.position.y = 0.005;
+    scene.add(plaza);
 
     // 網格線（輔助）
     const grid = new THREE.GridHelper(FLOOR_SIZE, 40, 0x334155, 0x1e293b);
     grid.position.y = 0.01;
     scene.add(grid);
 
-    // 建築物
+    // 建築物（多段小屋 + 屋頂 + 招牌，偏可愛風）
     buildingsConfig.forEach((b) => {
       const [wx, wy, wz] = b.size;
-      const geo = new THREE.BoxGeometry(wx, wy, wz);
-      const mat = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.6, metalness: 0.2 });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(...b.position);
-      mesh.position.y = wy / 2;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.userData = { buildingId: b.id, lobby: b.lobby, enterRadius: 5 };
-      scene.add(mesh);
+      const group = new THREE.Group();
+
+      // 底座
+      const baseGeo = new THREE.BoxGeometry(wx * 1.05, wy * 0.25, wz * 1.05);
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.8, metalness: 0.1 });
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.position.y = (wy * 0.25) / 2;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
+
+      // 主體
+      const bodyGeo = new THREE.BoxGeometry(wx, wy * 0.6, wz);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.7, metalness: 0.15 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.y = (wy * 0.25) + (wy * 0.6) / 2;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      group.add(body);
+
+      // 屋頂（錐形）
+      const roofGeo = new THREE.ConeGeometry(Math.max(wx, wz) * 0.6, wy * 0.4, 4);
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5, metalness: 0.3 });
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.y = (wy * 0.25) + (wy * 0.6) + (wy * 0.2);
+      roof.castShadow = true;
+      roof.receiveShadow = true;
+      group.add(roof);
+
+      // 簡單窗戶（發光小方塊）
+      const windowGeo = new THREE.BoxGeometry(wx * 0.4, wy * 0.18, 0.05);
+      const windowMat = new THREE.MeshStandardMaterial({ color: 0xfeffd5, emissive: 0xfef9c3, emissiveIntensity: 0.6 });
+      const win = new THREE.Mesh(windowGeo, windowMat);
+      win.position.set(0, (wy * 0.25) + (wy * 0.4), wz / 2 + 0.03);
+      group.add(win);
+
+      group.position.set(...b.position);
+      group.userData = { buildingId: b.id, lobby: b.lobby, enterRadius: 5, size: b.size };
+      scene.add(group);
     });
 
-    // 小人（膠囊狀：圓柱 + 半球頂）
-    const cylGeo = new THREE.CylinderGeometry(AVATAR_RADIUS, AVATAR_RADIUS, Math.max(0.01, AVATAR_HEIGHT - AVATAR_RADIUS * 2), 16);
-    const sphGeo = new THREE.SphereGeometry(AVATAR_RADIUS, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-    const sphGeo2 = sphGeo.clone();
-    const cap = new THREE.Group();
-    const cyl = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ color: 0x60a5fa }));
-    cyl.position.y = (AVATAR_HEIGHT - AVATAR_RADIUS * 2) / 2 + AVATAR_RADIUS;
-    cap.add(cyl);
-    const top = new THREE.Mesh(sphGeo, new THREE.MeshStandardMaterial({ color: 0x60a5fa }));
-    top.position.y = AVATAR_HEIGHT - AVATAR_RADIUS;
-    cap.add(top);
-    const bot = new THREE.Mesh(sphGeo2, new THREE.MeshStandardMaterial({ color: 0x60a5fa }));
-    bot.position.y = AVATAR_RADIUS;
-    bot.rotation.x = Math.PI;
-    cap.add(bot);
-    cap.position.set(...avatarConfig.startPosition);
-    cap.castShadow = true;
-    scene.add(cap);
-    avatarMeshRef.current = cap;
+    // 小人（Q 版：大頭小身體 + 眼睛）
+    const avatarGroup = new THREE.Group();
+
+    // 身體
+    const bodyGeo = new THREE.CylinderGeometry(AVATAR_RADIUS * 0.8, AVATAR_RADIUS, AVATAR_HEIGHT * 0.55, 16);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.7, metalness: 0.2 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = (AVATAR_HEIGHT * 0.55) / 2 + AVATAR_RADIUS * 0.2;
+    avatarGroup.add(body);
+
+    // 頭（比例偏大）
+    const headGeo = new THREE.SphereGeometry(AVATAR_RADIUS * 1.4, 24, 16);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xf9fafb, roughness: 0.9, metalness: 0.05 });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = AVATAR_HEIGHT;
+    avatarGroup.add(head);
+
+    // 眼睛
+    const eyeGeo = new THREE.SphereGeometry(AVATAR_RADIUS * 0.22, 16, 12);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.4, metalness: 0.2 });
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat.clone());
+    const eyeOffsetX = AVATAR_RADIUS * 0.6;
+    const eyeOffsetY = AVATAR_RADIUS * 0.1;
+    const eyeOffsetZ = AVATAR_RADIUS * 1.2;
+    eyeL.position.set(-eyeOffsetX, AVATAR_HEIGHT + eyeOffsetY, eyeOffsetZ);
+    eyeR.position.set(eyeOffsetX, AVATAR_HEIGHT + eyeOffsetY, eyeOffsetZ);
+    avatarGroup.add(eyeL);
+    avatarGroup.add(eyeR);
+
+    avatarGroup.position.set(...avatarConfig.startPosition);
+    avatarGroup.castShadow = true;
+    avatarGroup.receiveShadow = true;
+    scene.add(avatarGroup);
+    avatarMeshRef.current = avatarGroup;
 
     // 同步連線（線段）
     const linkMeshes = [];
@@ -144,10 +199,10 @@ export default function World3DView() {
     linkMeshesRef.current = linkMeshes;
 
     // 燈光
-    const amb = new THREE.AmbientLight(0x404070, 0.6);
+    const amb = new THREE.AmbientLight(0xf9fafb, 0.45);
     scene.add(amb);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(20, 30, 20);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    dir.position.set(18, 26, 18);
     dir.castShadow = true;
     dir.shadow.mapSize.width = 1024;
     dir.shadow.mapSize.height = 1024;

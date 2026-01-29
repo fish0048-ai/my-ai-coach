@@ -29,6 +29,7 @@ export default function World3DView() {
   const yawRef = useRef(0);
   const lastEnteredRef = useRef(null);
   const rafRef = useRef(null);
+  const hasMovedRef = useRef(false); // 使用者是否曾經按鍵移動過
 
   const setCurrentView = useViewStore((s) => s.setCurrentView);
   const setIsChatOpen = useViewStore((s) => s.setIsChatOpen);
@@ -161,10 +162,10 @@ export default function World3DView() {
     // 鍵盤
     const onKeyDown = (e) => {
       const k = e.key.toLowerCase();
-      if (k === 'w') keysRef.current.w = true;
-      if (k === 'a') keysRef.current.a = true;
-      if (k === 's') keysRef.current.s = true;
-      if (k === 'd') keysRef.current.d = true;
+      if (k === 'w') { keysRef.current.w = true; hasMovedRef.current = true; }
+      if (k === 'a') { keysRef.current.a = true; hasMovedRef.current = true; }
+      if (k === 's') { keysRef.current.s = true; hasMovedRef.current = true; }
+      if (k === 'd') { keysRef.current.d = true; hasMovedRef.current = true; }
     };
     const onKeyUp = (e) => {
       const k = e.key.toLowerCase();
@@ -205,8 +206,8 @@ export default function World3DView() {
         avatarMesh.rotation.y = yaw;
       }
 
-      // 進入建築判定
-      if (avatarMesh) {
+      // 進入建築判定（需使用者實際按鍵移動過才啟用）
+      if (avatarMesh && hasMovedRef.current) {
         buildingsConfig.forEach((b) => {
           const px = avatarMesh.position.x - b.position[0];
           const pz = avatarMesh.position.z - b.position[2];

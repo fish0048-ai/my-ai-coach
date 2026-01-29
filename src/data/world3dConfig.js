@@ -40,7 +40,8 @@ const ROOM_ACTIONS = {
 export const avatar = {
   id: 'player',
   startRoom: 'calendar.lobby',
-  startPosition: [BUILDING_POSITIONS.calendar[0] + 4, 0, BUILDING_POSITIONS.calendar[2]],
+  // 讓初始位置離行事曆館遠一點，避免一進入 3D 視圖就被判定「走進建築」
+  startPosition: [BUILDING_POSITIONS.calendar[0] + 10, 0, BUILDING_POSITIONS.calendar[2] - 4],
   moveSpeed: 0.15,
   enterRadius: 5,
 };

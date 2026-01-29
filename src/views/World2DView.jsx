@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useViewStore } from '../store/viewStore';
 import {
   avatar as avatarConfig,
@@ -44,6 +44,12 @@ export default function World2DView() {
   }, []);
 
   const [avatarPos, setAvatarPos] = useState(avatarStart2D);
+  const [wobblePhase, setWobblePhase] = useState(0);
+  const avatarPosRef = useRef(avatarStart2D);
+  const targetRef = useRef(null);
+  const pendingRoomRef = useRef(null);
+  const rafRef = useRef(null);
+  const lastTimeRef = useRef(null);
 
   const runRoomAction = useCallback((roomId) => {
     const act = getRoomAction(roomId);
@@ -56,11 +62,66 @@ export default function World2DView() {
   }, [setCurrentView, setIsChatOpen]);
 
   const handleBuildingClick = (b) => {
-    // 視覺上讓小人「走到」該建築位置（2D 瞬移）
-    setAvatarPos(b.pos2d);
-    // 觸發對應功能
-    runRoomAction(b.lobby);
+    // 設定目標位置，小人會用動畫方式走過去，到了再觸發功能
+    targetRef.current = { ...b.pos2d };
+    pendingRoomRef.current = b.lobby;
   };
+
+  useEffect(() => {
+    const speed = 140; // px / 秒
+
+    const loop = (time) => {
+      rafRef.current = requestAnimationFrame(loop);
+      if (lastTimeRef.current == null) {
+        lastTimeRef.current = time;
+        return;
+      }
+      const dt = (time - lastTimeRef.current) / 1000;
+      lastTimeRef.current = time;
+
+      let changed = false;
+      const current = avatarPosRef.current;
+
+      if (targetRef.current) {
+        const target = targetRef.current;
+        const dx = target.x - current.x;
+        const dy = target.y - current.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 1) {
+          const step = Math.min(dist, speed * dt);
+          const nx = current.x + (dx / dist) * step;
+          const ny = current.y + (dy / dist) * step;
+          avatarPosRef.current = { x: nx, y: ny };
+          setAvatarPos(avatarPosRef.current);
+          changed = true;
+        } else {
+          avatarPosRef.current = { ...target };
+          setAvatarPos(avatarPosRef.current);
+          targetRef.current = null;
+          changed = true;
+
+          if (pendingRoomRef.current) {
+            const room = pendingRoomRef.current;
+            pendingRoomRef.current = null;
+            runRoomAction(room);
+          }
+        }
+      }
+
+      // idle / 移動時都做一點輕微搖動，增加遊戲感
+      setWobblePhase((prev) => prev + dt * 3);
+
+      return changed;
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTimeRef.current = null;
+    };
+  }, [runRoomAction]);
 
   return (
     <div className="relative w-full min-h-[60vh] rounded-xl bg-slate-950/90 border border-slate-800 overflow-hidden">
@@ -159,11 +220,11 @@ export default function World2DView() {
               </g>
             ))}
 
-            {/* 小人標記（目前所在位置） */}
-            <g transform={`translate(${avatarPos.x} ${avatarPos.y})`}>
+            {/* 小人標記（目前所在位置，帶有輕微搖動） */}
+            <g transform={`translate(${avatarPos.x} ${avatarPos.y + Math.sin(wobblePhase) * 2})`}>
               <circle r="7" fill="#38bdf8" stroke="#0f172a" strokeWidth="2" />
-              <circle cx="-2" cy="-1" r="1.4" fill="#0f172a" />
-              <circle cx="2" cy="-1" r="1.4" fill="#0f172a" />
+              <circle cx="-2" cy="-1.2" r="1.4" fill="#0f172a" />
+              <circle cx="2" cy="-1.2" r="1.4" fill="#0f172a" />
             </g>
           </svg>
         </div>

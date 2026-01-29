@@ -8,6 +8,7 @@ import { runGemini } from '../../utils/gemini';
 import { handleError } from '../errorService';
 import { FORM_CORRECTION_RULES } from './localAnalysisRules';
 import { parseLLMJson } from '../../utils/aiJson';
+import { getKnowledgeContextForQuery } from './knowledgeBaseService';
 
 /**
  * 標準動作角度範圍（根據運動科學研究）
@@ -203,15 +204,18 @@ export const generateFormCorrection = async ({
       deviationText = issues.join('；');
     }
 
+    const knowledgeContext = await getKnowledgeContextForQuery('重訓 動作 糾正 受傷 姿勢');
     const prompt = `你是一位專業的肌力與體能教練 (CSCS)。請分析${exerciseName}動作並提供具體糾正建議。
 
 動作評分：${score}/100
 ${deviationText ? `發現問題：${deviationText}` : '動作基本標準'}
+${knowledgeContext ? `${knowledgeContext}` : ''}
 
 請提供：
 1. 3-5條具體糾正建議（每條30字內，繁體中文，針對發現的問題）
 2. 2-3個糾正訓練動作（包含動作名稱、組數、次數、重點提示）
 3. 訓練計劃建議（如何將糾正動作融入日常訓練）
+若有上述歷史紀錄與傷痛／姿勢相關，請一併納入考量。
 
 輸出格式（JSON）：
 {

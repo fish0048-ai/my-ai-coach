@@ -8,6 +8,7 @@ import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { parseLLMJson } from '../utils/aiJson';
 import { updateAIContext } from '../utils/contextManager';
+import { getKnowledgeContextForQuery } from '../services/ai/knowledgeBaseService';
 import { useUserStore } from '../store/userStore';
 import { generateNutritionRecommendation } from '../services/ai/nutritionRecommendation';
 import { useNutrition } from '../hooks/useNutrition';
@@ -139,14 +140,16 @@ export default function NutritionView() {
       try {
           const remainingCal = targetCal - summary.cal;
           const remainingProtein = targetProtein - summary.protein;
+          const knowledgeContext = await getKnowledgeContextForQuery('營養 飲食 過敏 禁忌');
           
           const prompt = `
             使用者目標 TDEE: ${targetCal} kcal (蛋白質 ${targetProtein}g)。
             目前已攝取: ${summary.cal} kcal (蛋白質 ${summary.protein}g)。
             還剩下: ${remainingCal} kcal, 蛋白質差 ${remainingProtein}g。
+            ${knowledgeContext ? `${knowledgeContext}` : ''}
             
             請給出 3 個具體的晚餐或點心建議 (符合台灣常見食物，如超商、自助餐)，
-            幫助使用者達標 (特別是蛋白質)。
+            幫助使用者達標 (特別是蛋白質)。若有上述歷史紀錄（如過敏、禁忌），請避開。
             請用條列式，繁體中文，150字內。
           `;
           

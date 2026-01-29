@@ -10,6 +10,7 @@ import { runGemini } from '../../utils/gemini';
 import { parseLLMJson } from '../../utils/aiJson';
 import { handleError } from '../errorService';
 import { NUTRITION_RULES } from './localAnalysisRules';
+import { getKnowledgeContextForQuery } from './knowledgeBaseService';
 
 /**
  * 計算今日訓練強度
@@ -160,11 +161,13 @@ export const generateNutritionRecommendation = async ({
     }
 
     // 需要 AI 深度分析時，構建 prompt
+    const knowledgeContext = await getKnowledgeContextForQuery('營養 飲食 目標 過敏 禁忌');
     const prompt = `你是一位專業的營養師。請根據以下資訊提供個人化營養建議。
 
 用戶資訊：
 - 目標：${userGoalText}
 - 今日訓練：${trainingInfo.hasTraining ? `${trainingInfo.type}，強度${trainingInfo.intensity === 'high' ? '高' : trainingInfo.intensity === 'moderate' ? '中' : '低'}，持續${trainingInfo.duration}分鐘，消耗約${trainingInfo.calories}大卡` : '無訓練'}
+${knowledgeContext ? `${knowledgeContext}` : ''}
 
 營養現況：
 - 已攝取：${Math.round(currentCalories)}大卡（蛋白質${Math.round(currentProtein)}g，碳水${Math.round(currentCarbs)}g，脂肪${Math.round(currentFat)}g）
@@ -175,6 +178,7 @@ export const generateNutritionRecommendation = async ({
 1. 3-5條具體營養建議（每條30字內，繁體中文）
 2. 2-3個符合台灣常見食物的餐點建議（包含具體食物名稱和份量，繁體中文）
 3. 營養缺口提醒（如果某項營養素明顯不足）
+若有上述歷史紀錄（如過敏、禁忌、特殊飲食需求），請在建議中避開並納入考量。
 
 輸出格式（JSON）：
 {

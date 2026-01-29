@@ -1,5 +1,5 @@
 // --- 總教練 (Head Coach) - 單日排程 ---
-export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyStats, preferredRunType = null) => {
+export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyStats, preferredRunType = null, knowledgeContext = '') => {
   const dateObj = new Date(targetDate);
   const dayOfWeek = dateObj.getDay(); 
   
@@ -31,6 +31,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
     
     [近期紀錄]
     ${recentLogs}
+    ${knowledgeContext ? `${knowledgeContext}` : ''}
     
     [總教練決策邏輯]
     1. **協調性**：昨日高強度今日則低強度。
@@ -71,7 +72,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
 
 // --- 總教練：週課表安排 (Weekly Scheduler) ---
 // 這是之前遺漏的部分，現在補上
-export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats, completedThisWeek = '', recent30DaysSummary = null) => {
+export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDates, userPreferences, monthlyStats, completedThisWeek = '', recent30DaysSummary = null, knowledgeContext = '') => {
   return `
     角色：你是使用者的「健身總教練」，正在規劃本週剩餘日期的訓練課表。
     
@@ -81,6 +82,7 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     
     [近期訓練狀態 (Context)]
     ${contextSummary}
+    ${knowledgeContext ? `${knowledgeContext}` : ''}
     
     ${recent30DaysSummary ? `[最近 30 天訓練統計]
     - 總訓練次數：${recent30DaysSummary.totalWorkouts} 次（跑步 ${recent30DaysSummary.totalRunCount} 次，重訓 ${recent30DaysSummary.totalStrengthCount} 次）

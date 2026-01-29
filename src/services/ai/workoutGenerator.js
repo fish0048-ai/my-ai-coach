@@ -13,6 +13,7 @@ import { cleanNumber } from '../../utils/number';
 import { parseLLMJson } from '../../utils/aiJson';
 import { handleError } from '../errorService';
 import { fetchWorkoutsByDateRange } from '../../api/workouts';
+import { getKnowledgeContextForQuery } from './knowledgeBaseService';
 
 /**
  * 生成單日訓練課表
@@ -35,8 +36,9 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, prefe
     const recentLogs = await getAIContext();
     const monthlyStats = { currentDist: monthlyMileage };
     const targetDateStr = formatDate(selectedDate);
+    const knowledgeContext = await getKnowledgeContextForQuery('訓練 課表 恢復 傷痛 目標');
     
-    let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats, preferredRunType);
+    let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats, preferredRunType, knowledgeContext);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON.";
     const response = await runGemini(prompt, apiKey);
     const plan = parseLLMJson(response, { rootType: 'object' });
@@ -175,8 +177,9 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
     const userProfile = (await getUserProfile()) || { goal: '健康' };
     const recentLogs = await getAIContext();
     const monthlyStats = { currentDist: monthlyMileage };
+    const knowledgeContext = await getKnowledgeContextForQuery('本週課表 跑量 重訓 恢復 傷痛');
 
-    let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats, completedSummary, recent30DaysSummary);
+    let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats, completedSummary, recent30DaysSummary, knowledgeContext);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
     const response = await runGemini(prompt, apiKey);
     const plans = parseLLMJson(response, { rootType: 'array' });
@@ -320,11 +323,11 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4, targetP
       throw new Error(`未知的訓練計劃類型: ${planType}`);
     }
 
-    // 生成計劃提示詞
+    const knowledgeContext = await getKnowledgeContextForQuery('訓練 課表 目標 賽事 傷痛');
     const prompt = generatePlanPrompt(userProfile, recentLogs, planType, planTemplate, weeks, {
       targetPB,
       targetRaceDate
-    });
+    }, knowledgeContext);
     const response = await runGemini(prompt, apiKey);
     const planData = parseLLMJson(response, { rootType: 'object' });
 
@@ -420,9 +423,10 @@ const recommendPlanType = (userProfile, recentLogs) => {
  * @param {Object} [options] - 額外選項（例如破 PB 目標）
  * @param {string} [options.targetPB] - 目標 PB（字串，如 3:30:00）
  * @param {string} [options.targetRaceDate] - 目標賽事日期（YYYY-MM-DD）
+ * @param {string} [knowledgeContext] - 個人知識庫檢索結果
  * @returns {string} 提示詞
  */
-const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, weeks, options = {}) => {
+const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, weeks, options = {}, knowledgeContext = '') => {
   const { targetPB, targetRaceDate } = options;
   
   // 壓縮用戶資料（只保留關鍵資訊）
@@ -452,6 +456,7 @@ const generatePlanPrompt = (userProfile, recentLogs, planType, planTemplate, wee
 
 用戶:${userInfo}${recentSummary ? `,近期:${recentSummary}` : ''}
 要求:每週${planTemplate.frequency}次${goalInfo ? `,${goalInfo}` : ''}
+${knowledgeContext ? `${knowledgeContext}` : ''}
 
 輸出結構化課表數據（非文字說明）：
 - workouts: 每週每天具體訓練數據

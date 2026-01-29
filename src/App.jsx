@@ -21,7 +21,7 @@ const NutritionView = React.lazy(() => import('./views/NutritionView.jsx'));
 const GearView = React.lazy(() => import('./views/GearView.jsx'));
 const TrainingPlanView = React.lazy(() => import('./views/TrainingPlanView.jsx'));
 const KnowledgeBaseView = React.lazy(() => import('./views/KnowledgeBaseView.jsx'));
-const World3DView = React.lazy(() => import('./views/World3DView.jsx'));
+const World2DView = React.lazy(() => import('./views/World2DView.jsx'));
 
 // 懶載入聊天室元件 (降低初始 Bundle 大小)
 const CoachChat = React.lazy(() => import('./components/AICoach/CoachChat.jsx'));
@@ -152,7 +152,7 @@ export default function App() {
                 case 'profile': return <FeatureViews view="profile" />;
                 case 'training-plan': return <TrainingPlanView />;
                 case 'knowledge-base': return <KnowledgeBaseView />;
-                case 'world-3d': return <World3DView />;
+                case 'world-3d': return <World2DView />;
                 case 'training':
                 case 'analysis':
                   return <DashboardView />;

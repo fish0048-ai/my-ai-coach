@@ -8,7 +8,7 @@ import { sendCoachMessage } from '../../services/ai/coachService';
 export default function CoachChat({ isOpen, onClose, user }) {
   const { apiKey, setApiKey: updateApiKey, hasApiKey, isLoading: isApiKeyLoading } = useApiKey();
   const [messages, setMessages] = useState([
-    { role: 'model', text: `嗨 ${user?.displayName || '夥伴'}！我是你的 AI 教練。\n今天想練哪裡？\n(我會盡量精簡回答以節省您的 Token)` }
+    { role: 'model', text: `${user?.displayName ? `${user.displayName}，您好。` : '您好。'}我是您的 AI 教練，可根據您的訓練紀錄與目標提供建議。\n\n請告訴我您想討論的項目（例如：本週課表、恢復安排、跑量調整），我會簡潔回覆。` }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,13 +36,13 @@ export default function CoachChat({ isOpen, onClose, user }) {
     updateApiKey(tempKey);
     setShowSettings(false);
     if (messages.length === 1) {
-      setMessages(prev => [...prev, { role: 'model', text: "API Key 已儲存！我們現在可以開始對話了。" }]);
+      setMessages(prev => [...prev, { role: 'model', text: "API Key 已儲存，教練服務已就緒。請在下方輸入您的問題。" }]);
     }
   };
 
   const handleClearHistory = () => {
     setMessages([
-        { role: 'model', text: `對話已重置。有什麼新問題嗎？` }
+      { role: 'model', text: "對話已清除。請輸入您想討論的訓練或目標，我會根據您的紀錄回覆。" }
     ]);
   };
 
@@ -50,12 +50,12 @@ export default function CoachChat({ isOpen, onClose, user }) {
   const handleSyncContext = async () => {
     setIsSyncing(true);
     try {
-        await updateAIContext();
-        alert("同步成功！AI 現在已經記得您的所有舊資料了。");
+      await updateAIContext();
+      alert("同步完成。教練已更新您的個人資料與訓練紀錄，後續回覆將以此為依據。");
     } catch (error) {
-        alert("同步失敗，請稍後再試。");
+      alert("同步失敗，請檢查網路連線後再試。");
     } finally {
-        setIsSyncing(false);
+      setIsSyncing(false);
     }
   };
 
@@ -64,7 +64,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
     
     if (!apiKey) {
       setShowSettings(true);
-      setMessages(prev => [...prev, { role: 'model', text: "請先設定 API Key 才能使用喔！" }]);
+      setMessages(prev => [...prev, { role: 'model', text: "請先於設定中輸入 Google Gemini API Key，方能使用教練服務。" }]);
       return;
     }
 
@@ -83,7 +83,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
         const responseText = await sendCoachMessage({ userMessage, userContext, knowledgeContext });
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
-        setMessages(prev => [...prev, { role: 'model', text: "連線發生錯誤，請檢查網路或 API Key。" }]);
+      setMessages(prev => [...prev, { role: 'model', text: "無法取得教練回覆，請確認網路連線正常，或檢查 API Key 是否正確。" }]);
     } finally {
         setIsLoading(false);
     }
@@ -141,7 +141,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
             <div className="text-center space-y-2">
               <h3 className="text-xl font-bold text-white">設定 API Key</h3>
               <p className="text-sm text-gray-400 max-w-xs">
-                請輸入您的 Google Gemini API Key。
+                請輸入您的 Google Gemini API Key，以啟用 AI 教練服務。Key 僅存放於本機，不會上傳至第三方。
               </p>
             </div>
             
@@ -168,10 +168,10 @@ export default function CoachChat({ isOpen, onClose, user }) {
                 className="w-full bg-slate-900/60 hover:bg-slate-800/80 text-gray-200 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-white/10 mt-2"
               >
                 {isSyncing ? <Loader size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                {isSyncing ? '正在讀取舊資料...' : '同步歷史資料到 AI'}
+                {isSyncing ? '正在同步...' : '同步個人資料與訓練紀錄'}
               </button>
               <p className="text-[10px] text-gray-500 text-center">
-                點擊上方按鈕可讓 AI 讀取您過去所有的 Profile 與行事曆紀錄。
+                同步後，教練將依您的個人檔案與行事曆紀錄提供建議。
               </p>
             </div>
           </div>
@@ -214,7 +214,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={apiKey ? "輸入問題 (AI 會根據您的資料回答)..." : "請設定 API Key"}
+              placeholder={apiKey ? "輸入問題，教練將依您的紀錄回覆..." : "請先設定 API Key"}
               disabled={!apiKey}
               className="flex-1 bg-slate-900/70 text-white placeholder-gray-500 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />

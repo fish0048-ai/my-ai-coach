@@ -59,6 +59,7 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, prefe
       runIntervalPace: plan.runIntervalPace || '', // 每組配速
       runIntervalDuration: plan.runIntervalDuration ? String(plan.runIntervalDuration) : '', // 維持時間（秒）
       runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '', // 休息時間（秒）
+      runIntervalPower: plan.runIntervalPower ? String(plan.runIntervalPower) : '', // 間歇功率
     };
   } catch (error) {
     handleError(error, { context: 'workoutGenerator', operation: 'generateDailyWorkout' });
@@ -202,6 +203,7 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
         runIntervalSets: plan.runIntervalSets ? String(plan.runIntervalSets) : '',
         runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '',
         runIntervalPace: plan.runIntervalPace || '', // 每組配速
+        runIntervalPower: plan.runIntervalPower ? String(plan.runIntervalPower) : '', // 間歇功率
         updatedAt: new Date().toISOString()
       }));
   } catch (error) {

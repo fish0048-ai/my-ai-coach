@@ -226,6 +226,16 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                     />
                                 </div>
                                 <div className="space-y-1">
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '衝刺功率 (W)' : '間歇功率 (W)'}</label>
+                                    <input 
+                                        type="number" 
+                                        value={editForm.runIntervalPower || ''} 
+                                        onChange={e => setEditForm({...editForm, runIntervalPower: e.target.value})} 
+                                        placeholder="例：300" 
+                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
+                                    />
+                                </div>
+                                <div className="space-y-1">
                                     <label className="text-xs text-gray-400 flex items-center gap-1">維持時間 (秒)</label>
                                     <input 
                                         type="number" 
@@ -261,6 +271,11 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                     {editForm.runIntervalPace && (
                                         <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
                                             {editForm.runType === '10-20-30' ? '衝刺配速：' : '每組配速：'}{editForm.runIntervalPace}
+                                        </span>
+                                    )}
+                                    {editForm.runIntervalPower && (
+                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
+                                            功率：{editForm.runIntervalPower}W
                                         </span>
                                     )}
                                     {editForm.runIntervalDuration && (

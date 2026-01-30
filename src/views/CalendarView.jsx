@@ -38,7 +38,7 @@ export default function CalendarView() {
   const [editForm, setEditForm] = useState({
     status: 'completed', type: 'strength', title: '', exercises: [], 
     runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
-    runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '' // 間歇跑相關欄位
+    runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '', runIntervalPower: '' // 間歇跑相關欄位
   });
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -604,7 +604,7 @@ export default function CalendarView() {
                                                     {workout.type === 'run' 
                                                         ? `${workout.runDistance}km${
                                                             (workout.runType === 'Interval' || workout.runType === '10-20-30') && workout.runIntervalSets 
-                                                                ? ` | ${workout.runIntervalSets}${workout.runType === '10-20-30' ? '組區塊' : '組'}${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
+                                                                ? ` | ${workout.runIntervalSets}${workout.runType === '10-20-30' ? '組區塊' : '組'}${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalPower ? ` [${workout.runIntervalPower}W]` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
                                                                 : ''
                                                           }`
                                                         : `${workout.exercises?.length}動作`

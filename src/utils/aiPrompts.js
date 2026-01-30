@@ -60,6 +60,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
       // 間歇跑專用欄位 (僅當 runType === "Interval" 或 "10-20-30" 時填寫)
       "runIntervalSets": 數字 (例: 8, 表示幾組 / 10-20-30 則表示幾個區塊),
       "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示高強度階段配速)",
+      "runIntervalPower": 數字 (例: 350, 表示衝刺階段目標功率 W),
       "runIntervalDuration": 數字 (例: 60, 表示每組維持時間 / 10-20-30 則固定為 60 秒循環),
       "runIntervalRest": 數字 (例: 90, 表示休息幾秒 / 10-20-30 則表示區塊間休息),
 
@@ -144,6 +145,7 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
         "runIntervalSets": 數字 (例: 8, 表示幾組 / 10-20-30 則表示幾個區塊),
         "runIntervalRest": 數字 (例: 90, 表示休息幾秒 / 10-20-30 則表示區塊間休息),
         "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示每組配速)",
+        "runIntervalPower": 數字 (例: 300, 表示間歇功率),
         "exercises": [{ "name": "...", "targetMuscle": "...", "sets": "...", "reps": "...", "weight": "..." }]
       }
     ]

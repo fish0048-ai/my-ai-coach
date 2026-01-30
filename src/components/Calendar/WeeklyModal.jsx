@@ -33,6 +33,7 @@ export default function WeeklyModal({
     { key: 'strength', label: '🏋️ 重訓', color: 'bg-blue-600' },
     { key: 'run_lsd', label: '🐢 LSD', color: 'bg-orange-600' },
     { key: 'run_interval', label: '🐇 間歇', color: 'bg-red-600' },
+    { key: 'run_10_20_30', label: '⏱️ 10-20-30', color: 'bg-pink-600' },
     { key: 'run_easy', label: '👟 輕鬆', color: 'bg-green-600' },
     { key: 'run_mp', label: '🔥 MP', color: 'bg-yellow-600' },
     { key: 'rest', label: '💤 休息', color: 'bg-gray-700' },

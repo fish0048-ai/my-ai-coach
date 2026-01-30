@@ -52,30 +52,44 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
             {editForm.type === 'run' && (
                 <div className="space-y-2">
                     <label className="text-xs text-gray-400 flex items-center gap-1">選擇跑步類型（AI 將依此生成課表）</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {[
-                            { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600', selected: editForm.runType === 'Easy' },
-                            { value: 'Interval', label: '🐇 間歇', color: 'bg-red-600', selected: editForm.runType === 'Interval' },
-                            { value: 'LSD', label: '🐢 LSD', color: 'bg-orange-600', selected: editForm.runType === 'LSD' },
-                            { value: 'MP', label: '🔥 MP', color: 'bg-yellow-600', selected: editForm.runType === 'MP' }
-                        ].map(type => (
-                            <button
-                                key={type.value}
-                                type="button"
-                                onClick={() => setEditForm({...editForm, runType: type.value})}
-                                className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                                    type.selected 
-                                        ? `${type.color} text-white shadow-lg` 
-                                        : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
-                                }`}
-                            >
-                                {type.label}
-                            </button>
-                        ))}
+                    <div className="grid grid-cols-5 gap-2">
+                            {[
+                                { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600', selected: editForm.runType === 'Easy' },
+                                { value: 'Interval', label: '🐇 間歇', color: 'bg-red-600', selected: editForm.runType === 'Interval' },
+                                { value: '10-20-30', label: '⏱️ 10-20-30', color: 'bg-pink-600', selected: editForm.runType === '10-20-30' },
+                                { value: 'LSD', label: '🐢 LSD', color: 'bg-orange-600', selected: editForm.runType === 'LSD' },
+                                { value: 'MP', label: '🔥 MP', color: 'bg-yellow-600', selected: editForm.runType === 'MP' }
+                            ].map(type => (
+                                <button
+                                    key={type.value}
+                                    type="button"
+                                    onClick={() => {
+                                        const newForm = { ...editForm, runType: type.value };
+                                        if (type.value === '10-20-30') {
+                                            newForm.runIntervalDuration = '60';
+                                            if (!newForm.runIntervalRest) newForm.runIntervalRest = '120';
+                                        }
+                                        setEditForm(newForm);
+                                    }}
+                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                                        type.selected 
+                                            ? `${type.color} text-white shadow-lg` 
+                                            : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                    }`}
+                                >
+                                    {type.label}
+                                </button>
+                            ))}
                     </div>
                     <div className="text-xs text-gray-500 bg-gray-900/50 p-2 rounded border border-gray-700">
                         {editForm.runType 
-                            ? `已選擇：${editForm.runType === 'Easy' ? '輕鬆跑' : editForm.runType === 'Interval' ? '間歇跑' : editForm.runType === 'LSD' ? '長距離跑' : '馬拉松配速跑'}`
+                            ? `已選擇：${
+                                editForm.runType === 'Easy' ? '輕鬆跑' : 
+                                editForm.runType === 'Interval' ? '間歇跑' : 
+                                editForm.runType === '10-20-30' ? '10-20-30 間歇跑' :
+                                editForm.runType === 'LSD' ? '長距離跑' : 
+                                '馬拉松配速跑'
+                            }`
                             : '可選：不選擇則由 AI 自動決定'
                         }
                     </div>
@@ -132,16 +146,24 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                     {/* 跑步類型選擇 */}
                     <div className="space-y-1">
                         <label className="text-xs text-gray-400 flex items-center gap-1">跑步類型</label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-5 gap-2">
                             {[
                                 { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600' },
                                 { value: 'Interval', label: '🐇 間歇', color: 'bg-red-600' },
+                                { value: '10-20-30', label: '⏱️ 10-20-30', color: 'bg-pink-600' },
                                 { value: 'LSD', label: '🐢 LSD', color: 'bg-orange-600' },
                                 { value: 'MP', label: '🔥 MP', color: 'bg-yellow-600' }
                             ].map(type => (
                                 <button
                                     key={type.value}
-                                    onClick={() => setEditForm({...editForm, runType: type.value})}
+                                    onClick={() => {
+                                        const newForm = { ...editForm, runType: type.value };
+                                        if (type.value === '10-20-30') {
+                                            newForm.runIntervalDuration = '60';
+                                            if (!newForm.runIntervalRest) newForm.runIntervalRest = '120';
+                                        }
+                                        setEditForm(newForm);
+                                    }}
                                     className={`py-2 rounded-lg text-xs font-bold transition-all ${
                                         editForm.runType === type.value 
                                             ? `${type.color} text-white shadow-lg` 
@@ -173,34 +195,34 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                         </div>
                     </div>
 
-                    {/* 間歇跑專用欄位 */}
-                    {editForm.runType === 'Interval' && (
-                        <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 space-y-3">
-                            <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
+                    {/* 間歇跑專用欄位 (Interval 或 10-20-30) */}
+                    {(editForm.runType === 'Interval' || editForm.runType === '10-20-30') && (
+                        <div className={`${editForm.runType === '10-20-30' ? 'bg-pink-900/20 border-pink-700/50' : 'bg-red-900/20 border-red-700/50'} border rounded-lg p-4 space-y-3`}>
+                            <div className={`flex items-center gap-2 ${editForm.runType === '10-20-30' ? 'text-pink-400' : 'text-red-400'} font-bold text-sm`}>
                                 <Zap size={14} />
-                                間歇跑設定
+                                {editForm.runType === '10-20-30' ? '10-20-30 間歇設定' : '間歇跑設定'}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">組數</label>
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '區塊數' : '組數'}</label>
                                     <input 
                                         type="number" 
                                         step="1" 
                                         min="1"
                                         value={editForm.runIntervalSets} 
                                         onChange={e => setEditForm({...editForm, runIntervalSets: e.target.value})} 
-                                        placeholder="例：8" 
-                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                        placeholder={editForm.runType === '10-20-30' ? "例：3" : "例：8"} 
+                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">每組配速</label>
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '衝刺配速' : '每組配速'}</label>
                                     <input 
                                         type="text" 
                                         value={editForm.runIntervalPace || ''} 
                                         onChange={e => setEditForm({...editForm, runIntervalPace: e.target.value})} 
                                         placeholder="例：4'00&quot; /km" 
-                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -211,34 +233,45 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                         min="0"
                                         value={editForm.runIntervalDuration} 
                                         onChange={e => setEditForm({...editForm, runIntervalDuration: e.target.value})} 
-                                        placeholder="例：60" 
-                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                        placeholder={editForm.runType === '10-20-30' ? "60 (固定)" : "例：60"} 
+                                        readOnly={editForm.runType === '10-20-30'}
+                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500 opacity-70' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">休息時間 (秒)</label>
+                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '區塊間休息' : '休息時間 (秒)'}</label>
                                     <input 
                                         type="number" 
                                         step="1" 
                                         min="0"
                                         value={editForm.runIntervalRest} 
                                         onChange={e => setEditForm({...editForm, runIntervalRest: e.target.value})} 
-                                        placeholder="例：90" 
-                                        className="w-full bg-gray-900 text-white border border-red-600/50 rounded-lg px-3 py-2 text-lg font-bold font-mono focus:border-red-500 outline-none" 
+                                        placeholder={editForm.runType === '10-20-30' ? "120" : "例：90"} 
+                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
                                     />
                                 </div>
                             </div>
                             {editForm.runIntervalSets && (editForm.runIntervalDuration || editForm.runIntervalRest) && (
                                 <div className="text-xs text-gray-400 bg-gray-900/50 p-2 rounded border border-gray-700">
-                                    <span className="text-red-400 font-bold">訓練內容：</span> {editForm.runIntervalSets} 組
+                                    <span className={`${editForm.runType === '10-20-30' ? 'text-pink-400' : 'text-red-400'} font-bold`}>訓練內容：</span> 
+                                    {editForm.runType === '10-20-30' 
+                                        ? `${editForm.runIntervalSets} 區塊 (每區塊含 5 組 30-20-10 循環)` 
+                                        : `${editForm.runIntervalSets} 組`
+                                    }
                                     {editForm.runIntervalPace && (
-                                        <span className="ml-2 text-red-300">每組配速：{editForm.runIntervalPace}</span>
+                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
+                                            {editForm.runType === '10-20-30' ? '衝刺配速：' : '每組配速：'}{editForm.runIntervalPace}
+                                        </span>
                                     )}
                                     {editForm.runIntervalDuration && (
-                                        <span className="ml-2 text-red-300">維持：{editForm.runIntervalDuration}秒</span>
+                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
+                                            維持：{editForm.runIntervalDuration}秒
+                                        </span>
                                     )}
                                     {editForm.runIntervalRest && (
-                                        <span className="ml-2 text-red-300">休息：{editForm.runIntervalRest}秒</span>
+                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
+                                            休息：{editForm.runIntervalRest}秒
+                                        </span>
                                     )}
                                 </div>
                             )}

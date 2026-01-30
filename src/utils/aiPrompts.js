@@ -13,6 +13,7 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
   const runTypeMap = {
     'Easy': '輕鬆跑（恢復跑，Zone 2 心率）',
     'Interval': '間歇跑（高強度間歇訓練）',
+    '10-20-30': '10-20-30 間歇跑（30秒慢跑-20秒快跑-10秒衝刺，循環5次為一組，組間休息2分鐘）',
     'LSD': '長距離慢跑（Long Slow Distance）',
     'MP': '馬拉松配速跑（Marathon Pace）'
   };
@@ -50,17 +51,17 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
       "advice": "短評",
       
       // 跑步欄位 (務必填寫)
-      "runType": "LSD" | "Interval" | "Easy" | "MP",
+      "runType": "LSD" | "Interval" | "Easy" | "MP" | "10-20-30",
       "runDistance": 數字 (例: 5.5),
       "runDuration": 數字 (例: 30),
       "runPace": 字串 (例: "5'30\" /km"),
       "runHeartRate": 字串 (例: "140-150"),
       
-      // 間歇跑專用欄位 (僅當 runType === "Interval" 時填寫)
-      "runIntervalSets": 數字 (例: 8, 表示幾組),
-      "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示每組配速)",
-      "runIntervalDuration": 數字 (例: 60, 表示每組維持時間，單位：秒),
-      "runIntervalRest": 數字 (例: 90, 表示休息幾秒),
+      // 間歇跑專用欄位 (僅當 runType === "Interval" 或 "10-20-30" 時填寫)
+      "runIntervalSets": 數字 (例: 8, 表示幾組 / 10-20-30 則表示幾個區塊),
+      "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示高強度階段配速)",
+      "runIntervalDuration": 數字 (例: 60, 表示每組維持時間 / 10-20-30 則固定為 60 秒循環),
+      "runIntervalRest": 數字 (例: 90, 表示休息幾秒 / 10-20-30 則表示區塊間休息),
 
       // 重訓欄位
       "exercises": [
@@ -116,6 +117,7 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     - strength: 重訓 (必須5動作)
     - run_lsd: 長距離跑 (週日不受60分限制)
     - run_interval: 間歇跑 (高強度)
+    - run_10_20_30: 10-20-30 間歇跑 (30s慢-20s快-10s衝)
     - run_easy: 輕鬆跑 (恢復)
     - run_mp: 馬拉松配速跑
     - rest: 休息日 (不排課)
@@ -126,6 +128,7 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     2. **動態調整 (Auto)**：針對 'auto' 的日期，請根據前後天的強度安排。
     3. **跑步規範**：平日(Mon-Fri) 跑步單次總時間 <= 60分鐘 (LSD除外)。
     4. **重訓規範**：每次 5 個動作，標註 targetMuscle。
+    5. **10-20-30 專屬邏輯**：每組包含 5 次 (30s慢-20s快-10s衝) 的 1 分鐘循環，組間休息 2 分鐘。
     
     [輸出格式]
     請回傳 JSON Array，包含所有計畫 (若一天兩練，該日期會有兩個物件)：
@@ -135,11 +138,11 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
         "type": "run" | "strength",
         "title": "標題 (例: 早安輕鬆跑 / 晚間胸背訓練)",
         "advice": "規劃理由",
-        "runType": "LSD" | "Interval" | "Easy" | "MP",
+        "runType": "LSD" | "Interval" | "Easy" | "MP" | "10-20-30",
         "runDistance": 數字, "runDuration": 數字, "runPace": "字串", "runHeartRate": "字串",
-        // 間歇跑專用欄位 (僅當 runType === "Interval" 時填寫)
-        "runIntervalSets": 數字 (例: 8, 表示幾組),
-        "runIntervalRest": 數字 (例: 90, 表示休息幾秒),
+        // 間歇跑專用欄位 (僅當 runType === "Interval" 或 "10-20-30" 時填寫)
+        "runIntervalSets": 數字 (例: 8, 表示幾組 / 10-20-30 則表示幾個區塊),
+        "runIntervalRest": 數字 (例: 90, 表示休息幾秒 / 10-20-30 則表示區塊間休息),
         "runIntervalPace": "字串 (例: \"4'00\" /km\", 表示每組配速)",
         "exercises": [{ "name": "...", "targetMuscle": "...", "sets": "...", "reps": "...", "weight": "..." }]
       }

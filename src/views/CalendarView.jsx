@@ -603,8 +603,8 @@ export default function CalendarView() {
                                                 <p className="text-xs text-gray-400">
                                                     {workout.type === 'run' 
                                                         ? `${workout.runDistance}km${
-                                                            workout.runType === 'Interval' && workout.runIntervalSets 
-                                                                ? ` | ${workout.runIntervalSets}組${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
+                                                            (workout.runType === 'Interval' || workout.runType === '10-20-30') && workout.runIntervalSets 
+                                                                ? ` | ${workout.runIntervalSets}${workout.runType === '10-20-30' ? '組區塊' : '組'}${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
                                                                 : ''
                                                           }`
                                                         : `${workout.exercises?.length}動作`

@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 用戶個人檔案（users/{userId}）
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // 行事曆
+      match /calendar/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // 飲食紀錄
+      match /food_logs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // 裝備管理
+      match /gears/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // 體態／體重紀錄
+      match /body_logs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // AI 上下文（總教練、同步用）
+      match /ai_context/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // 個人知識庫（RAG）
+      match /knowledge_base/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // 成就
+      match /achievements/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

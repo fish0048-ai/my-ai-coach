@@ -111,6 +111,15 @@ export default function CalendarView() {
       handleError('請先登入', { context: 'CalendarView', operation: 'handleHeadCoachGenerate' });
       return;
     }
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      handleError('請先設定 API Key (可至 3D 城市 -> AI 教練中心 -> 設定室 設定)', { 
+        context: 'CalendarView', 
+        operation: 'handleHeadCoachGenerate' 
+      });
+      return;
+    }
     
     setIsGenerating(true);
     try {
@@ -136,6 +145,15 @@ export default function CalendarView() {
     const user = getCurrentUser();
     if (!user) {
       handleError('請先登入', { context: 'CalendarView', operation: 'handleWeeklyGenerate' });
+      return;
+    }
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      handleError('請先設定 API Key (可至 3D 城市 -> AI 教練中心 -> 設定室 設定)', { 
+        context: 'CalendarView', 
+        operation: 'handleWeeklyGenerate' 
+      });
       return;
     }
     
@@ -315,7 +333,7 @@ export default function CalendarView() {
     setEditForm({
       status: isFuture ? 'planned' : 'completed', type: 'strength', title: '', exercises: [], 
       runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
-      runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '' // 間歇跑相關欄位
+      runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '', runIntervalPower: '' // 間歇跑相關欄位
     });
     setCurrentDocId(null); setModalView('form');
   };

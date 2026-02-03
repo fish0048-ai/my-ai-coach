@@ -18,12 +18,18 @@ export const updateAIContext = async () => {
     const dateStr7 = sevenDaysAgo.toISOString().split('T')[0];
 
     const calendarRef = collection(db, 'users', user.uid, 'calendar');
-    const qCalendar = query(
-      calendarRef,
-      where('date', '>=', dateStr7),
-      orderBy('date', 'desc')
-    );
-    const calendarSnap = await getDocs(qCalendar);
+    let calendarSnap;
+    try {
+      const qCalendar = query(
+        calendarRef,
+        where('date', '>=', dateStr7),
+        orderBy('date', 'desc')
+      );
+      calendarSnap = await getDocs(qCalendar);
+    } catch (err) {
+      console.warn("無法讀取訓練紀錄以更新 AI Context:", err);
+      calendarSnap = { forEach: () => {} }; // 空 Mock
+    }
 
     let runCount = 0;
     let strengthCount = 0;
@@ -40,11 +46,15 @@ export const updateAIContext = async () => {
     });
 
     // 3. 獲取最近飲食紀錄
-    const foodLogsRef = collection(db, 'users', user.uid, 'food_logs');
-    const qFood = query(foodLogsRef, orderBy('createdAt', 'desc'), limit(5));
-    const foodSnap = await getDocs(qFood);
     let recentFoods = [];
-    foodSnap.forEach((docSnap) => recentFoods.push(docSnap.data().name));
+    try {
+      const foodLogsRef = collection(db, 'users', user.uid, 'food_logs');
+      const qFood = query(foodLogsRef, orderBy('createdAt', 'desc'), limit(5));
+      const foodSnap = await getDocs(qFood);
+      foodSnap.forEach((docSnap) => recentFoods.push(docSnap.data().name));
+    } catch (err) {
+      console.warn("無法讀取飲食紀錄以更新 AI Context:", err);
+    }
 
     // --- 組合 Prompt ---
     let contextString = `[基本資料] TDEE:${profile.tdee || 2000}, 目標:${profile.goal || '健康'}\n`;

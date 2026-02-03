@@ -8,7 +8,7 @@
  */
 const ERROR_MESSAGES = {
   // Firebase 错误
-  'permission-denied': '权限不足，请检查您的账户权限',
+  'permission-denied': '权限不足 (Firebase Rules)。请确保您的账户已正确建立，且 Firebase 安全规则允许读写该路径',
   'unauthenticated': '未登录，请先登录',
   'not-found': '数据不存在',
   'already-exists': '数据已存在',

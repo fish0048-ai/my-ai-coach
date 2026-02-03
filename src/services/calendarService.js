@@ -102,16 +102,21 @@ export const listCalendarWorkoutsByDateRange = async (startDate, endDate = null)
   const cached = getCache(cacheKey);
   if (cached) return cached;
   
-  const constraints = [collection(db, 'users', user.uid, 'calendar'), where('date', '>=', startDate)];
-  if (endDate) {
-    constraints.push(where('date', '<=', endDate));
+  try {
+    const constraints = [collection(db, 'users', user.uid, 'calendar'), where('date', '>=', startDate)];
+    if (endDate) {
+      constraints.push(where('date', '<=', endDate));
+    }
+    const q = query(...constraints);
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    
+    setCache(cacheKey, data);
+    return data;
+  } catch (error) {
+    console.error('查詢範圍訓練資料失敗:', error);
+    return []; // 失敗時回傳空陣列，避免中斷 AI 生成
   }
-  const q = query(...constraints);
-  const snapshot = await getDocs(q);
-  const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-  
-  setCache(cacheKey, data);
-  return data;
 };
 
 export const listTodayWorkouts = async () => {
@@ -276,9 +281,14 @@ export const deleteCalendarWorkout = async (workoutId) => {
 export const getUserProfile = async () => {
   const user = getCurrentUser();
   if (!user) return null;
-  const profileRef = doc(db, 'users', user.uid);
-  const profileSnap = await getDoc(profileRef);
-  return profileSnap.exists() ? profileSnap.data() : null;
+  try {
+    const profileRef = doc(db, 'users', user.uid);
+    const profileSnap = await getDoc(profileRef);
+    return profileSnap.exists() ? profileSnap.data() : null;
+  } catch (error) {
+    console.error('獲取用戶資料失敗:', error);
+    return null; // 失敗時回傳 null，讓 AI 服務使用預設值而非拋出權限錯誤
+  }
 };
 
 /**

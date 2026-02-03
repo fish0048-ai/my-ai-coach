@@ -316,22 +316,27 @@ export const searchKnowledgeByEmbedding = async (queryEmbedding, { queryText = '
 export const getKnowledgeContextForQuery = async (queryText) => {
   if (!queryText) return '';
 
-  // 1) 優先嘗試在前端使用向量搜尋
-  let records = await searchKnowledgeByEmbedding(null, { queryText, topK: 5 });
+  try {
+    // 1) 優先嘗試在前端使用向量搜尋
+    let records = await searchKnowledgeByEmbedding(null, { queryText, topK: 5 });
 
-  // 2) 若沒有結果，退回關鍵字搜尋
-  if (!records || records.length === 0) {
-    records = await searchKnowledgeRecords(queryText, 5);
+    // 2) 若沒有結果，退回關鍵字搜尋
+    if (!records || records.length === 0) {
+      records = await searchKnowledgeRecords(queryText, 5);
+    }
+
+    if (!records || records.length === 0) return '';
+
+    const lines = records.map((rec, idx) => {
+      const date = rec.metadata?.date || (rec.createdAt ? rec.createdAt.slice(0, 10) : '未知日期');
+      const typeLabel = rec.metadata?.typeLabel || rec.metadata?.type || '紀錄';
+      return `(${idx + 1}) [${date}][${typeLabel}] ${rec.text}`;
+    });
+
+    return `\n[歷史相關紀錄]\n${lines.join('\n')}\n`;
+  } catch (error) {
+    console.error('獲取知識庫上下文失敗 (可能是權限不足):', error);
+    return ''; // 發生權限錯誤或其他問題時，直接忽略知識庫內容，讓 AI 繼續運作
   }
-
-  if (!records || records.length === 0) return '';
-
-  const lines = records.map((rec, idx) => {
-    const date = rec.metadata?.date || (rec.createdAt ? rec.createdAt.slice(0, 10) : '未知日期');
-    const typeLabel = rec.metadata?.typeLabel || rec.metadata?.type || '紀錄';
-    return `(${idx + 1}) [${date}][${typeLabel}] ${rec.text}`;
-  });
-
-  return `\n[歷史相關紀錄]\n${lines.join('\n')}\n`;
 };
 

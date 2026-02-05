@@ -25,6 +25,12 @@ ${contextSection}
 ${userMessage}
 
 請根據上述資料回答，若資料不足則基於一般原則給建議，並註明「您尚未記錄相關資料，以下為通用建議」。
+
+**工具使用（get_training_stats）**
+當使用者詢問具體訓練數據時（例如：上週跑量、平均心率、總訓練時間、跑步次數、平均配速），請呼叫 get_training_stats 取得實際統計。
+- start_date / end_date：YYYY-MM-DD，依問題推算（例如「上週」為過去7天）。
+- field：avg_heart_rate(平均心率bpm)、total_distance(總跑量km)、total_duration(總訓練時間min)、run_count(跑步次數)、avg_pace_min_per_km(平均配速min/km)。
+取得數值後再用自然語言回覆使用者。
   `.trim();
 };
 

@@ -2,33 +2,107 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: #020617; /* surface-900 */
-  color: white;
-  font-family: 'Inter', sans-serif;
-  overflow-x: hidden;
+/* Design Token：Modern Fitness Dark + Glassmorphism */
+
+:root {
+  /* 色彩 */
+  --color-surface-900: #020617;
+  --color-surface-800: #111827;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  /* 圓角 */
+  --radius-card: 0.75rem;
+  --radius-panel: 1rem;
+  /* 間距 */
+  --spacing-page: 1rem;
+  --spacing-card: 1rem;
 }
 
-/* Glassmorphism 共用樣式（主要給 AI Coach / 浮動面板使用） */
-.glass-panel {
-  background-color: rgba(15, 23, 42, 0.78); /* slate-900/80 */
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(148, 163, 184, 0.35); /* slate-400/35 */
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.95);
+@media (min-width: 1024px) {
+  :root {
+    --spacing-page: 2rem;
+    --spacing-card: 1.25rem;
+  }
 }
 
-/* 自定義捲軸 */
+@layer base {
+  body {
+    @apply bg-surface-900 text-gray-100 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* 可讀性：重要數字突出 */
+  [data-highlight] {
+    @apply text-primary-400 font-semibold;
+  }
+}
+
+@layer components {
+  /* 卡片基底：全頁面風格統一 */
+  .card-base {
+    @apply bg-surface-800 rounded-card border border-gray-800 shadow-card;
+  }
+
+  .card-base:hover {
+    @apply border-gray-700;
+  }
+
+  /* Glassmorphism：AI Coach / 浮動面板 */
+  .glass-panel {
+    background-color: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.95);
+  }
+
+  /* 人性化：按鈕基底（觸控友善 min 44px） */
+  .btn-base {
+    @apply min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-3 rounded-button font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-surface-900;
+  }
+
+  .btn-primary {
+    @apply btn-base bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700;
+  }
+
+  .btn-secondary {
+    @apply btn-base bg-surface-700 text-gray-200 hover:bg-surface-600 border border-gray-700;
+  }
+
+  /* 人性化：表單欄位基底 */
+  .input-base {
+    @apply w-full bg-surface-800 border border-gray-700 rounded-button px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+}
+
+@layer utilities {
+  /* 頁面容器：統一 padding */
+  .page-container {
+    @apply p-4 lg:p-8 max-w-7xl mx-auto;
+  }
+
+  /* 載入狀態 */
+  .skeleton-pulse {
+    @apply animate-pulse bg-surface-700 rounded;
+  }
+}
+
+/* 自訂捲軸：與深色主題一致 */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #1e293b;
+  background: var(--color-surface-900);
 }
+
 ::-webkit-scrollbar-thumb {
   background: #475569;
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }

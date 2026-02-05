@@ -217,18 +217,28 @@ export default function NutritionView() {
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
 
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Utensils className="text-green-500" /> 智慧營養師
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Utensils className="text-green-500" /> 智慧營養師
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            在營養賢者的調配桌上，放上你的餐點，啟動「鑑定食材」儀式，讓系統幫你拆解熱量與三大營養素。
+          </p>
+        </div>
         <div className="flex gap-2">
-            <button 
-                onClick={() => fileInputRef.current.click()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl flex gap-2 items-center shadow-lg shadow-blue-900/20"
-            >
-                {analyzing ? <Loader className="animate-spin" size={18}/> : <Camera size={18}/>}
-                {analyzing ? '辨識中...' : '拍照辨識'}
-            </button>
-            <button onClick={() => setShowAddForm(!showAddForm)} className="px-4 py-2 bg-gray-700 text-white rounded-xl"><Plus size={18}/></button>
+          <button 
+            onClick={() => fileInputRef.current.click()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl flex gap-2 items-center shadow-lg shadow-blue-900/20"
+          >
+            {analyzing ? <Loader className="animate-spin" size={18}/> : <Camera size={18}/>}
+            {analyzing ? '鑑定中...' : '鑑定食材'}
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-4 py-2 bg-gray-700 text-white rounded-xl"
+          >
+            <Plus size={18}/>
+          </button>
         </div>
       </div>
 
@@ -352,16 +362,59 @@ export default function NutritionView() {
       </div>
 
       {showAddForm && (
-          <div className="bg-surface-800 p-6 rounded-2xl border border-gray-800 animate-slideUp shadow-lg shadow-black/40">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                  <input placeholder="食物名稱" value={foodName} onChange={e=>setFoodName(e.target.value)} className="col-span-2 bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="熱量" value={foodCal} onChange={e=>setFoodCal(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="蛋白質" value={foodProtein} onChange={e=>setFoodProtein(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="碳水" value={foodCarbs} onChange={e=>setFoodCarbs(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
-                  <input type="number" placeholder="脂肪" value={foodFat} onChange={e=>setFoodFat(e.target.value)} className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"/>
+        <div className="bg-surface-800 p-6 rounded-2xl border border-gray-800 animate-slideUp shadow-lg shadow-black/40">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ChefHat className="text-amber-300" size={20} />
+              <div>
+                <p className="text-sm font-semibold text-white">鑑定結果登記簿</p>
+                <p className="text-[11px] text-gray-400">確認數值後，將此份食材寫入今日卷宗</p>
               </div>
-              <button onClick={handleAddFood} className="w-full py-2 bg-green-600 text-white rounded font-bold">確認新增</button>
+            </div>
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+            <input
+              placeholder="食物名稱"
+              value={foodName}
+              onChange={e=>setFoodName(e.target.value)}
+              className="col-span-2 bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+            />
+            <input
+              type="number"
+              placeholder="熱量"
+              value={foodCal}
+              onChange={e=>setFoodCal(e.target.value)}
+              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+            />
+            <input
+              type="number"
+              placeholder="蛋白質"
+              value={foodProtein}
+              onChange={e=>setFoodProtein(e.target.value)}
+              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+            />
+            <input
+              type="number"
+              placeholder="碳水"
+              value={foodCarbs}
+              onChange={e=>setFoodCarbs(e.target.value)}
+              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+            />
+            <input
+              type="number"
+              placeholder="脂肪"
+              value={foodFat}
+              onChange={e=>setFoodFat(e.target.value)}
+              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+            />
+          </div>
+          <button
+            onClick={handleAddFood}
+            className="w-full py-2 bg-green-600 text-white rounded font-bold"
+          >
+            確認寫入卷宗
+          </button>
+        </div>
       )}
 
       <div className="space-y-2">

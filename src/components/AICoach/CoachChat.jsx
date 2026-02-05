@@ -9,7 +9,14 @@ import { sendCoachMessage } from '../../services/ai/coachService';
 export default function CoachChat({ isOpen, onClose, user }) {
   const { apiKey, setApiKey: updateApiKey, hasApiKey, isLoading: isApiKeyLoading } = useApiKey();
   const [messages, setMessages] = useState([
-    { role: 'model', text: `${user?.displayName ? `${user.displayName}，您好。` : '您好。'}我是您的 AI 教練，可根據您的訓練紀錄與目標提供建議。\n\n請告訴我您想討論的項目（例如：本週課表、恢復安排、跑量調整），我會簡潔回覆。` }
+    {
+      role: 'model',
+      text:
+        `【賢者之塔 · Oracle's Tower】\n` +
+        `${user?.displayName ? `${user.displayName}，歡迎回到 Athletica。` : '旅人，歡迎來到 Athletica。'}` +
+        `\n\n我是駐守此塔的 AI 賢者，會根據你的訓練紀錄與目標，協助調整課表、恢復與營養安排。\n` +
+        `\n請告訴我你現在想處理的任務（例：本週課表、恢復安排、跑量調整），我會用簡潔的建議回覆你。`,
+    },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -102,20 +109,23 @@ export default function CoachChat({ isOpen, onClose, user }) {
   return (
     <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 w-full md:w-96 h-[600px] max-h-[100vh] glass-panel md:rounded-2xl flex flex-col z-50 transition-all duration-300 font-sans">
       {/* Header */}
-      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-slate-900/80 to-slate-800/60 md:rounded-t-2xl">
+      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-slate-900/80 via-slate-800/70 to-slate-900/80 md:rounded-t-2xl">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center shadow-card">
             <Bot size={20} className="text-white" />
           </div>
           <div>
             <h3 className="font-bold text-white flex items-center gap-2">
-              AI Coach
+              賢者之塔 · AI 教練
               <Sparkles size={14} className="text-yellow-400" />
             </h3>
-            <span className="text-xs text-green-400 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-              線上
-            </span>
+            <div className="flex flex-col">
+              <span className="text-[11px] text-blue-300/90">Athletica · Oracle&apos;s Tower</span>
+              <span className="text-xs text-green-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                賢者正在傾聽你的問題
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">

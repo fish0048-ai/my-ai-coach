@@ -17,7 +17,7 @@
     "@react-three/drei": "^7.27.4",
     "@react-three/fiber": "^8.16.8",
     "buffer": "^6.0.3",
-    "three": "0.149.0",
+    "three": "^0.152.2",
     "firebase": "^11.1.0",
     "fit-file-parser": "^1.10.0",
     "jspdf": "^2.5.2",

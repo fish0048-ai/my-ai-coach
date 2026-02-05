@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Trash2, Calendar as CalendarIcon, X, Dumbbell, Activity, CheckCircle2, Clock, Copy, Move, CalendarDays, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, Calendar as CalendarIcon, Dumbbell, Activity, CheckCircle2, Clock, Copy, Move, CalendarDays, ShoppingBag } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/config/apiKeyService';
 import { listGears, updateCalendarWorkout, setCalendarWorkout, createCalendarWorkout, deleteCalendarWorkout, getUserProfile, generateCalendarCSVData } from '../services/calendarService';
@@ -12,10 +12,10 @@ import { parseAndUploadFIT, parseAndUploadCSV } from '../services/importService'
 import { formatDate, getWeekDates } from '../utils/date';
 import { cleanNumber } from '../utils/number';
 import { checkAndUnlockAchievements } from '../services/achievementService';
-import WorkoutForm from '../components/Calendar/WorkoutForm';
 import WeeklyModal from '../components/Calendar/WeeklyModal';
 import WorkoutCard from '../components/Calendar/WorkoutCard';
 import ImportSection from '../components/Calendar/ImportSection';
+import CalendarDayModal, { getEmptyEditForm, workoutToEditForm } from '../components/Calendar/CalendarDayModal';
 import { useViewStore } from '../store/viewStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useGears } from '../hooks/useGears';
@@ -306,25 +306,14 @@ export default function CalendarView() {
   };
   const handleDateClick = (date) => { setSelectedDate(date); setModalView('list'); setIsModalOpen(true); };
   const handleAddNew = () => {
-    const dateStr = formatDate(selectedDate);
-    const todayStr = formatDate(new Date());
-    const isFuture = dateStr > todayStr;
-    setEditForm({
-      status: isFuture ? 'planned' : 'completed', type: 'strength', title: '', exercises: [], 
-      runDistance: '', runDuration: '', runPace: '', runPower: '', runHeartRate: '', runRPE: '', notes: '', calories: '', gearId: '',
-      runType: '', runIntervalSets: '', runIntervalRest: '', runIntervalPace: '', runIntervalDuration: '', runIntervalPower: '' // 間歇跑相關欄位
-    });
-    setCurrentDocId(null); setModalView('form');
+    setEditForm(getEmptyEditForm(formatDate(selectedDate), formatDate(new Date())));
+    setCurrentDocId(null);
+    setModalView('form');
   };
   const handleEdit = (workout) => {
-    setEditForm({
-      status: workout.status || 'completed', type: workout.type || 'strength', title: workout.title || '',
-      exercises: workout.exercises || [], runDistance: workout.runDistance || '', runDuration: workout.runDuration || '',
-      runPace: workout.runPace || '', runPower: workout.runPower || '', runHeartRate: workout.runHeartRate || '',
-      runRPE: workout.runRPE || '', notes: workout.notes || '', calories: workout.calories || '', gearId: workout.gearId || '',
-      runType: workout.runType || '', runIntervalSets: workout.runIntervalSets || '', runIntervalRest: workout.runIntervalRest || '', runIntervalPace: workout.runIntervalPace || '', runIntervalDuration: workout.runIntervalDuration || '', runIntervalPower: workout.runIntervalPower || ''
-    });
-    setCurrentDocId(workout.id); setModalView('form');
+    setEditForm(workoutToEditForm(workout));
+    setCurrentDocId(workout.id);
+    setModalView('form');
   };
   const handleSave = async () => {
     const user = getCurrentUser();
@@ -559,89 +548,33 @@ export default function CalendarView() {
       />
 
       {isModalOpen && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-             <div className="bg-surface-900 w-full max-w-4xl rounded-2xl border border-gray-800 shadow-2xl flex flex-col max-h-[90vh]">
-                <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                        <h2 className="text-xl font-bold text-white">
-                            {selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日
-                        </h2>
-                        {modalView === 'list' && <span className="text-xs text-gray-500 bg-surface-800 px-2 py-1 rounded">當日清單</span>}
-                        {modalView === 'form' && <span className="text-xs text-blue-400 bg-blue-900/20 px-2 py-1 rounded">{currentDocId ? '編輯' : '新增'}</span>}
-                        </div>
-                    </div>
-                    <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={24} /></button>
-                </div>
-                <div className="p-6 overflow-y-auto flex-1">
-                    {modalView === 'list' && (
-                        <div className="space-y-4">
-                            {(!workouts[formatDate(selectedDate)] || workouts[formatDate(selectedDate)].length === 0) ? (
-                                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
-                                    <p>當日尚無紀錄</p>
-                                </div>
-                            ) : (
-                                workouts[formatDate(selectedDate)].map((workout) => (
-                                  <WorkoutCard
-                                    key={workout.id}
-                                    workout={workout}
-                                    gears={gears}
-                                    onEdit={handleEdit}
-                                    onStatusToggle={handleStatusToggle}
-                                  />
-                                ))
-                            )}
-                            <button onClick={() => { setCurrentDocId(null); setModalView('form'); }} className="w-full py-4 rounded-xl border-2 border-dashed border-gray-700 text-gray-400 hover:text-white"><Plus /> 新增運動</button>
-                        </div>
-                    )}
-
-                    {modalView === 'form' && (
-                        <WorkoutForm 
-                            editForm={editForm} 
-                            setEditForm={setEditForm} 
-                            gears={gears} 
-                            handleHeadCoachGenerate={handleHeadCoachGenerate} 
-                            isGenerating={isGenerating} 
-                            handleExerciseNameChange={(idx, val) => {
-                                const newEx = [...editForm.exercises];
-                                newEx[idx].name = val;
-                                const detectedMuscle = detectMuscleGroup(val);
-                                if (detectedMuscle) newEx[idx].targetMuscle = detectedMuscle;
-                                setEditForm({...editForm, exercises: newEx});
-                            }}
-                        />
-                    )}
-                </div>
-
-                <div className="p-6 border-t border-gray-800 flex justify-between">
-                     {modalView === 'form' && (
-                         <>
-                            {currentDocId && (
-                                <button onClick={handleDelete} className="flex items-center gap-2 text-red-400 hover:text-red-300 px-4 py-2">
-                                    <Trash2 size={18} /> 刪除
-                                </button>
-                            )}
-                            <div className="flex gap-3 ml-auto">
-                                <button onClick={() => setModalView('list')} className="text-gray-400 hover:text-white px-4">取消</button>
-                                <button onClick={async () => {
-                                    const user = getCurrentUser();
-                                    if (!user) return;
-                                    const dataToSave = { ...editForm, date: formatDate(selectedDate), updatedAt: new Date().toISOString() };
-                                    if (currentDocId) {
-                                      useWorkoutStore.getState().updateWorkout(currentDocId, dataToSave);
-                                      await setCalendarWorkout(currentDocId, dataToSave);
-                                    } else {
-                                      await createCalendarWorkout(dataToSave);
-                                    }
-                                    updateAIContext();
-                                    setModalView('list');
-                                }} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-500 transition-colors">儲存</button>
-                            </div>
-                         </>
-                     )}
-                </div>
-             </div>
-          </div>
+        <CalendarDayModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          selectedDate={selectedDate}
+          workouts={workouts}
+          gears={gears}
+          modalView={modalView}
+          setModalView={setModalView}
+          currentDocId={currentDocId}
+          setCurrentDocId={setCurrentDocId}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          onStatusToggle={handleStatusToggle}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onSave={handleSave}
+          handleHeadCoachGenerate={handleHeadCoachGenerate}
+          handleExerciseNameChange={(idx, val) => {
+            const newEx = [...editForm.exercises];
+            newEx[idx].name = val;
+            const detectedMuscle = detectMuscleGroup(val);
+            if (detectedMuscle) newEx[idx].targetMuscle = detectedMuscle;
+            setEditForm({ ...editForm, exercises: newEx });
+          }}
+          isGenerating={isGenerating}
+          formatDate={formatDate}
+        />
       )}
     </div>
   );

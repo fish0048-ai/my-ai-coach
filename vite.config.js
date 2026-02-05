@@ -4,6 +4,12 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // 一些套件仍引用舊版 three examples 路徑，將其導向新版 module 版本
+      'three/examples/js/libs/stats.min': 'three/examples/jsm/libs/stats.module.js',
+    },
+  },
   build: {
     chunkSizeWarningLimit: 1000, // 提高警告閾值到 1000KB（因為已使用 lazy loading）
     rollupOptions: {

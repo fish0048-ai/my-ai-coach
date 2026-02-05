@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe, Map } from 'lucide-react';
 import { signOut } from '../services/authService';
 
 const VIEW_TITLES = {
+  'map': '基地地圖 Athletica',
   'world-3d': '3D 城市 World',
   'dashboard': '總覽 Dashboard',
   'calendar': '行事曆 Calendar',
@@ -73,14 +74,23 @@ export default function MainLayout({ children, currentView, setCurrentView, user
 
         <nav className="flex-1 overflow-y-auto py-4" aria-label="主導航選單">
           <div className="px-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Menu
+            Athletica
           </div>
+          <SidebarItem 
+            icon={Map} 
+            text="基地地圖" 
+            active={currentView === 'map'} 
+            onClick={() => { setCurrentView('map'); setIsSidebarOpen(false); }} 
+          />
           <SidebarItem 
             icon={Globe} 
             text="3D 城市 World" 
             active={currentView === 'world-3d'} 
             onClick={() => { setCurrentView('world-3d'); setIsSidebarOpen(false); }} 
           />
+          <div className="px-4 mt-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Menu
+          </div>
           <SidebarItem 
             icon={LayoutDashboard} 
             text="總覽 Dashboard" 
@@ -177,6 +187,19 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             >
               <Menu size={24} aria-hidden />
             </button>
+            {/* 回到地圖：非地圖頁時顯示 */}
+            {currentView !== 'map' && currentView !== 'world-3d' && (
+              <button
+                type="button"
+                onClick={() => setCurrentView('map')}
+                className="flex items-center gap-2 px-2 sm:px-3 py-2 text-sm font-medium text-gray-400 hover:text-primary-400 hover:bg-surface-800 rounded-button transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] sm:min-h-0"
+                aria-label="回到基地地圖"
+                title="回到基地地圖"
+              >
+                <Map size={20} aria-hidden />
+                <span className="hidden sm:inline">回到地圖</span>
+              </button>
+            )}
             <h1 className="text-lg font-semibold text-white truncate">
               {VIEW_TITLES[currentView] || 'My AI Coach'}
             </h1>

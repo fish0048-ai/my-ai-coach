@@ -176,6 +176,77 @@ export const updateKnowledgeEmbedding = async (recordId, embedding, model = 'tex
   }
 };
 
+/** rag-p3-2：觸發向量搜尋的關鍵字（感覺、痛、心情、傷痛等語意查詢） */
+const VECTOR_SEARCH_TRIGGER_KEYWORDS = [
+  '感覺', '痛', '心情', '傷', '不適', '疲勞', '恢復', '膝蓋', '腳踝', '腰', '背',
+  '上次', '經驗', '紀錄', '日記', '心得', '復健', '受傷', '痠', '酸',
+];
+
+/** 檢查查詢是否應觸發向量搜尋 */
+function shouldUseVectorSearch(queryText) {
+  if (!queryText || typeof queryText !== 'string') return false;
+  const lower = queryText.toLowerCase();
+  return VECTOR_SEARCH_TRIGGER_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/**
+ * rag-p3-1：為缺少 embedding 的舊紀錄回填向量
+ * @param {Object} options
+ * @param {number} [options.batchSize] - 每批處理筆數
+ * @param {Function} [options.onProgress] - (processed, total, currentId) => void
+ * @returns {Promise<{ updated: number, skipped: number, failed: number }>}
+ */
+export const backfillEmbeddingsForExistingRecords = async ({
+  batchSize = 10,
+  onProgress,
+} = {}) => {
+  const user = getCurrentUser();
+  if (!user) return { updated: 0, skipped: 0, failed: 0 };
+
+  try {
+    const ref = collection(db, 'users', user.uid, 'knowledge_base');
+    const q = query(ref, orderBy('createdAt', 'desc'), limit(200));
+    const snap = await getDocs(q);
+
+    const needEmbedding = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data?.text && !Array.isArray(data?.embedding)) {
+        needEmbedding.push({ id: docSnap.id, text: data.text });
+      }
+    });
+
+    let updated = 0;
+    let failed = 0;
+
+    for (let i = 0; i < needEmbedding.length; i += batchSize) {
+      const batch = needEmbedding.slice(i, i + batchSize);
+      for (const rec of batch) {
+        try {
+          const embedding = await generateEmbeddingForText(rec.text);
+          if (Array.isArray(embedding) && embedding.length > 0) {
+            await updateKnowledgeEmbedding(rec.id, embedding);
+            updated += 1;
+          }
+          onProgress?.(i + batch.indexOf(rec) + 1, needEmbedding.length, rec.id);
+        } catch (e) {
+          console.warn('[KnowledgeBase] 回填 embedding 失敗:', rec.id, e);
+          failed += 1;
+        }
+      }
+    }
+
+    return {
+      updated,
+      skipped: needEmbedding.length - updated - failed,
+      failed,
+    };
+  } catch (error) {
+    console.error('[KnowledgeBase] 回填 embeddings 失敗:', error);
+    return { updated: 0, skipped: 0, failed: 0 };
+  }
+};
+
 /**
  * 讀取使用者的知識庫紀錄清單
  * @param {Object} options
@@ -317,11 +388,14 @@ export const getKnowledgeContextForQuery = async (queryText) => {
   if (!queryText) return '';
 
   try {
-    // 1) 優先嘗試在前端使用向量搜尋
-    let records = await searchKnowledgeByEmbedding(null, { queryText, topK: 5 });
-
-    // 2) 若沒有結果，退回關鍵字搜尋
-    if (!records || records.length === 0) {
+    // rag-p3-2：關鍵字觸發向量搜尋（感覺、痛、心情等語意查詢才用向量）
+    let records;
+    if (shouldUseVectorSearch(queryText)) {
+      records = await searchKnowledgeByEmbedding(null, { queryText, topK: 5 });
+      if (!records || records.length === 0) {
+        records = await searchKnowledgeRecords(queryText, 5);
+      }
+    } else {
       records = await searchKnowledgeRecords(queryText, 5);
     }
 

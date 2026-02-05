@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Plus, Trash2, Loader, Filter } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Loader, Filter, RefreshCw } from 'lucide-react';
 import { useViewStore } from '../store/viewStore';
 import { handleError } from '../services/errorService';
 import {
   addKnowledgeRecord,
   listKnowledgeRecords,
   deleteKnowledgeRecord,
+  backfillEmbeddingsForExistingRecords,
 } from '../services/ai/knowledgeBaseService';
 
 const TYPE_OPTIONS = [
@@ -32,6 +33,7 @@ export default function KnowledgeBaseView() {
   const [newDate, setNewDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [newText, setNewText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
 
   const loadRecords = async (type = filterType) => {
     setLoading(true);
@@ -80,6 +82,25 @@ export default function KnowledgeBaseView() {
     }
   };
 
+  const handleBackfillEmbeddings = async () => {
+    setBackfilling(true);
+    try {
+      const { updated, failed } = await backfillEmbeddingsForExistingRecords({ batchSize: 5 });
+      const msg = updated > 0
+        ? `已完成。更新 ${updated} 筆紀錄的向量。${failed > 0 ? ` ${failed} 筆失敗。` : ''}`
+        : failed > 0
+          ? `更新失敗 ${failed} 筆。請確認已設定 API Key。`
+          : '所有紀錄已具備向量，無需更新。';
+      alert(msg);
+      await loadRecords(filterType);
+    } catch (error) {
+      handleError(error, { context: 'KnowledgeBaseView', operation: 'handleBackfillEmbeddings' });
+      alert('更新向量失敗，請稍後再試。');
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     const ok = window.confirm('確定刪除這筆紀錄嗎？此動作無法復原。');
     if (!ok) return;
@@ -105,13 +126,25 @@ export default function KnowledgeBaseView() {
             將重要的訓練日記、傷痛紀錄與復健建議收進這裡，AI 教練回答問題時會優先參考這些內容。
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCurrentView('dashboard')}
-          className="text-xs text-gray-400 hover:text-white underline underline-offset-4"
-        >
-          回到 Dashboard
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleBackfillEmbeddings}
+            disabled={backfilling || records.length === 0}
+            className="text-xs text-gray-400 hover:text-blue-400 flex items-center gap-1 disabled:opacity-50"
+            title="為缺少向量的舊紀錄產生 embedding（需 API Key）"
+          >
+            {backfilling ? <Loader size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            更新向量
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentView('dashboard')}
+            className="text-xs text-gray-400 hover:text-white underline underline-offset-4"
+          >
+            回到 Dashboard
+          </button>
+        </div>
       </div>
 
       {/* 新增表單 */}

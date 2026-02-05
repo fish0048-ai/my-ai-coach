@@ -1,55 +1,55 @@
 /**
- * 错误处理服务
- * 统一错误处理逻辑，包括错误日志记录、用户友好的错误消息转换等
+ * 錯誤處理服務
+ * 統一錯誤處理邏輯，包括錯誤日誌記錄、使用者友善的錯誤訊息轉換等
  */
 
 /**
- * 错误类型映射 - 将技术错误转换为用户友好的消息
+ * 錯誤類型對照表 - 將技術錯誤轉換為使用者友善的訊息
  */
 const ERROR_MESSAGES = {
-  // Firebase 错误
-  'permission-denied': '权限不足 (Firebase Rules)。请确保您的账户已正确建立，且 Firebase 安全规则允许读写该路径',
-  'unauthenticated': '未登录，请先登录',
-  'not-found': '数据不存在',
-  'already-exists': '数据已存在',
-  'failed-precondition': '操作失败，请检查数据状态',
+  // Firebase 錯誤
+  'permission-denied': '權限不足 (Firebase Rules)。請確保您的帳戶已正確建立，且 Firebase 安全規則允許讀寫該路徑',
+  'unauthenticated': '未登入，請先登入',
+  'not-found': '資料不存在',
+  'already-exists': '資料已存在',
+  'failed-precondition': '操作失敗，請檢查資料狀態',
   'aborted': '操作已取消',
-  'out-of-range': '数据超出范围',
-  'unimplemented': '功能暂未实现',
-  'internal': '服务器内部错误，请稍后重试',
-  'unavailable': '服务暂时不可用，请稍后重试',
-  'data-loss': '数据丢失，请重新操作',
-  'deadline-exceeded': '操作超时，请稍后重试',
+  'out-of-range': '資料超出範圍',
+  'unimplemented': '功能暫未實作',
+  'internal': '伺服器內部錯誤，請稍後重試',
+  'unavailable': '服務暫時不可用，請稍後重試',
+  'data-loss': '資料遺失，請重新操作',
+  'deadline-exceeded': '操作逾時，請稍後重試',
   
-  // 网络错误
-  'network-error': '网络连接失败，请检查网络设置',
-  'timeout': '请求超时，请稍后重试',
+  // 網路錯誤
+  'network-error': '網路連線失敗，請檢查網路設定',
+  'timeout': '請求逾時，請稍後重試',
   
-  // 业务错误
-  'api-key-missing': 'API Key 未设置，请在设置中配置',
-  'api-key-invalid': 'API Key 无效，请检查配置',
-  'validation-error': '数据验证失败，请检查输入',
-  'file-upload-error': '文件上传失败，请重试',
-  'file-format-error': '文件格式不支持',
+  // 業務錯誤
+  'api-key-missing': 'API Key 未設定，請在設定中配置',
+  'api-key-invalid': 'API Key 無效，請檢查設定',
+  'validation-error': '資料驗證失敗，請檢查輸入',
+  'file-upload-error': '檔案上傳失敗，請重試',
+  'file-format-error': '檔案格式不支援',
 };
 
 /**
- * 获取用户友好的错误消息
- * @param {Error|string} error - 错误对象或错误消息
- * @param {Object} context - 错误上下文信息
- * @returns {string} 用户友好的错误消息
+ * 取得使用者友善的錯誤訊息
+ * @param {Error|string} error - 錯誤物件或錯誤訊息
+ * @param {Object} context - 錯誤上下文資訊
+ * @returns {string} 使用者友善的錯誤訊息
  */
 const getUserFriendlyMessage = (error, context = {}) => {
   if (typeof error === 'string') {
     return error;
   }
 
-  // 检查是否是 Firebase 错误
+  // 檢查是否為 Firebase 錯誤
   if (error?.code && ERROR_MESSAGES[error.code]) {
     return ERROR_MESSAGES[error.code];
   }
 
-  // 检查错误消息中是否包含已知错误类型
+  // 檢查錯誤訊息中是否包含已知錯誤類型
   const errorMessage = error?.message || String(error);
   for (const [key, message] of Object.entries(ERROR_MESSAGES)) {
     if (errorMessage.toLowerCase().includes(key)) {
@@ -57,24 +57,24 @@ const getUserFriendlyMessage = (error, context = {}) => {
     }
   }
 
-  // 检查是否是网络错误
+  // 檢查是否為網路錯誤
   if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
     return ERROR_MESSAGES['network-error'];
   }
 
-  // 默认返回原始消息或通用错误消息
-  return errorMessage || '操作失败，请稍后重试';
+  // 預設回傳原始訊息或通用錯誤訊息
+  return errorMessage || '操作失敗，請稍後重試';
 };
 
 /**
- * 处理错误
- * @param {Error|string} error - 错误对象或错误消息
- * @param {Object} options - 错误处理选项
- * @param {string} options.context - 错误发生的上下文（如组件名）
- * @param {string} options.operation - 操作名称（如 'fetchWorkouts'）
- * @param {boolean} options.showToast - 是否显示错误提示（默认 true）
- * @param {boolean} options.logError - 是否记录错误日志（默认 true）
- * @returns {string} 用户友好的错误消息
+ * 處理錯誤
+ * @param {Error|string} error - 錯誤物件或錯誤訊息
+ * @param {Object} options - 錯誤處理選項
+ * @param {string} options.context - 錯誤發生的上下文（如元件名）
+ * @param {string} options.operation - 操作名稱（如 'fetchWorkouts'）
+ * @param {boolean} options.showToast - 是否顯示錯誤提示（預設 true）
+ * @param {boolean} options.logError - 是否記錄錯誤日誌（預設 true）
+ * @returns {string} 使用者友善的錯誤訊息
  */
 export const handleError = (error, options = {}) => {
   const {
@@ -84,10 +84,10 @@ export const handleError = (error, options = {}) => {
     logError = true,
   } = options;
 
-  // 获取用户友好的错误消息
+  // 取得使用者友善的錯誤訊息
   const userMessage = getUserFriendlyMessage(error, { context, operation });
 
-  // 记录错误日志
+  // 記錄錯誤日誌
   if (logError) {
     const errorDetails = {
       message: error?.message || String(error),
@@ -99,7 +99,7 @@ export const handleError = (error, options = {}) => {
     console.error(`[${context}] ${operation}:`, errorDetails);
   }
 
-  // 显示错误提示（通过事件系统，由 ErrorToast 组件监听）
+  // 顯示錯誤提示（透過事件系統，由 ErrorToast 元件監聽）
   if (showToast) {
     const event = new CustomEvent('app-error', {
       detail: {
@@ -115,11 +115,11 @@ export const handleError = (error, options = {}) => {
 };
 
 /**
- * 创建错误对象
- * @param {string} message - 错误消息
- * @param {string} code - 错误代码
- * @param {Object} details - 错误详情
- * @returns {Error} 错误对象
+ * 建立錯誤物件
+ * @param {string} message - 錯誤訊息
+ * @param {string} code - 錯誤代碼
+ * @param {Object} details - 錯誤詳情
+ * @returns {Error} 錯誤物件
  */
 export const createError = (message, code, details = {}) => {
   const error = new Error(message);

@@ -1,0 +1,31 @@
+{
+  "name": "get_training_stats",
+  "description": "查詢使用者在指定日期範圍內的訓練統計（週跑量、平均心率、總訓練時間等）",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "start_date": {
+        "type": "string",
+        "description": "起始日期，格式 YYYY-MM-DD",
+        "example": "2025-01-20"
+      },
+      "end_date": {
+        "type": "string",
+        "description": "結束日期，格式 YYYY-MM-DD",
+        "example": "2025-01-26"
+      },
+      "field": {
+        "type": "string",
+        "enum": [
+          "avg_heart_rate",
+          "total_distance",
+          "total_duration",
+          "run_count",
+          "avg_pace_min_per_km"
+        ],
+        "description": "要查詢的統計欄位：avg_heart_rate(平均心率,bpm)、total_distance(總跑量,km)、total_duration(總訓練時間,min)、run_count(跑步次數)、avg_pace_min_per_km(平均配速)"
+      }
+    },
+    "required": ["start_date", "end_date", "field"]
+  }
+}

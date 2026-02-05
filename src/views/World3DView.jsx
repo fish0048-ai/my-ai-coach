@@ -1,6 +1,5 @@
 import React, { Suspense, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Html } from '@react-three/drei';
 import { RotateCcw } from 'lucide-react';
 import { useViewStore } from '../store/viewStore';
 import {
@@ -56,27 +55,8 @@ function WorldScene({ onRunRoom }) {
             <boxGeometry args={[b.size[0] * 0.6, b.size[1] * 0.15, b.size[2] * 0.6]} />
             <meshStandardMaterial color="#020617" roughness={0.5} metalness={0.4} />
           </mesh>
-          {/* 建築名稱標籤 */}
-          <Html
-            position={[0, b.size[1] * 1.05, 0]}
-            style={{ pointerEvents: 'none' }}
-            distanceFactor={8}
-          >
-            <div className="px-3 py-1 rounded-full bg-surface-800/90 border border-gray-700 text-xs text-gray-100 shadow-card whitespace-nowrap">
-              {b.name}
-            </div>
-          </Html>
         </group>
       ))}
-
-      {/* 相機控制 */}
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.08}
-        minDistance={18}
-        maxDistance={90}
-        maxPolarAngle={Math.PI / 2 - 0.12}
-      />
     </>
   );
 }
@@ -135,11 +115,7 @@ export default function World3DView() {
       >
         <Suspense
           fallback={
-            <Html center>
-              <div className="px-4 py-2 rounded-button bg-surface-800/90 border border-gray-700 text-xs text-gray-300 shadow-card">
-                載入 3D 城市中…
-              </div>
-            </Html>
+            <></>
           }
         >
           <WorldScene onRunRoom={runRoomAction} />

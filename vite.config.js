@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       // 一些套件仍引用舊版 three examples 路徑，將其導向新版 module 版本
       'three/examples/js/libs/stats.min': 'three/examples/jsm/libs/stats.module.js',
+      // 保留 stats 路徑修正，其餘 drei 相關 alias 在移除使用後可刪除
     },
   },
   build: {

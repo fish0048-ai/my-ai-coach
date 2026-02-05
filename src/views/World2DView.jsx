@@ -194,15 +194,14 @@ export default function World2DView() {
   }, [runRoomAction]);
 
   return (
-    <div className="relative w-full min-h-[70vh] rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden shadow-2xl">
-      {/* 頂部標題 */}
-      <div className="absolute top-0 left-0 right-0 z-10 px-6 py-4 bg-gradient-to-b from-slate-900 to-transparent flex items-center justify-between">
+    <div className="relative w-full min-h-[70vh] rounded-panel bg-surface-900 border border-gray-800 overflow-hidden shadow-card">
+      <div className="absolute top-0 left-0 right-0 z-10 px-6 py-4 bg-gradient-to-b from-surface-800 to-transparent flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white tracking-tight">AI Coach World</h2>
-          <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">Interactive System Map</p>
+          <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">2D 等角地圖</p>
         </div>
         <div className="flex gap-2">
-           <div className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] text-blue-400 font-bold">MODE: ISOMETRIC 2D</div>
+          <div className="px-3 py-1 bg-primary-500/10 border border-primary-500/20 rounded-button text-[10px] text-primary-400 font-bold">等角 2D</div>
         </div>
       </div>
 
@@ -290,13 +289,12 @@ export default function World2DView() {
         </div>
       </div>
 
-      {/* 底部提示 */}
       <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
-        <div className="px-6 py-2 bg-slate-900/90 border border-slate-800 rounded-full shadow-lg backdrop-blur-md">
-           <p className="text-[11px] text-slate-300 font-medium tracking-wider uppercase flex items-center gap-2">
-             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-             Click a building to navigate the world
-           </p>
+        <div className="px-6 py-2 bg-surface-800/90 border border-gray-700 rounded-full shadow-card backdrop-blur-md">
+          <p className="text-[11px] text-gray-300 font-medium tracking-wider uppercase flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
+            點擊建築物即可前往該功能
+          </p>
         </div>
       </div>
     </div>

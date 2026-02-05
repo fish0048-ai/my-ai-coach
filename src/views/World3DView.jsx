@@ -327,10 +327,10 @@ export default function World3DView() {
   }, [runRoomAction]);
 
   return (
-    <div className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-xl overflow-hidden bg-slate-950">
+    <div className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-surface-900">
       <div ref={containerRef} className="absolute inset-0 w-full h-full" />
       <div className="absolute bottom-4 left-4 right-4 flex justify-center">
-        <p className="text-sm text-slate-400 bg-slate-900/80 px-4 py-2 rounded-lg border border-slate-700">
+        <p className="text-sm text-gray-400 bg-surface-800/80 px-4 py-2 rounded-button border border-gray-700">
           {tip}
         </p>
       </div>

@@ -37,8 +37,16 @@ curl -X POST http://localhost:8000/stats \
 | run_count | 跑步次數 | 次 |
 | avg_pace_min_per_km | 平均配速 | min/km |
 
-## 後續 Phase 1 步驟
+## PostgreSQL + pgvector (rag-p1-1)
 
-1. **資料庫選型**：安裝 PostgreSQL + pgvector
-2. **ETL**：將 Firestore 訓練資料匯入 PostgreSQL（距離用 meter、時間用 second）
-3. **改寫 stats.py**：從 PostgreSQL 查詢取代傳入 workouts 陣列
+1. 安裝 PostgreSQL 與 [pgvector](https://github.com/pgvector/pgvector)
+2. 建立資料庫：`createdb my_ai_coach`
+3. 執行 Schema：`psql my_ai_coach < schema.sql`
+4. 詳見 `schema.sql` 註解
+
+## 資料清洗 ETL (rag-p1-2)
+
+1. 從 Firestore 匯出 JSON（含 `user_id`, `workouts`, `knowledge_base`）
+2. 轉換：`python -m etl.transform < export.json > transformed.json`
+3. 載入：`DATABASE_URL=postgresql://... python -m etl.load_postgres transformed.json`
+4. 詳見 `etl/README.md`

@@ -4,7 +4,7 @@ import { updateUserProfile } from '../services/userService';
 import { syncBodyLogFromProfile } from '../services/bodyService';
 import { getCurrentUser } from '../services/authService';
 import { updateAIContext } from '../utils/contextManager';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { calculateTDEE, getTargetCalories } from '../utils/nutritionCalculations';
 import { calculateActiveMaxHR } from '../utils/heartRateCalculations';
 import ProfileHeader from '../components/Profile/ProfileHeader';
@@ -13,7 +13,7 @@ import TrainingScheduleSection from '../components/Profile/TrainingScheduleSecti
 import RunningScheduleSection from '../components/Profile/RunningScheduleSection';
 import SupplementsList from '../components/Profile/SupplementsList';
 import { useUserStore } from '../store/userStore';
-import { downloadBackup, readBackupFile, restoreFromBackup } from '../services/backupService';
+import { downloadBackup, readBackupFile, restoreFromBackup } from '../services/backup/backupService';
 
 export default function FeatureViews({ view }) {
   // 使用 zustand store 獲取和更新用戶資料

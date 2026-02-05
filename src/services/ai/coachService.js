@@ -1,6 +1,6 @@
 import { getApiKey } from '../config/apiKeyService';
 import { runGeminiWithTools } from '../../utils/gemini';
-import { handleError } from '../errorService';
+import { handleError } from '../core/errorService';
 import { buildCoachPrompt } from './prompts/coachPrompts';
 import { listCalendarWorkoutsByDateRange } from '../calendarService';
 import { calculateStats } from '../../utils/statsCalculator';

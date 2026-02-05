@@ -4,9 +4,9 @@
  */
 
 import { collection, getDocs, query, doc, getDoc, setDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import { formatDate } from '../utils/date';
-import { handleError } from './errorService';
+import { db, auth } from '../../firebase';
+import { formatDate } from '../../utils/date';
+import { handleError } from '../core/errorService';
 
 const getCurrentUser = () => {
   return auth.currentUser;

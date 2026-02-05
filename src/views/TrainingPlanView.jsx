@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Dumbbell, Activity, Sparkles, CheckCircle2, Clock, ArrowLeft, Map } from 'lucide-react';
 import { generateTrainingPlan, PLAN_TYPES } from '../services/ai/workoutGenerator';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { useViewStore } from '../store/viewStore';
 import { createCalendarWorkout } from '../services/calendarService';
 import { generateRaceStrategy } from '../utils/workoutCalculations';

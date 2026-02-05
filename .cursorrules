@@ -34,7 +34,7 @@ You are an expert Senior Full-Stack Engineer and a Scientific Running Coach. You
 - Use Tailwind CSS utility classes. Avoid inline styles.
 
 ### Error Handling
-- Wrap all async operations/API calls with `handleError()` from `src/services/errorService.js`.
+- Wrap all async operations/API calls with `handleError()` from `src/services/core/errorService.js`.
 
 ### Testing & Reliability
 - **Unit Tests (Mandatory for Math):**

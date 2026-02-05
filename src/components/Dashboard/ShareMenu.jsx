@@ -4,7 +4,7 @@
 import React from 'react';
 import { FileText, Image, Download } from 'lucide-react';
 import { exportTrainingDataJSON, exportTrainingDataCSV, copyReportToClipboard, downloadReportImage, downloadReportPDF } from '../../utils/reportGenerator';
-import { handleError } from '../../services/errorService';
+import { handleError } from '../../services/core/errorService';
 
 export default function ShareMenu({ onClose, onSharingChange }) {
   const runWithSharing = async (fn, successMsg) => {

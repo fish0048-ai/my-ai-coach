@@ -5,7 +5,7 @@
 
 import { getApiKey } from '../config/apiKeyService';
 import { runGemini } from '../../utils/gemini';
-import { handleError } from '../errorService';
+import { handleError } from '../core/errorService';
 import { FORM_CORRECTION_RULES } from './localAnalysisRules';
 import { parseLLMJson } from '../../utils/aiJson';
 import { getKnowledgeContextForQuery } from './knowledgeBaseService';

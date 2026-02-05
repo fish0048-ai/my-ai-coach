@@ -4,7 +4,7 @@ import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, Chef
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/config/apiKeyService';
 import { addFoodLog, removeFoodLog } from '../api/nutrition';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';
 import { parseLLMJson } from '../utils/aiJson';
 import { updateAIContext } from '../utils/contextManager';

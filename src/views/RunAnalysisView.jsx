@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { saveRunAnalysis } from '../services/analysisService';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { generateRunAnalysisFeedback } from '../services/ai/analysisService';
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { computeJointAngle, calculateRealHipExtension, processRunScanData, performFullVideoScan } from '../services/analysis/poseAnalysis';

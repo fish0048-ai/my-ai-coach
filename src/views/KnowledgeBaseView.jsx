@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpen, Plus, Trash2, Loader, Filter, RefreshCw } from 'lucide-react';
 import { useViewStore } from '../store/viewStore';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import {
   addKnowledgeRecord,
   listKnowledgeRecords,

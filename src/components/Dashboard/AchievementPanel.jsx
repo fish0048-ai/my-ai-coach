@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Trophy, Sparkles, ChevronRight } from 'lucide-react';
 import { getUserAchievements, checkAndUnlockAchievements } from '../../services/achievementService';
 import AchievementBadge from './AchievementBadge';
-import { handleError } from '../../services/errorService';
+import { handleError } from '../../services/core/errorService';
 
 export default function AchievementPanel() {
   const [achievements, setAchievements] = useState([]);

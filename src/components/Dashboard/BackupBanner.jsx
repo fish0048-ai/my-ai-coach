@@ -4,8 +4,8 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { getCurrentUser } from '../../services/authService';
-import { downloadBackup, getBackupReminder } from '../../services/backupService';
-import { handleError } from '../../services/errorService';
+import { downloadBackup, getBackupReminder } from '../../services/backup/backupService';
+import { handleError } from '../../services/core/errorService';
 
 export default function BackupBanner({ reminder, onDismiss, onUpdate }) {
   if (!reminder?.shouldRemind) return null;

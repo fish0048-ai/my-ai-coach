@@ -15,7 +15,7 @@ import StatsOverview from '../components/Dashboard/StatsOverview';
 import RunningStatsSection from '../components/Dashboard/RunningStatsSection';
 import TrainingAdviceSection from '../components/Dashboard/TrainingAdviceSection';
 import { useUserStore } from '../store/userStore';
-import { getBackupReminder } from '../services/backupService';
+import { getBackupReminder } from '../services/backup/backupService';
 
 export default function DashboardView() {
   const userData = useUserStore((state) => state.userData);

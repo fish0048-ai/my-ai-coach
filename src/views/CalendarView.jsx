@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Sparkles, Calendar as CalendarIcon, Dumbbell
 import { getCurrentUser } from '../services/authService';
 import { getApiKey } from '../services/config/apiKeyService';
 import { listGears, updateCalendarWorkout, setCalendarWorkout, createCalendarWorkout, deleteCalendarWorkout, getUserProfile, generateCalendarCSVData } from '../services/calendarService';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { detectMuscleGroup } from '../utils/exerciseDB';
 import { updateAIContext, getAIContext } from '../utils/contextManager';
 import { addKnowledgeRecord } from '../services/ai/knowledgeBaseService';

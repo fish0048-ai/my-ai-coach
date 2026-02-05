@@ -1,6 +1,6 @@
 import { getApiKey } from '../config/apiKeyService';
 import { runGemini } from '../../utils/gemini';
-import { handleError } from '../errorService';
+import { handleError } from '../core/errorService';
 import { MOVEMENT_ANALYSIS_RULES } from './localAnalysisRules';
 import { getKnowledgeContextForQuery } from './knowledgeBaseService';
 

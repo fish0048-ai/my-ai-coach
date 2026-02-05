@@ -11,7 +11,7 @@ import { runGemini } from '../../utils/gemini';
 import { formatDate, getWeekDates } from '../../utils/date';
 import { cleanNumber } from '../../utils/number';
 import { parseLLMJson } from '../../utils/aiJson';
-import { handleError } from '../errorService';
+import { handleError } from '../core/errorService';
 import { fetchWorkoutsByDateRange } from '../../api/workouts';
 import { getKnowledgeContextForQuery } from './knowledgeBaseService';
 

@@ -4,7 +4,7 @@ import { subscribeBodyLogsStream, addBodyLog, removeBodyLog } from '../api/body'
 import { useWorkoutStore } from '../store/workoutStore';
 import { parsePaceToDecimal, calculateVolume } from '../utils/workoutCalculations';
 import { processTrendData } from '../utils/trendCalculations';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { analyzeTrainingCycle, getPhaseName, getPhaseColor } from '../utils/cycleAnalysis';
 
 // --- 進階圖表組件 ---

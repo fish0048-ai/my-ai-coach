@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Plus, Trash2, Edit2, Calendar, Activity, AlertTriangle, CheckCircle, RefreshCw, Gauge, Calculator } from 'lucide-react';
 import { createGear, updateGear, deleteGear, listRunLogs } from '../services/calendarService';
 import { getCurrentUser } from '../services/authService';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 import { useGears } from '../hooks/useGears';
 
 export default function GearView() {

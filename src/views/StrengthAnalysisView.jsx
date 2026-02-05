@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Camera, Activity, Upload, Sparkles, BrainCircuit, Save, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Dumbbell, Trophy, ShieldCheck } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { findStrengthAnalysis, upsertStrengthAnalysis } from '../services/analysisService';
-import { handleError } from '../services/errorService';
+import { handleError } from '../services/core/errorService';
 // 引入 Hook
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';

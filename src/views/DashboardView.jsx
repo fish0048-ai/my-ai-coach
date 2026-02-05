@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx';
 import WeatherWidget from '../components/WeatherWidget.jsx';
-import { Share2, Dumbbell } from 'lucide-react';
+import { Share2, Dumbbell, Zap, Coins } from 'lucide-react';
+import { getDefaultGameProfile } from '../services/game/gameProfileService';
 import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
 import { useTodayWorkouts } from '../hooks/useWorkouts';
@@ -16,6 +17,42 @@ import RunningStatsSection from '../components/Dashboard/RunningStatsSection';
 import TrainingAdviceSection from '../components/Dashboard/TrainingAdviceSection';
 import { useUserStore } from '../store/userStore';
 import { getBackupReminder } from '../services/backup/backupService';
+
+/** RPG 遊戲化：等級、經驗條、金幣（司令部用） */
+function GameProfileStrip({ gameProfile }) {
+  const gp = gameProfile || getDefaultGameProfile();
+  const level = gp.level ?? 1;
+  const currentXP = gp.currentXP ?? 0;
+  const nextLevelXP = Math.max(1, gp.nextLevelXP ?? 100);
+  const coins = gp.coins ?? 0;
+  const pct = Math.min(100, (currentXP / nextLevelXP) * 100);
+
+  return (
+    <div
+      className="flex items-center gap-4 px-4 py-2 rounded-panel bg-surface-800/80 border border-gray-700 shrink-0"
+      role="status"
+      aria-label={`等級 ${level}，經驗值 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}
+    >
+      <div className="flex items-center gap-2">
+        <Zap size={18} className="text-primary-400" aria-hidden />
+        <span className="text-sm font-bold text-white">Lv.{level}</span>
+      </div>
+      <div className="hidden sm:block w-24">
+        <div className="h-2 bg-surface-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary-500 rounded-full transition-all duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-[10px] text-gray-500">{currentXP}/{nextLevelXP}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Coins size={16} className="text-amber-400" aria-hidden />
+        <span className="text-sm font-bold text-amber-400">{coins}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardView() {
   const userData = useUserStore((state) => state.userData);
@@ -82,13 +119,15 @@ export default function DashboardView() {
     <div className="space-y-5 animate-fade-in max-w-6xl mx-auto pb-8">
       {/* 頂部歡迎區 */}
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-white">
               歡迎回來，{userData?.name || '健身夥伴'}
             </h1>
             <p className="text-gray-400">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
           </div>
+          {/* RPG 等級／經驗／金幣（司令部） */}
+          <GameProfileStrip gameProfile={userData?.gameProfile} />
           <div className="relative">
             <button
               onClick={() => setShowShareMenu(!showShareMenu)}

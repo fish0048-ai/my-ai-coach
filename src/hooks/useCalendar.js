@@ -20,6 +20,7 @@ import { generateDailyWorkout, generateWeeklyWorkout } from '../services/ai/work
 import { parseAndUploadFIT, parseAndUploadCSV } from '../services/importService';
 import { formatDate, getWeekDates } from '../utils/date';
 import { checkAndUnlockAchievements } from '../services/achievementService';
+import { awardForWorkout } from '../services/game/gameProfileService';
 import { getEmptyEditForm, workoutToEditForm } from '../components/Calendar/CalendarDayModal';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useGears } from '../hooks/useGears';
@@ -97,7 +98,11 @@ export default function useCalendar() {
       useWorkoutStore.getState().updateWorkout(workout.id, { status: newStatus, updatedAt: new Date().toISOString() });
       await updateCalendarWorkout(workout.id, { status: newStatus, updatedAt: new Date().toISOString() });
       await updateAIContext();
-      if (newStatus === 'completed') checkAndUnlockAchievements().catch((err) => console.error('檢查成就失敗:', err));
+      if (newStatus === 'completed') {
+        const user = getCurrentUser();
+        if (user) awardForWorkout(user.uid, { ...workout, status: 'completed' }).catch(() => {});
+        checkAndUnlockAchievements().catch((err) => console.error('檢查成就失敗:', err));
+      }
     } catch (err) {
       console.error(err);
       initializeWorkouts();

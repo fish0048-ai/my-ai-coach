@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx';
 import WeatherWidget from '../components/WeatherWidget.jsx';
-import { Share2 } from 'lucide-react';
+import { Share2, Dumbbell } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
 import { useTodayWorkouts } from '../hooks/useWorkouts';
@@ -153,6 +153,7 @@ export default function DashboardView() {
             綜合訓練建議
           </h3>
           <TrainingAdviceSection stats={stats} z2Lower={z2Lower} z2Upper={z2Upper} />
+        </div>
       </div>
     </div>
   );

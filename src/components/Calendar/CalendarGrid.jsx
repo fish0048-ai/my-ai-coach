@@ -62,13 +62,13 @@ export default function CalendarGrid({
               <div className="mt-1 flex flex-col gap-1 w-full overflow-hidden">
                 {dayWorkouts.map((workout, wIdx) => {
                   const isRun = workout.type === 'run';
-                  const title =
-                    workout.title +
-                    (isRun &&
-                    workout.runType === 'Interval' &&
-                    workout.runIntervalSets
-                      ? ` | ${workout.runIntervalSets}組${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}`
-                      : '';
+                  let title = workout.title;
+                  if (isRun && workout.runType === 'Interval' && workout.runIntervalSets) {
+                    const pace = workout.runIntervalPace ? ` (${workout.runIntervalPace})` : '';
+                    const duration = workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : '';
+                    const rest = workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : '';
+                    title += ` | ${workout.runIntervalSets}組${pace}${duration}${rest}`;
+                  }
                   return (
                     <div
                       key={workout.id || wIdx}

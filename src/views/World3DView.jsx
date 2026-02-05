@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { useViewStore } from '../store/viewStore';
@@ -33,12 +34,25 @@ export default function World3DView() {
 
   const setCurrentView = useViewStore((s) => s.setCurrentView);
   const setIsChatOpen = useViewStore((s) => s.setIsChatOpen);
-  const [tip] = useState('使用滑鼠點擊地面移動小人 · 靠近建築物即進入該功能');
+  const [tip, setTip] = useState('使用滑鼠點擊地面移動小人 · 靠近建築物即進入該功能');
+  const [hoveredBuilding, setHoveredBuilding] = useState(null);
+  const [enterFeedback, setEnterFeedback] = useState(null);
+  const buildingMeshesRef = useRef([]);
+  const controlsRefForReset = useRef(null);
+  const cameraRefForReset = useRef(null);
 
   const runRoomAction = useCallback(
-    (roomId) => {
+    (roomId, buildingName) => {
       const act = getRoomAction(roomId);
       if (!act) return;
+      if (buildingName) {
+        setEnterFeedback(`已前往 ${buildingName}`);
+        setTip(`已前往 ${buildingName}`);
+        setTimeout(() => {
+          setEnterFeedback(null);
+          setTip('使用滑鼠點擊地面移動小人 · 靠近建築物即進入該功能');
+        }, 2000);
+      }
       if (act.action === 'navigate') {
         setCurrentView(act.targetView);
       } else if (act.action === 'openPanel' && act.target === 'CoachChat') {
@@ -53,7 +67,9 @@ export default function World3DView() {
     if (!container) return;
 
     const scene = new THREE.Scene();
+    // 天空漸層：上方較亮（#1e3a5f）、下方較深（#0f172a），符合 Modern Fitness Dark
     scene.background = new THREE.Color(0x0f172a);
+    scene.fog = new THREE.FogExp2(0x0f172a, 0.018);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 500);
@@ -63,7 +79,10 @@ export default function World3DView() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 效能：小螢幕或高 DPR 時限制 pixel ratio，減少負擔
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    const limitBySize = container.clientWidth < 640 ? 1 : dpr;
+    renderer.setPixelRatio(limitBySize);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
@@ -77,6 +96,8 @@ export default function World3DView() {
     controls.maxDistance = 60;
     controls.maxPolarAngle = Math.PI / 2 - 0.1;
     controlsRef.current = controls;
+    controlsRefForReset.current = controls;
+    cameraRefForReset.current = camera;
 
     // 地面
     const floorGeo = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE, 20, 20);
@@ -139,8 +160,9 @@ export default function World3DView() {
       group.add(win);
 
       group.position.set(...b.position);
-      group.userData = { buildingId: b.id, lobby: b.lobby, enterRadius: 5, size: b.size };
+      group.userData = { buildingId: b.id, buildingName: b.name, lobby: b.lobby, enterRadius: 5, size: b.size };
       scene.add(group);
+      buildingMeshesRef.current.push(group);
     });
 
     // 小人（Q 版：大頭小身體 + 眼睛）
@@ -197,10 +219,10 @@ export default function World3DView() {
     });
     linkMeshesRef.current = linkMeshes;
 
-    // 燈光
-    const amb = new THREE.AmbientLight(0xf9fafb, 0.45);
+    // 燈光：環境光偏冷、主光帶一點藍，與深色主題一致
+    const amb = new THREE.AmbientLight(0xe0e7ff, 0.4);
     scene.add(amb);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    const dir = new THREE.DirectionalLight(0xf0f4ff, 0.85);
     dir.position.set(18, 26, 18);
     dir.castShadow = true;
     dir.shadow.mapSize.width = 1024;
@@ -232,6 +254,20 @@ export default function World3DView() {
       }
     };
     renderer.domElement.addEventListener('click', onClick);
+
+    // Hover：偵測滑鼠下的建築，顯示名稱
+    const onMouseMove = (event) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(buildingMeshesRef.current, true);
+      const hit = intersects[0];
+      const group = hit?.object?.parent;
+      const name = group?.userData?.buildingName ?? hit?.object?.userData?.buildingName ?? null;
+      setHoveredBuilding(name || null);
+    };
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
 
     let t = 0;
     const loop = () => {
@@ -277,7 +313,7 @@ export default function World3DView() {
           if (dist < thresh) {
             if (lastEnteredRef.current !== b.id) {
               lastEnteredRef.current = b.id;
-              runRoomAction(b.lobby);
+              runRoomAction(b.lobby, b.name);
             }
           } else {
             if (lastEnteredRef.current === b.id) lastEnteredRef.current = null;
@@ -314,6 +350,7 @@ export default function World3DView() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       controls.dispose();
       renderer.domElement.removeEventListener('click', onClick);
+      renderer.domElement.removeEventListener('mousemove', onMouseMove);
       linkMeshesRef.current.forEach(({ line }) => {
         line.geometry.dispose();
         line.material.dispose();
@@ -326,11 +363,61 @@ export default function World3DView() {
     };
   }, [runRoomAction]);
 
+  const handleResetView = useCallback(() => {
+    const controls = controlsRefForReset.current;
+    const camera = cameraRefForReset.current;
+    const avatar = avatarMeshRef.current;
+    if (controls && camera && avatar) {
+      const x = avatar.position.x;
+      const y = avatar.position.y;
+      const z = avatar.position.z;
+      controls.target.set(x, y, z);
+      camera.position.set(x + 20, y + 18, z + 20);
+      camera.lookAt(x, y, z);
+    }
+  }, []);
+
   return (
-    <div className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-surface-900">
-      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
-      <div className="absolute bottom-4 left-4 right-4 flex justify-center">
-        <p className="text-sm text-gray-400 bg-surface-800/80 px-4 py-2 rounded-button border border-gray-700">
+    <div
+      className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-surface-900"
+      role="application"
+      aria-label="3D 虛擬城市場景。使用滑鼠點擊地面移動角色，靠近建築物即進入該功能。"
+    >
+      <div ref={containerRef} className="absolute inset-0 w-full h-full" aria-hidden="true" />
+      {/* 天空漸層疊加（上方較亮，品牌感） */}
+      <div
+        className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary-800/25 via-transparent to-transparent"
+        aria-hidden="true"
+      />
+      {/* 重置視角 */}
+      <button
+        type="button"
+        onClick={handleResetView}
+        className="absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-2 min-h-[44px] text-xs font-medium text-gray-300 bg-surface-800/90 border border-gray-700 rounded-button hover:text-white hover:bg-surface-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        aria-label="重置視角"
+        title="重置視角"
+      >
+        <RotateCcw size={14} aria-hidden /> 重置視角
+      </button>
+      {/* Hover 建築名稱提示 */}
+      {hoveredBuilding && (
+        <div
+          className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-surface-800/95 border border-primary-500/30 rounded-button text-primary-200 text-sm font-medium shadow-card pointer-events-none z-10"
+          role="tooltip"
+        >
+          {hoveredBuilding}
+        </div>
+      )}
+      <div className="absolute bottom-4 left-4 right-4 flex justify-center pointer-events-none">
+        <p
+          className={`text-sm px-4 py-2 rounded-button border shadow-card ${
+            enterFeedback
+              ? 'text-primary-400 bg-primary-500/20 border-primary-500/40'
+              : 'text-gray-400 bg-surface-800/80 border-gray-700'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
           {tip}
         </p>
       </div>

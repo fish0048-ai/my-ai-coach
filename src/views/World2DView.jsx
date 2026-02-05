@@ -31,13 +31,16 @@ const projectToIso = ([x, y, z]) => {
 const IsoBuilding = ({ b, onClick }) => {
   const [wx, wy, wz] = b.size;
   const color = `#${b.color.toString(16).padStart(6, '0')}`;
-  
-  // 計算小屋頂點
-  // 我們簡化為一個立體方塊 + 坡面屋頂
+  const tooltip = `點擊前往：${b.name}`;
   return (
     <g
-      className="cursor-pointer transition-transform hover:scale-105 duration-300 group"
+      className="cursor-pointer transition-transform hover:scale-105 duration-300 group focus-within:ring-2 focus-within:ring-primary-500 rounded"
       onClick={() => onClick(b)}
+      role="button"
+      tabIndex={0}
+      aria-label={tooltip}
+      title={tooltip}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(b); } }}
     >
       {/* 底部陰影 */}
       <ellipse cx="0" cy="5" rx={wx * 3} ry={wz * 1.5} fill="rgba(0,0,0,0.3)" />
@@ -56,7 +59,7 @@ const IsoBuilding = ({ b, onClick }) => {
           fill={color}
           filter="brightness(0.9)"
         />
-        {/* 屋頂面 (等角菱形) */}
+        {/* 屋頂：surface-700 */}
         <path
           d={`M 0 ${-wy * 3} L ${wz * 3} ${-wy * 3 + wz * 1.5} L ${(wz - wx) * 3} ${-wy * 3 + (wz + wx) * 1.5} L ${-wx * 3} ${-wy * 3 + wx * 1.5} Z`}
           fill="#1e293b"
@@ -67,14 +70,14 @@ const IsoBuilding = ({ b, onClick }) => {
         <rect x={-wx * 2.5} y={-wy * 2} width="4" height="6" fill="#fde68a" opacity="0.8" transform="skewY(-30)" />
       </g>
 
-      {/* 漂浮標籤 */}
+      {/* 漂浮標籤：品牌色 surface-900 + 白字 */}
       <g transform={`translate(0, ${-wy * 3 - 15})`}>
-        <rect x="-30" y="-10" width="60" height="16" rx="8" fill="rgba(15, 23, 42, 0.8)" />
+        <rect x="-30" y="-10" width="60" height="16" rx="8" fill="#020617" fillOpacity="0.92" stroke="#334155" strokeWidth="0.5" />
         <text
           x="0"
           y="2"
           textAnchor="middle"
-          className="fill-slate-100 font-bold"
+          className="fill-white font-bold"
           fontSize="8"
         >
           {b.name}
@@ -110,16 +113,21 @@ export default function World2DView() {
 
   const [avatarPos, setAvatarPos] = useState(avatarStartIso);
   const [wobblePhase, setWobblePhase] = useState(0);
+  const [enterFeedback, setEnterFeedback] = useState(null);
   const avatarPosRef = useRef(avatarStartIso);
   const worldPosRef = useRef({ x: avatarConfig.startPosition[0], z: avatarConfig.startPosition[2] });
-  const pathRef = useRef([]); // 存儲 3D 世界坐標路徑
+  const pathRef = useRef([]);
   const pendingRoomRef = useRef(null);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
 
-  const runRoomAction = useCallback((roomId) => {
+  const runRoomAction = useCallback((roomId, buildingName) => {
     const act = getRoomAction(roomId);
     if (!act) return;
+    if (buildingName) {
+      setEnterFeedback(`已前往 ${buildingName}`);
+      setTimeout(() => setEnterFeedback(null), 2000);
+    }
     if (act.action === 'navigate') {
       setCurrentView(act.targetView);
     } else if (act.action === 'openPanel' && act.target === 'CoachChat') {
@@ -137,12 +145,12 @@ export default function World2DView() {
     if (Math.abs(end.z - start.z) > 0.1) segments.push({ x: end.x, z: end.z });
 
     if (segments.length === 0) {
-      runRoomAction(b.lobby);
+      runRoomAction(b.lobby, b.name);
       return;
     }
 
     pathRef.current = segments;
-    pendingRoomRef.current = b.lobby;
+    pendingRoomRef.current = { lobby: b.lobby, name: b.name };
   };
 
   useEffect(() => {
@@ -177,9 +185,9 @@ export default function World2DView() {
           pathRef.current.shift();
 
           if (pathRef.current.length === 0 && pendingRoomRef.current) {
-            const room = pendingRoomRef.current;
+            const { lobby, name } = pendingRoomRef.current;
             pendingRoomRef.current = null;
-            runRoomAction(room);
+            runRoomAction(lobby, name);
           }
         }
       }
@@ -205,22 +213,25 @@ export default function World2DView() {
         </div>
       </div>
 
-      {/* SVG 畫布 */}
-      <div className="w-full h-full flex items-center justify-center p-8">
+      {/* SVG 畫布：無障礙標題與描述 */}
+      <div
+        className="w-full h-full flex items-center justify-center p-8"
+        role="img"
+        aria-label="2D 等角地圖。點擊建築物可前往該功能：行事曆館、訓練儀表板、營養研究所、AI 教練中心、知識庫、趨勢分析塔、裝備管理。"
+      >
         <div className="relative w-full max-w-4xl aspect-[16/10]">
-          <svg viewBox="0 0 400 250" className="w-full h-full drop-shadow-2xl">
+          <svg viewBox="0 0 400 250" className="w-full h-full drop-shadow-2xl" aria-hidden="true">
             <defs>
-              {/* 地面漸層 */}
+              {/* 地面漸層：Design Token surface-700 / surface-900 */}
               <radialGradient id="isoGround" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#1e293b" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
+                <stop offset="0%" stopColor="#1e293b" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#020617" stopOpacity="0.2" />
               </radialGradient>
-              
-              {/* 連線脈衝動畫 */}
+              {/* 連線脈衝：primary 藍 */}
               <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0" />
-                <stop offset="50%" stopColor="#38bdf8" stopOpacity="1" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
+                <stop offset="50%" stopColor="#3b82f6" stopOpacity="1" />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
               </linearGradient>
             </defs>
 
@@ -249,8 +260,7 @@ export default function World2DView() {
                   strokeWidth="1.5"
                   strokeDasharray="4 2"
                 />
-                {/* 脈衝動畫點 */}
-                <circle r="2" fill="#38bdf8">
+                <circle r="2" fill="#3b82f6">
                   <animateMotion
                     path={`M ${l.fromIso.x} ${l.fromIso.y} L ${l.toIso.x} ${l.toIso.y}`}
                     dur="3s"
@@ -272,15 +282,14 @@ export default function World2DView() {
             <g transform={`translate(${avatarPos.x}, ${avatarPos.y + Math.sin(wobblePhase) * 2})`}>
                {/* 影子 */}
                <ellipse cx="0" cy="4" rx="6" ry="3" fill="rgba(0,0,0,0.4)" />
-               {/* 身體 */}
-               <path d="M -4 0 L 4 0 L 0 -10 Z" fill="#38bdf8" />
+               {/* 身體：primary */}
+               <path d="M -4 0 L 4 0 L 0 -10 Z" fill="#3b82f6" />
                {/* 大頭 */}
                <circle cx="0" cy="-12" r="5" fill="#f8fafc" />
                {/* 眼睛 */}
                <circle cx="-1.5" cy="-13" r="1" fill="#0f172a" />
                <circle cx="1.5" cy="-13" r="1" fill="#0f172a" />
-               {/* 光圈 */}
-               <circle r="8" fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.5">
+               <circle r="8" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.5">
                   <animate attributeName="r" values="8;12;8" dur="2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite" />
                </circle>
@@ -289,10 +298,15 @@ export default function World2DView() {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
+      <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2 pointer-events-none">
+        {enterFeedback && (
+          <div className="px-4 py-2 bg-primary-500/20 border border-primary-500/40 rounded-button text-primary-400 text-sm font-medium shadow-card" role="status" aria-live="polite">
+            {enterFeedback}
+          </div>
+        )}
         <div className="px-6 py-2 bg-surface-800/90 border border-gray-700 rounded-full shadow-card backdrop-blur-md">
           <p className="text-[11px] text-gray-300 font-medium tracking-wider uppercase flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" aria-hidden />
             點擊建築物即可前往該功能
           </p>
         </div>

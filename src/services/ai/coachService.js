@@ -1,4 +1,4 @@
-import { getApiKey } from '../apiKeyService';
+import { getApiKey } from '../config/apiKeyService';
 import { runGemini } from '../../utils/gemini';
 import { handleError } from '../errorService';
 import { buildCoachPrompt } from './prompts/coachPrompts';

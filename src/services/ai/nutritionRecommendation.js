@@ -3,7 +3,7 @@
  * 基於訓練強度和時間，生成個人化營養建議
  */
 
-import { getApiKey } from '../apiKeyService';
+import { getApiKey } from '../config/apiKeyService';
 import { getUserProfile } from '../userService';
 import { listTodayWorkouts } from '../calendarService';
 import { runGemini } from '../../utils/gemini';

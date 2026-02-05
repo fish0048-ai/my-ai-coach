@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getApiKey as loadApiKey, setApiKey as persistApiKey, hasApiKey as checkHasApiKey } from '../services/apiKeyService';
+import { getApiKey as loadApiKey, setApiKey as persistApiKey, hasApiKey as checkHasApiKey } from '../services/config/apiKeyService';
 
 /**
  * 統一的 API Key 管理 Hook

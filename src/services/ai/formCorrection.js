@@ -3,7 +3,7 @@
  * 分析動作偏差，提供具體糾正建議和訓練計劃
  */
 
-import { getApiKey } from '../apiKeyService';
+import { getApiKey } from '../config/apiKeyService';
 import { runGemini } from '../../utils/gemini';
 import { handleError } from '../errorService';
 import { FORM_CORRECTION_RULES } from './localAnalysisRules';

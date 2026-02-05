@@ -10,7 +10,7 @@
 
 import { collection, addDoc, getDocs, query, orderBy, limit, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
-import { getApiKey } from '../../services/apiKeyService';
+import { getApiKey } from '../config/apiKeyService';
 
 const getCurrentUser = () => auth.currentUser;
 

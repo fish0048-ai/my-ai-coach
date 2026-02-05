@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // 修正：補上 Sparkles 引入
 import { Utensils, Camera, Plus, Trash2, PieChart, TrendingUp, AlertCircle, ChefHat, Loader, Search, Sparkles } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
-import { getApiKey } from '../services/apiKeyService';
+import { getApiKey } from '../services/config/apiKeyService';
 import { addFoodLog, removeFoodLog } from '../api/nutrition';
 import { handleError } from '../services/errorService';
 import { runGeminiVision, runGemini } from '../utils/gemini';

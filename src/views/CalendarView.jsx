@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Sparkles, Save, Trash2, Calendar as CalendarIcon, Loader, X, Dumbbell, Activity, CheckCircle2, Clock, ArrowLeft, Edit3, Copy, Move, Upload, RefreshCw, Download, CalendarDays, ShoppingBag, Timer, Flame, Heart, BarChart2, AlignLeft, Tag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Trash2, Calendar as CalendarIcon, X, Dumbbell, Activity, CheckCircle2, Clock, Copy, Move, CalendarDays, ShoppingBag } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
-import { getApiKey } from '../services/apiKeyService';
+import { getApiKey } from '../services/config/apiKeyService';
 import { listGears, updateCalendarWorkout, setCalendarWorkout, createCalendarWorkout, deleteCalendarWorkout, getUserProfile, generateCalendarCSVData } from '../services/calendarService';
 import { handleError } from '../services/errorService';
 import { detectMuscleGroup } from '../utils/exerciseDB';
@@ -14,6 +14,8 @@ import { cleanNumber } from '../utils/number';
 import { checkAndUnlockAchievements } from '../services/achievementService';
 import WorkoutForm from '../components/Calendar/WorkoutForm';
 import WeeklyModal from '../components/Calendar/WeeklyModal';
+import WorkoutCard from '../components/Calendar/WorkoutCard';
+import ImportSection from '../components/Calendar/ImportSection';
 import { useViewStore } from '../store/viewStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { useGears } from '../hooks/useGears';
@@ -32,8 +34,6 @@ export default function CalendarView() {
 
   const [draggedWorkout, setDraggedWorkout] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
-  const fileInputRef = useRef(null);
-  const csvInputRef = useRef(null);
 
   const [editForm, setEditForm] = useState({
     status: 'completed', type: 'strength', title: '', exercises: [], 
@@ -240,26 +240,6 @@ export default function CalendarView() {
     }
   };
 
-  const handleImportClick = () => csvInputRef.current?.click();
-  const handleCSVUpload = async (e) => { 
-      const file = e.target.files?.[0];
-      if (!file) return;
-      setFileLoading(true);
-      try {
-          const result = await parseAndUploadCSV(file);
-          if (result.success) {
-               // 資料會透過訂閱自動更新，不需要手動 fetch
-               // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
-          } else {
-               handleError(result.message || "匯入失敗", { context: 'CalendarView', operation: 'handleCSVUpload' });
-          }
-      } catch (err) { 
-        handleError(err, { context: 'CalendarView', operation: 'handleCSVUpload' }); 
-      } finally { 
-        setFileLoading(false);
-        if (csvInputRef.current) csvInputRef.current.value = ''; 
-      }
-  };
   const handleFileUpload = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -279,11 +259,10 @@ export default function CalendarView() {
             // 資料會透過訂閱自動更新，不需要手動 fetch
             // 成功訊息可選：使用 handleError 的 silent 模式或添加成功訊息機制
           }
-      } catch (err) { 
-        handleError(err, { context: 'CalendarView', operation: 'handleFileUpload' }); 
-      } finally { 
+      } catch (err) {
+        handleError(err, { context: 'CalendarView', operation: 'handleFileUpload' });
+      } finally {
         setFileLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = ''; 
       }
   };
   
@@ -343,7 +322,7 @@ export default function CalendarView() {
       exercises: workout.exercises || [], runDistance: workout.runDistance || '', runDuration: workout.runDuration || '',
       runPace: workout.runPace || '', runPower: workout.runPower || '', runHeartRate: workout.runHeartRate || '',
       runRPE: workout.runRPE || '', notes: workout.notes || '', calories: workout.calories || '', gearId: workout.gearId || '',
-      runType: workout.runType || '', runIntervalSets: workout.runIntervalSets || '', runIntervalRest: workout.runIntervalRest || '', runIntervalPace: workout.runIntervalPace || '' // 間歇跑相關欄位
+      runType: workout.runType || '', runIntervalSets: workout.runIntervalSets || '', runIntervalRest: workout.runIntervalRest || '', runIntervalPace: workout.runIntervalPace || '', runIntervalDuration: workout.runIntervalDuration || '', runIntervalPower: workout.runIntervalPower || ''
     });
     setCurrentDocId(workout.id); setModalView('form');
   };
@@ -453,9 +432,6 @@ export default function CalendarView() {
 
   return (
     <div className="space-y-6 animate-fadeIn h-full flex flex-col">
-      <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, .fit" className="hidden" />
-      <input type="file" ref={csvInputRef} onChange={handleCSVUpload} accept=".csv" className="hidden" />
-
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-surface-800 p-4 rounded-xl border border-gray-800 gap-3 shadow-lg shadow-black/40">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -483,16 +459,13 @@ export default function CalendarView() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 md:gap-4 md:justify-end">
-          <button onClick={handleSync} disabled={isSyncing || fileLoading} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors border border-blue-500 disabled:opacity-50">
-            {isSyncing ? <Loader size={16} className="animate-spin"/> : <RefreshCw size={16} />}
-            <span className="hidden md:inline">同步</span>
-          </button>
-          <button onClick={handleImportClick} className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600" title="匯入 Garmin/運動APP CSV 或 FIT">
-            <Upload size={16} /> <span className="hidden md:inline">匯入檔案</span>
-          </button>
-          <button onClick={handleExport} className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors border border-gray-600" title="下載雲端資料備份 (CSV)">
-            <Download size={16} /> <span className="hidden md:inline">備份</span>
-          </button>
+          <ImportSection
+            onSync={handleSync}
+            onExport={handleExport}
+            onFileUpload={handleFileUpload}
+            isSyncing={isSyncing}
+            fileLoading={fileLoading}
+          />
           <div className="flex items-center gap-2 bg-surface-900 rounded-lg p-1">
             <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-gray-700 rounded-md text-white"><ChevronLeft size={20}/></button>
             <span className="text-sm md:text-base font-mono text-white min-w-[100px] text-center">{currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</span>
@@ -608,41 +581,15 @@ export default function CalendarView() {
                                     <p>當日尚無紀錄</p>
                                 </div>
                             ) : (
-                                workouts[formatDate(selectedDate)].map((workout) => {
-                                    const usedGear = gears.find(g => g.id === workout.gearId);
-                                    return (
-                                    <div key={workout.id} onClick={() => { setCurrentDocId(workout.id); setEditForm(workout); setModalView('form'); }} className="bg-surface-800 p-4 rounded-xl border border-gray-800 cursor-pointer flex justify-between items-center group hover:border-primary-500 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-lg ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-500' : 'bg-green-500/20 text-green-500'}`}>
-                                                {workout.type === 'run' ? <Activity size={24}/> : <Dumbbell size={24}/>}
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-white">{workout.title}</h3>
-                                                <p className="text-xs text-gray-400">
-                                                    {workout.type === 'run' 
-                                                        ? `${workout.runDistance}km${
-                                                            (workout.runType === 'Interval' || workout.runType === '10-20-30') && workout.runIntervalSets 
-                                                                ? ` | ${workout.runIntervalSets}${workout.runType === '10-20-30' ? '組區塊' : '組'}${workout.runIntervalPace ? ` (${workout.runIntervalPace})` : ''}${workout.runIntervalPower ? ` [${workout.runIntervalPower}W]` : ''}${workout.runIntervalDuration ? ` × ${workout.runIntervalDuration}秒` : ''}${workout.runIntervalRest ? ` / 休息${workout.runIntervalRest}秒` : ''}` 
-                                                                : ''
-                                                          }`
-                                                        : `${workout.exercises?.length}動作`
-                                                    }
-                                                </p>
-                                                {usedGear && <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300"><ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}</div>}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Edit3 size={18} className="text-gray-600 group-hover:text-white" />
-                                            <button 
-                                                onClick={(e) => handleStatusToggle(e, workout)}
-                                                className={`p-2 rounded-full transition-colors ${workout.status === 'completed' ? 'text-green-500 bg-green-900/20' : 'text-gray-600 hover:text-gray-400'}`}
-                                            >
-                                                <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    )
-                                })
+                                workouts[formatDate(selectedDate)].map((workout) => (
+                                  <WorkoutCard
+                                    key={workout.id}
+                                    workout={workout}
+                                    gears={gears}
+                                    onEdit={handleEdit}
+                                    onStatusToggle={handleStatusToggle}
+                                  />
+                                ))
                             )}
                             <button onClick={() => { setCurrentDocId(null); setModalView('form'); }} className="w-full py-4 rounded-xl border-2 border-dashed border-gray-700 text-gray-400 hover:text-white"><Plus /> 新增運動</button>
                         </div>

@@ -3,7 +3,7 @@
  * 封裝 AI 生成單日和週課表的邏輯
  */
 
-import { getApiKey } from '../apiKeyService';
+import { getApiKey } from '../config/apiKeyService';
 import { getUserProfile } from '../userService';
 import { getAIContext } from '../../utils/contextManager';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../../utils/aiPrompts';

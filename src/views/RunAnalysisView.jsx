@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Edit2, AlertCircle, MoveVertical, Timer, Ruler, Scale, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
+import { Camera, Activity, Upload, Cpu, Sparkles, BrainCircuit, Save, Eye, EyeOff, FileCode, Zap, Layers, BookOpen, AlertTriangle, Trophy } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 import { saveRunAnalysis } from '../services/analysisService';
 import { handleError } from '../services/errorService';
@@ -8,29 +8,8 @@ import { usePoseDetection } from '../hooks/usePoseDetection';
 import { computeJointAngle, calculateRealHipExtension, processRunScanData, performFullVideoScan } from '../services/analysis/poseAnalysis';
 import { calculateRunScore } from '../services/analysis/metricsCalculator';
 import { initDrawingUtils, createRunPoseCallback } from '../services/analysis/poseDrawing';
-
-// 分數圈圈
-const ScoreGauge = ({ score }) => {
-  const radius = 30;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
-  let color = 'text-red-500';
-  if (score >= 70) color = 'text-yellow-500';
-  if (score >= 85) color = 'text-green-500';
-  if (score >= 95) color = 'text-blue-500';
-  return (
-    <div className="relative flex items-center justify-center w-24 h-24">
-      <svg className="w-full h-full transform -rotate-90">
-        <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-700" />
-        <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className={`${color} transition-all duration-1000 ease-out`} />
-      </svg>
-      <div className="absolute flex flex-col items-center">
-        <span className={`text-2xl font-bold ${color}`}>{score}</span>
-        <span className="text-[10px] text-gray-400">SCORE</span>
-      </div>
-    </div>
-  );
-};
+import ScoreGauge from '../components/Analysis/ScoreGauge';
+import MetricsPanel from '../components/Analysis/MetricsPanel';
 
 export default function RunAnalysisView() {
   const [videoFile, setVideoFile] = useState(null); 
@@ -424,7 +403,7 @@ export default function RunAnalysisView() {
                       <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-yellow-400"/> 跑姿評分</h3>
                       <p className="text-xs text-gray-400">基於動力學指標計算</p>
                   </div>
-                  <ScoreGauge score={score} />
+                  <ScoreGauge score={score} showBlue />
               </div>
            )}
 
@@ -438,20 +417,7 @@ export default function RunAnalysisView() {
 
            {metrics && (
              <>
-                <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
-                   <div className="flex justify-between items-center mb-2"><h3 className="text-white font-bold">動態資料</h3> <span className="text-xs text-yellow-500"><Edit2 size={10} className="inline"/> 可修正</span></div>
-                   {Object.entries(metrics).map(([k, m]) => (
-                       <div key={k} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
-                           <span className="text-gray-400 text-sm flex items-center gap-2">
-                                {m.icon ? <m.icon size={14}/> : <Activity size={14} />} {m.label}
-                           </span>
-                           <div className="flex items-center gap-1">
-                               <input type="text" value={m.value} onChange={(e) => updateMetric(k, e.target.value)} className={`bg-transparent text-right font-bold w-16 outline-none ${m.status==='good'?'text-green-400':'text-yellow-400'}`}/>
-                               <span className="text-xs text-gray-500">{m.unit}</span>
-                           </div>
-                       </div>
-                   ))}
-                </div>
+                <MetricsPanel metrics={metrics} title="動態資料" onUpdateMetric={updateMetric} />
                 <div className="bg-blue-900/20 p-5 rounded-xl border border-blue-500/30 text-gray-300 text-sm space-y-3">
                     <h3 className="text-blue-400 font-bold flex items-center gap-2"><BookOpen size={16} /> 什麼是送髖 (Hip Drive)?</h3>
                     <p><strong>定義：</strong> 跑步時利用骨盆前傾，主動帶動大腿<strong>向前抬起</strong>。</p>

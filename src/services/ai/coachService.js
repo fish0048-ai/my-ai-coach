@@ -45,9 +45,10 @@ const TOOLS = [{ functionDeclarations: [GET_TRAINING_STATS_DECLARATION] }];
  * @param {string} params.userMessage
  * @param {string} [params.userContext]
  * @param {string} [params.knowledgeContext]
+ * @param {string} [params.conversationContext] - 歷史對話摘要或近期對話（rag-p3-3）
  * @returns {Promise<string>}
  */
-export const sendCoachMessage = async ({ userMessage, userContext, knowledgeContext }) => {
+export const sendCoachMessage = async ({ userMessage, userContext, knowledgeContext, conversationContext }) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     const err = new Error('請先設定 API Key');
@@ -55,7 +56,7 @@ export const sendCoachMessage = async ({ userMessage, userContext, knowledgeCont
     throw err;
   }
 
-  const prompt = buildCoachPrompt({ userMessage, userContext, knowledgeContext });
+  const prompt = buildCoachPrompt({ userMessage, userContext, knowledgeContext, conversationContext });
   const contents = [{ role: 'user', parts: [{ text: prompt }] }];
 
   const executeTool = async (name, args) => {

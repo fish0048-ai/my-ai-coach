@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, Loader, Sparkles, Settings, Key, Save, Trash2, RefreshCw } from 'lucide-react';
 import { getAIContext, updateAIContext } from '../../utils/contextManager';
 import { getKnowledgeContextForQuery } from '../../services/ai/knowledgeBaseService';
+import { buildConversationContext } from '../../services/ai/conversationSummaryService';
 import { useApiKey } from '../../hooks/useApiKey';
 import { sendCoachMessage } from '../../services/ai/coachService';
 
@@ -74,13 +75,20 @@ export default function CoachChat({ isOpen, onClose, user }) {
     setIsLoading(true);
 
     try {
-        // 1. 獲取統整後的上下文 (Context)
-        const userContext = await getAIContext();
-        // 2. 從個人知識庫（RAG）檢索相關歷史紀錄
-        const knowledgeContext = await getKnowledgeContextForQuery(userMessage);
+        // 1. 並行取得上下文、知識庫與對話脈絡（rag-p3-3 歷史對話壓縮）
+        const [userContext, knowledgeContext, conversationContext] = await Promise.all([
+          getAIContext(),
+          getKnowledgeContextForQuery(userMessage),
+          buildConversationContext(messages, apiKey),
+        ]);
 
-        // 3. 呼叫服務取得回覆
-        const responseText = await sendCoachMessage({ userMessage, userContext, knowledgeContext });
+        // 2. 呼叫服務取得回覆
+        const responseText = await sendCoachMessage({
+          userMessage,
+          userContext,
+          knowledgeContext,
+          conversationContext,
+        });
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'model', text: "無法取得教練回覆，請確認網路連線正常，或檢查 API Key 是否正確。" }]);

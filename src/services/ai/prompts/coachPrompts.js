@@ -3,11 +3,12 @@
  * 將語氣、上下文、使用者提問整合為單一字串。
  */
 
-export const buildCoachPrompt = ({ userMessage, userContext, knowledgeContext }) => {
+export const buildCoachPrompt = ({ userMessage, userContext, knowledgeContext, conversationContext }) => {
   const contextSection = `
 [使用者目前狀態與近期訓練]
 ${userContext || '目前無詳細資料'}
 ${knowledgeContext || ''}
+${conversationContext ? `\n[對話脈絡]\n${conversationContext}` : ''}
   `.trim();
 
   return `

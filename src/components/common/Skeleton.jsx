@@ -83,7 +83,7 @@ export const TableSkeleton = ({ rows = 5, cols = 4 }) => (
  * 統計卡片骨架屏
  */
 export const StatCardSkeleton = () => (
-  <div className="bg-surface-800 p-6 rounded-xl border border-gray-800 flex items-center space-x-4 shadow-lg shadow-black/40">
+  <div className="card-base p-6 flex items-center gap-4">
     <Skeleton height="3rem" width="3rem" className="rounded-lg" />
     <div className="flex-1 space-y-2">
       <Skeleton height="0.875rem" width="50%" />

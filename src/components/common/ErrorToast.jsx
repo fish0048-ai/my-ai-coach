@@ -40,8 +40,8 @@ export default function ErrorToast() {
   if (!error || !isVisible) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] animate-slide-in">
-      <div className="bg-red-900/90 border border-red-700 rounded-lg shadow-lg p-4 max-w-md flex items-start gap-3">
+    <div className="fixed top-4 right-4 z-[9999] animate-slide-in" role="alert" aria-live="assertive">
+      <div className="bg-red-900/90 border border-red-700 rounded-card shadow-card p-4 max-w-md flex items-start gap-3">
         <AlertCircle className="text-red-400 flex-shrink-0 mt-0.5" size={20} />
         <div className="flex-1">
           <h4 className="text-red-300 font-semibold mb-1">錯誤</h4>
@@ -49,8 +49,9 @@ export default function ErrorToast() {
         </div>
         <button
           onClick={handleClose}
-          className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
-          aria-label="關閉"
+          type="button"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-red-400 hover:text-red-300 transition-colors flex-shrink-0 -mr-2"
+          aria-label="關閉錯誤提示"
         >
           <X size={18} />
         </button>

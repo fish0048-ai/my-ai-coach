@@ -146,7 +146,7 @@ export default function GearView() {
         </div>
         <button 
           onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg"
+          className="btn-primary flex items-center gap-2 px-4 py-2"
         >
           <Plus size={18} /> 新增裝備
         </button>
@@ -165,7 +165,7 @@ export default function GearView() {
           if (isRetired) statusColor = "bg-gray-600";
 
           return (
-            <div key={gear.id} className={`bg-surface-800 rounded-2xl border ${isRetired ? 'border-gray-800 opacity-70' : 'border-gray-800'} overflow-hidden relative group shadow-lg shadow-black/40`}>
+            <div key={gear.id} className={`card-base rounded-panel ${isRetired ? 'opacity-70' : ''} overflow-hidden relative group`}>
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <ShoppingBag size={80} />
               </div>
@@ -173,7 +173,7 @@ export default function GearView() {
               <div className="p-6 relative z-10">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{gear.brand}</span>
+                    <span className="text-xs font-bold text-primary-400 uppercase tracking-wider">{gear.brand}</span>
                     <h3 className="text-xl font-bold text-white mt-1">{gear.model}</h3>
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                       <Calendar size={10} /> 啟用: {gear.startDate}

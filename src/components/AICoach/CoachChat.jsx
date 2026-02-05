@@ -104,7 +104,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
       {/* Header */}
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-slate-900/80 to-slate-800/60 md:rounded-t-2xl">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-900/50">
+          <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center shadow-card">
             <Bot size={20} className="text-white" />
           </div>
           <div>
@@ -128,12 +128,12 @@ export default function CoachChat({ isOpen, onClose, user }) {
           </button>
           <button 
             onClick={() => setShowSettings(!showSettings)} 
-            className={`p-2 rounded-lg transition-colors ${showSettings || !apiKey ? 'text-blue-400 bg-blue-500/10' : 'text-gray-400 hover:text-white hover:bg-surface-800'}`}
+            className={`p-2 rounded-button transition-colors ${showSettings || !apiKey ? 'text-primary-400 bg-primary-500/10' : 'text-gray-400 hover:text-white hover:bg-surface-800'}`}
             title="設定"
           >
             <Settings size={20} />
           </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors bg-surface-800 hover:bg-surface-800/80 p-2 rounded-lg">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors bg-surface-800 hover:bg-surface-800/80 p-2 rounded-button" aria-label="關閉聊天">
             <X size={20} />
           </button>
         </div>
@@ -159,11 +159,13 @@ export default function CoachChat({ isOpen, onClose, user }) {
                 value={tempKey}
                 onChange={(e) => setTempKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className="w-full bg-slate-900/70 border border-white/10 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-mono"
+                aria-label="Google Gemini API Key"
+                autoComplete="off"
+                className="input-base text-sm font-mono"
               />
               <button
                 onClick={handleSaveKey}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/40"
+                className="btn-primary w-full flex items-center justify-center gap-2"
               >
                 <Save size={18} />
                 儲存設定
@@ -173,7 +175,9 @@ export default function CoachChat({ isOpen, onClose, user }) {
               <button
                 onClick={handleSyncContext}
                 disabled={isSyncing}
-                className="w-full bg-slate-900/60 hover:bg-slate-800/80 text-gray-200 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-white/10 mt-2"
+                type="button"
+                aria-label={isSyncing ? '正在同步' : '同步個人資料與訓練紀錄'}
+                className="btn-secondary w-full py-3 flex items-center justify-center gap-2 mt-2"
               >
                 {isSyncing ? <Loader size={18} className="animate-spin" /> : <RefreshCw size={18} />}
                 {isSyncing ? '正在同步...' : '同步個人資料與訓練紀錄'}
@@ -190,7 +194,7 @@ export default function CoachChat({ isOpen, onClose, user }) {
                 <div
                   className={`max-w-[85%] p-3.5 rounded-2xl shadow-sm ${
                     msg.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-none'
+                      ? 'bg-primary-600 text-white rounded-br-none'
                       : 'bg-surface-800 text-gray-100 rounded-bl-none border border-gray-800'
                   }`}
                 >
@@ -221,15 +225,16 @@ export default function CoachChat({ isOpen, onClose, user }) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder={apiKey ? "輸入問題，教練將依您的紀錄回覆..." : "請先設定 API Key"}
               disabled={!apiKey}
-              className="flex-1 bg-slate-900/70 text-white placeholder-gray-500 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="輸入訊息給 AI 教練"
+              className="input-base flex-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button 
               onClick={handleSend}
               disabled={!input.trim() || isLoading || !apiKey}
-              className="p-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/20"
+              className="btn-primary p-3 disabled:opacity-50 disabled:bg-surface-700 disabled:cursor-not-allowed"
             >
               {isLoading ? <Loader size={18} className="animate-spin" /> : <Send size={18} />}
             </button>

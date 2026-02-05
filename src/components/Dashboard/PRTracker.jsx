@@ -41,7 +41,7 @@ export default function PRTracker() {
           value: `${pr.max1RM} kg`,
           date: pr.max1RMDate,
           icon: Dumbbell,
-          color: 'text-blue-400'
+          color: 'text-primary-400'
         });
       }
       if (pr.maxVolumeDate && (!pr.max1RMDate || pr.maxVolumeDate !== pr.max1RMDate)) {
@@ -97,7 +97,7 @@ export default function PRTracker() {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+      <div className="card-base p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-700 rounded w-1/3"></div>
           <div className="h-4 bg-gray-700 rounded w-2/3"></div>
@@ -109,7 +109,7 @@ export default function PRTracker() {
 
   if (recentPRs.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+      <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="text-yellow-400" size={24} />
           <h3 className="text-xl font-bold text-white">PR 追蹤</h3>
@@ -122,7 +122,7 @@ export default function PRTracker() {
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+    <div className="card-base p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Trophy className="text-yellow-400" size={24} />

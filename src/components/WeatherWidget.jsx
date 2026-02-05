@@ -70,8 +70,8 @@ export default function WeatherWidget() {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 flex items-center justify-center h-24">
-        <Loader className="animate-spin text-blue-500" />
+      <div className="card-base p-4 flex items-center justify-center h-24">
+        <Loader className="animate-spin text-primary-500" />
         <span className="ml-2 text-gray-400 text-sm">正在載入氣象資訊...</span>
       </div>
     );
@@ -79,7 +79,7 @@ export default function WeatherWidget() {
 
   if (error) {
     return (
-      <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 flex items-center text-gray-400 text-sm">
+      <div className="card-base p-4 flex items-center text-gray-400 text-sm">
         <MapPin className="mr-2 text-red-400" size={18} />
         {error} (請允許定位權限以獲取當地天氣)
       </div>
@@ -91,7 +91,7 @@ export default function WeatherWidget() {
   const advice = getAdvice(temperature, weathercode);
 
   return (
-    <div className="bg-gradient-to-r from-blue-900/40 to-gray-900/40 rounded-xl p-5 border border-blue-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fadeIn">
+    <div className="card-base bg-gradient-to-r from-primary-800/40 to-surface-800 rounded-card p-5 border-primary-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
       
       {/* 左側：溫度與狀態 */}
       <div className="flex items-center gap-4">
@@ -116,9 +116,9 @@ export default function WeatherWidget() {
       {/* 右側：AI 建議 */}
       <div className="flex-1 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
         <div className="flex items-start gap-2">
-          <Droplets className="text-blue-400 mt-0.5 flex-shrink-0" size={16} />
+          <Droplets className="text-primary-400 mt-0.5 flex-shrink-0" size={16} />
           <div>
-            <h4 className="text-blue-400 font-bold text-xs uppercase mb-1">今日運動提醒</h4>
+            <h4 className="text-primary-400 font-bold text-xs uppercase mb-1">今日運動提醒</h4>
             <p className="text-gray-300 text-sm leading-relaxed">
               {advice}
             </p>

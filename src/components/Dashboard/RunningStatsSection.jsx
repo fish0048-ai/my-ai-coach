@@ -6,7 +6,7 @@ import { TrendingUp } from 'lucide-react';
 
 export default function RunningStatsSection({ stats }) {
   return (
-    <section className="bg-gray-800/60 rounded-xl border border-gray-700/50 overflow-hidden">
+    <section className="card-base overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700/50">
         <TrendingUp className="text-green-400" size={18} />
         <h3 className="text-base font-bold text-white">本週跑步</h3>

@@ -79,7 +79,7 @@ export default function DashboardView() {
   }, [userData, allWorkouts]);
 
   return (
-    <div className="space-y-5 animate-fadeIn max-w-6xl mx-auto pb-8">
+    <div className="space-y-5 animate-fade-in max-w-6xl mx-auto pb-8">
       {/* 頂部歡迎區 */}
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
@@ -93,7 +93,7 @@ export default function DashboardView() {
             <button
               onClick={() => setShowShareMenu(!showShareMenu)}
               disabled={sharing}
-              className="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-800/80 text-white rounded-lg transition-colors"
+              className="btn-secondary flex items-center gap-2 px-4 py-2"
             >
               <Share2 size={18} />
               <span className="hidden md:inline">分享</span>
@@ -128,7 +128,7 @@ export default function DashboardView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* 肌群負荷 */}
-        <div className="lg:col-span-2 bg-gray-800/60 rounded-xl border border-gray-700/50 p-4 flex flex-col">
+        <div className="lg:col-span-2 card-base p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-bold text-white">肌群負荷</h3>
             <span className="text-[10px] text-gray-500">行事曆紀錄</span>
@@ -148,7 +148,7 @@ export default function DashboardView() {
           </div>
         </div>
 
-        <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-4 flex flex-col">
+        <div className="card-base p-4 flex flex-col">
           <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
             綜合訓練建議
           </h3>

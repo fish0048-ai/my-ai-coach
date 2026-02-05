@@ -48,7 +48,7 @@ export default function AchievementPanel() {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+      <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="text-yellow-400" size={24} />
           <h3 className="text-xl font-bold text-white">訓練成就</h3>
@@ -60,7 +60,7 @@ export default function AchievementPanel() {
 
   if (achievements.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+      <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="text-yellow-400" size={24} />
           <h3 className="text-xl font-bold text-white">訓練成就</h3>
@@ -70,7 +70,7 @@ export default function AchievementPanel() {
         </p>
         <button
           onClick={checkNewAchievements}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+          className="btn-primary px-4 py-2 text-sm"
         >
           <Sparkles size={16} />
           檢查成就
@@ -96,7 +96,7 @@ export default function AchievementPanel() {
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+    <div className="card-base p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Trophy className="text-yellow-400" size={24} />
@@ -136,7 +136,7 @@ export default function AchievementPanel() {
 
       <button
         onClick={checkNewAchievements}
-        className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+        className="btn-secondary mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm"
       >
         <Sparkles size={16} />
         檢查新成就

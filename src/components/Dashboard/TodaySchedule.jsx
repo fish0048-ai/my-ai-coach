@@ -9,9 +9,9 @@ export default function TodaySchedule({ workouts }) {
   const setCurrentView = useViewStore((state) => state.setCurrentView);
 
   return (
-    <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-4">
-      <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-        <CalendarClock className="text-blue-400" size={18} />
+    <div className="card-base p-4">
+        <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+        <CalendarClock className="text-primary-400" size={18} />
         今日訓練課表
       </h3>
       {workouts?.length > 0 ? (
@@ -24,7 +24,7 @@ export default function TodaySchedule({ workouts }) {
               }`}
             >
               <div className="flex items-center gap-4">
-                <div className={`p-2 rounded-lg ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                <div className={`p-2 rounded-button ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-400' : 'bg-primary-500/20 text-primary-400'}`}>
                   {workout.type === 'run' ? <TrendingUp size={20} /> : <Dumbbell size={20} />}
                 </div>
                 <div>
@@ -55,7 +55,7 @@ export default function TodaySchedule({ workouts }) {
             <div className="text-right mt-2">
               <button
                 onClick={() => setCurrentView('calendar')}
-                className="text-xs text-blue-300 hover:text-blue-200 flex items-center justify-end gap-1 cursor-pointer hover:underline transition-colors"
+                className="text-xs text-primary-400 hover:text-primary-300 flex items-center justify-end gap-1 cursor-pointer hover:underline transition-colors"
               >
                 前往行事曆打卡 <ArrowRight size={12} />
               </button>

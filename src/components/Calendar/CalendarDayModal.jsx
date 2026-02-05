@@ -57,6 +57,7 @@ export default function CalendarDayModal({
   setEditForm,
   onStatusToggle,
   onEdit,
+  onAddNew,
   onDelete,
   onSave,
   handleHeadCoachGenerate,
@@ -102,7 +103,7 @@ export default function CalendarDayModal({
                 ))
               )}
               <button
-                onClick={() => { setCurrentDocId(null); setModalView('form'); }}
+                onClick={onAddNew || (() => { setCurrentDocId(null); setModalView('form'); })}
                 className="w-full py-4 rounded-xl border-2 border-dashed border-gray-700 text-gray-400 hover:text-white"
               >
                 <Plus /> 新增運動

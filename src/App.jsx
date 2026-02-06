@@ -103,14 +103,6 @@ export default function App() {
   const { user, userData, loading, initializeAuth } = useUserStore();
   const { currentView, setCurrentView, isChatOpen, setIsChatOpen } = useViewStore();
 
-  // #region agent log
-  useEffect(() => {
-    if (!loading && user) {
-      fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'App.jsx', message: 'App: about to render main UI', data: { currentView }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H2' }) }).catch(() => {});
-    }
-  }, [loading, user, currentView]);
-  // #endregion
-
   // 初始化認證監聽
   useEffect(() => {
     const unsubscribe = initializeAuth();

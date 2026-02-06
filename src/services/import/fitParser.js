@@ -4,15 +4,9 @@
  * 不包含上傳邏輯，僅負責解析
  */
 
-// #region agent log
-fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'fitParser.js', message: 'fitParser module load start (before FitParser import)', data: {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {});
-// #endregion
 import FitParser from 'fit-file-parser';
 import { formatDate } from '../../utils/date';
 import { detectMuscleGroup } from '../../utils/exerciseDB';
-// #region agent log
-fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'fitParser.js', message: 'fitParser module load done (after FitParser import)', data: {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {});
-// #endregion
 
 /**
  * 解析 FIT 檔案
@@ -22,47 +16,10 @@ fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { met
  */
 export const parseFITFile = (file) => {
   return new Promise((resolve, reject) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'pre-fix',
-        hypothesisId: 'H2',
-        location: 'src/services/import/fitParser.js:parseFITFile',
-        message: 'parseFITFile called',
-        data: {
-          hasFile: !!file,
-          fileType: file instanceof File ? 'File' : file instanceof ArrayBuffer ? 'ArrayBuffer' : typeof file,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     const reader = new FileReader();
     
     reader.onload = (event) => {
       const blob = event.target.result;
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H2',
-          location: 'src/services/import/fitParser.js:reader.onload',
-          message: 'FileReader onload, creating FitParser',
-          data: {
-            blobType: Object.prototype.toString.call(blob),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
 
       const fitParser = new FitParser({
         force: true,
@@ -79,25 +36,6 @@ export const parseFITFile = (file) => {
 
         try {
           const workoutData = extractWorkoutData(data);
-
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId: 'debug-session',
-              runId: 'pre-fix',
-              hypothesisId: 'H2',
-              location: 'src/services/import/fitParser.js:fitParser.parse(callback)',
-              message: 'FIT parse succeeded',
-              data: {
-                hasData: !!data,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
-
           resolve(workoutData);
         } catch (extractError) {
           reject(new Error(`資料提取失敗：${extractError.message}`));
@@ -113,23 +51,6 @@ export const parseFITFile = (file) => {
       reader.readAsArrayBuffer(file);
     } else if (file instanceof ArrayBuffer) {
       // 如果已經是 ArrayBuffer，直接處理
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/indigest/72344403-1b12-4983-948d-82f1cc7f3c6d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'debug-session',
-          runId: 'pre-fix',
-          hypothesisId: 'H2',
-          location: 'src/services/import/fitParser.js:ArrayBufferPath',
-          message: 'parseFITFile called with ArrayBuffer',
-          data: {},
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-
       const fitParser = new FitParser({
         force: true,
         speedUnit: 'km/h',

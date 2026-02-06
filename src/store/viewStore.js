@@ -4,9 +4,6 @@
  * RPG Phase 1：擴充 currentLocation 供基地地圖與建築切換使用。
  */
 
-// #region agent log
-fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'viewStore.js', message: 'viewStore module load (uses zustand)', data: {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H3' }) }).catch(() => {});
-// #endregion
 import { create } from 'zustand';
 
 /**

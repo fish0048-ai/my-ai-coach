@@ -41,7 +41,70 @@ export default function MainLayout({ children, currentView, setCurrentView, user
   const handleSignOut = () => signOut();
 
   return (
-    <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full">
+    <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full relative">
+      {/* 背景圖層（由下到上）：漸層 → 土 → 草地 → 遠山 → 遠樹 → 雙層雲 */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 50%, #C3E3FF 58%, transparent 58%)',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-100"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_dirt.png)',
+            backgroundSize: '100% 12%',
+            backgroundPosition: 'bottom left',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-100"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_grass.png)',
+            backgroundSize: '100% 26%',
+            backgroundPosition: 'left 62%',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-55"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
+            backgroundSize: '100% 55%',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-50"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
+            backgroundSize: '100% 50%',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-75"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
+            backgroundSize: '280px 280px',
+            backgroundPosition: '0 0',
+            backgroundRepeat: 'repeat',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-65"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
+            backgroundSize: '200px 200px',
+            backgroundPosition: '50px 40px',
+            backgroundRepeat: 'repeat',
+          }}
+        />
+      </div>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -182,8 +245,8 @@ export default function MainLayout({ children, currentView, setCurrentView, user
         </div>
       </div>
 
-      {/* Main Content Area：透明讓藍天白雲草地透出，僅 Header 輕量遮罩 */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-transparent min-h-0">
+      {/* Main Content Area：透明讓藍天白雲草地透出 */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-transparent min-h-0 relative z-10">
         {/* Header：半透明白/米色 + 深色粗描邊，不擋住天空感 */}
         <header className="h-16 border-b-[3px] border-game-outline flex items-center justify-between px-4 lg:px-8 shrink-0 bg-[#fafaf8]/90 backdrop-blur-sm">
           <div className="flex items-center gap-3 min-w-0">

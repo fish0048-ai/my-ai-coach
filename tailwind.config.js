@@ -31,20 +31,22 @@ export default {
           800: '#1e293b',
           900: '#0f172a',
         },
-        // 平台遊戲專用（附圖 Kenney 風格）
+        // 平台遊戲專用（Kenney New Platformer Pack 官方色）
+        // Vector/Backgrounds: background_solid_sky.svg #C3E3FF, background_solid_grass.svg #2ECC71
         game: {
-          sky: '#87ceeb',
-          'sky-dark': '#5ba3c6',
-          grass: '#7cb342',
-          'grass-dark': '#558b2f',
+          sky: '#C3E3FF',           // Kenney 亮天藍（主背景）
+          'sky-light': '#D6EEF8',   // 更淺天藍（漸層用）
+          'sky-dark': '#9BC9E8',
+          grass: '#2ECC71',         // Kenney 草地綠
+          'grass-dark': '#27ae60',
           earth: '#8d6e63',
           'earth-dark': '#5d4037',
           coin: '#ffd54f',
           'coin-dark': '#ffa000',
-          heart: '#ef5350',
+          heart: '#e62e2e',         // 偏 Kenney 紅
           water: '#4fc3f7',
-          outline: '#1a1a2e',
-          cloud: '#f5f5f5',
+          outline: '#1a1a2e',       // 粗描邊用深色
+          cloud: '#ffffff',
         },
       },
       borderRadius: {

@@ -77,7 +77,7 @@ const LoginView = () => {
     };
 
     return (
-        <div className="h-screen flex items-center justify-center bg-gradient-to-b from-game-sky to-game-grass/30 text-white flex-col gap-8 px-4">
+        <div className="h-screen flex items-center justify-center text-gray-900 flex-col gap-8 px-4" style={{ background: 'linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 50%, rgba(46,204,113,0.25) 100%)' }}>
            <div className="text-center space-y-4 p-8 rounded-panel bg-white/95 border-[3px] border-game-outline shadow-card">
              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-game-grass border-[3px] border-game-outline mb-2 shadow-card">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>
@@ -130,10 +130,10 @@ export default function App() {
       <ErrorBoundary>
         <Suspense
           fallback={
-            <div className="flex items-center justify-center h-full bg-gray-900">
+            <div className="flex items-center justify-center h-full bg-game-sky/80">
               <div className="text-center">
-                <Loader className="animate-spin text-blue-500 mx-auto mb-4" size={32} />
-                <p className="text-gray-400">載入中...</p>
+                <Loader className="animate-spin text-game-grass mx-auto mb-4" size={32} aria-hidden />
+                <p className="text-gray-800">載入中...</p>
               </div>
             </div>
           }

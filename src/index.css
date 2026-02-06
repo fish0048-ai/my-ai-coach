@@ -13,16 +13,17 @@
  */
 
 :root {
-  /* 色彩：平台遊戲 */
+  /* 色彩：Kenney 亮色系（背景與 HUD 一致附圖） */
   --color-surface-900: #0f172a;
   --color-surface-800: #1e293b;
   --color-primary-500: #3b82f6;
   --color-primary-600: #2563eb;
-  --color-game-sky: #87ceeb;
-  --color-game-grass: #7cb342;
+  --color-game-sky: #C3E3FF;       /* Kenney background_solid_sky.svg */
+  --color-game-sky-light: #D6EEF8;
+  --color-game-grass: #2ECC71;    /* Kenney background_solid_grass.svg */
   --color-game-earth: #8d6e63;
   --color-game-coin: #ffd54f;
-  --color-game-heart: #ef5350;
+  --color-game-heart: #e62e2e;
   --color-game-outline: #1a1a2e;
   /* 圓角 */
   --radius-card: 0.75rem;
@@ -40,10 +41,13 @@
 }
 
 @layer base {
+  /* Kenney 亮色系：整頁天空藍背景（與素材 background_solid_sky 一致） */
   body {
-    @apply bg-gradient-to-b from-game-sky/30 to-surface-900 text-gray-100 antialiased;
+    background: linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 15%, var(--color-game-sky) 100%);
+    @apply text-gray-900 antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     overflow-x: hidden;
+    min-height: 100vh;
   }
 
   /* 可讀性：重要數字突出（金幣感） */

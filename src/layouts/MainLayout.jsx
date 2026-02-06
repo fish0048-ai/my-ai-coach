@@ -40,7 +40,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
   const handleSignOut = () => signOut();
 
   return (
-    <div className="flex h-screen bg-gradient-to-b from-game-sky/20 to-surface-900 text-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-transparent text-gray-900 overflow-hidden font-sans">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 

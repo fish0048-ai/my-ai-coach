@@ -22,12 +22,15 @@ files.forEach((f) => {
   console.log('已複製:', f);
 });
 
+// GLB 內引用 Textures/colormap.png（相對路徑），需保持 public/models/kenney/Textures/ 結構
 const texDir = path.join(srcDir, 'Textures');
+const destTexDir = path.join(destDir, 'Textures');
 if (fs.existsSync(texDir)) {
+  fs.mkdirSync(destTexDir, { recursive: true });
   fs.readdirSync(texDir).forEach((f) => {
-    const dest = path.join(destDir, f);
+    const dest = path.join(destTexDir, f);
     fs.copyFileSync(path.join(texDir, f), dest);
-    console.log('已複製貼圖:', f);
+    console.log('已複製貼圖:', path.join('Textures', f));
   });
 }
 

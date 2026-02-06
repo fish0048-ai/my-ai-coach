@@ -44,14 +44,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
     <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full relative">
       {/* 背景圖層：fixed 滿版，由下到上繪製。雲先畫，遠山/遠樹畫在雲上面才不會被蓋住 */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
-        {/* 1. 最上天空藍 → 中間純白 → 下方透明（讓遠山遠樹露出） */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 32%, #ffffff 38%, #ffffff 72%, transparent 76%)',
-          }}
-        />
-        {/* 3. 土（Kenney 圖） */}
+        {/* 1. 土（Kenney 圖） */}
         <div
           className="absolute inset-0"
           style={{
@@ -61,7 +54,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundRepeat: 'no-repeat',
           }}
         />
-        {/* 4. 草地（Kenney 圖） */}
+        {/* 2. 草地（Kenney 圖） */}
         <div
           className="absolute inset-0"
           style={{
@@ -71,7 +64,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundRepeat: 'no-repeat',
           }}
         />
-        {/* 5. 雲朵：只出現在最上方，以下完全透明 */}
+        {/* 3. 雲朵：只出現在最上方，以下完全透明 */}
         <div
           className="absolute inset-0 opacity-85"
           style={{
@@ -94,7 +87,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             maskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)',
           }}
         />
-        {/* 6. 遠山、遠樹：原先尺寸 256×256 不拉伸，橫向重複鋪滿底部 */}
+        {/* 4. 遠山、遠樹：256×256 不拉伸，橫向重複鋪滿底部 */}
         <div
           className="absolute inset-0 opacity-90"
           style={{

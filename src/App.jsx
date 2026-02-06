@@ -78,8 +78,17 @@ const LoginView = () => {
     };
 
     return (
-        <div className="h-screen flex items-center justify-center text-gray-900 flex-col gap-8 px-4" style={{ background: 'linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 50%, rgba(46,204,113,0.25) 100%)' }}>
-           <div className="text-center space-y-4 p-8 rounded-panel bg-white/95 border-[3px] border-game-outline shadow-card">
+        <div className="h-screen flex items-center justify-center text-gray-900 flex-col gap-8 px-4 app-background relative">
+          {/* 背景圖層：與 MainLayout 相同 Kenney 圖 */}
+          <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
+            <div className="absolute inset-0" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_dirt.png)', backgroundSize: '100% 14%', backgroundPosition: 'bottom left', backgroundRepeat: 'no-repeat' }} />
+            <div className="absolute inset-0" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_grass.png)', backgroundSize: '100% 30%', backgroundPosition: 'center bottom', backgroundRepeat: 'no-repeat' }} />
+            <div className="absolute inset-0 opacity-85" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)', backgroundSize: '260px 260px', backgroundPosition: '0 0', backgroundRepeat: 'repeat', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)', maskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)' }} />
+            <div className="absolute inset-0 opacity-75" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)', backgroundSize: '180px 180px', backgroundPosition: '40px 60px', backgroundRepeat: 'repeat', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)', maskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)' }} />
+            <div className="absolute inset-0 opacity-90" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)', backgroundSize: '256px 256px', backgroundPosition: 'left bottom', backgroundRepeat: 'repeat-x' }} />
+            <div className="absolute inset-0 opacity-85" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)', backgroundSize: '256px 256px', backgroundPosition: 'left bottom', backgroundRepeat: 'repeat-x' }} />
+          </div>
+           <div className="text-center space-y-4 p-8 rounded-panel bg-white/95 border-[3px] border-game-outline shadow-card relative z-10">
              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-game-grass border-[3px] border-game-outline mb-2 shadow-card">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>
              </div>
@@ -89,7 +98,7 @@ const LoginView = () => {
              <p className="text-game-outline/80 text-lg">您的個人化 AI 健身夥伴</p>
            </div>
            
-           <button onClick={handleGoogleLogin} className="px-8 py-4 bg-white text-game-outline rounded-game font-bold border-[3px] border-game-outline shadow-card hover:bg-game-coin/20 transition-all flex items-center gap-3 min-h-[44px]">
+           <button onClick={handleGoogleLogin} className="px-8 py-4 bg-white text-game-outline rounded-game font-bold border-[3px] border-game-outline shadow-card hover:bg-game-coin/20 transition-all flex items-center gap-3 min-h-[44px] relative z-10">
              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
              使用 Google 帳號登入
            </button>

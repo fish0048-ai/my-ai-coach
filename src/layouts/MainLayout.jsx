@@ -42,66 +42,80 @@ export default function MainLayout({ children, currentView, setCurrentView, user
 
   return (
     <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full relative">
-      {/* 背景圖層（由下到上）：漸層 → 土 → 草地 → 遠山 → 遠樹 → 雙層雲 */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
+      {/* 背景圖層：fixed 滿版，由下到上繪製。雲先畫，遠山/遠樹畫在雲上面才不會被蓋住 */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
+        {/* 1. 天空漸層 */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 50%, #C3E3FF 58%, transparent 58%)',
+            background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 45%, #C3E3FF 100%)',
           }}
         />
+        {/* 2. 備援：純 CSS 草地+土（圖片未載入時也看得到綠底） */}
         <div
-          className="absolute inset-0 opacity-100"
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(180deg, transparent 55%, #2ECC71 70%, #8d6e63 85%, #5d4037 100%)',
+          }}
+        />
+        {/* 4. 土（Kenney 圖） */}
+        <div
+          className="absolute inset-0"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_dirt.png)',
-            backgroundSize: '100% 12%',
+            backgroundSize: '100% 14%',
             backgroundPosition: 'bottom left',
             backgroundRepeat: 'no-repeat',
           }}
         />
+        {/* 5. 草地（Kenney 圖） */}
         <div
-          className="absolute inset-0 opacity-100"
+          className="absolute inset-0"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_grass.png)',
-            backgroundSize: '100% 26%',
-            backgroundPosition: 'left 62%',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-55"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
-            backgroundSize: '100% 55%',
+            backgroundSize: '100% 30%',
             backgroundPosition: 'center bottom',
             backgroundRepeat: 'no-repeat',
           }}
         />
+        {/* 6. 雲朵（在遠山/遠樹下面） */}
         <div
-          className="absolute inset-0 opacity-50"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
-            backgroundSize: '100% 50%',
-            backgroundPosition: 'center bottom',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-75"
+          className="absolute inset-0 opacity-80"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
-            backgroundSize: '280px 280px',
+            backgroundSize: '260px 260px',
             backgroundPosition: '0 0',
             backgroundRepeat: 'repeat',
           }}
         />
         <div
-          className="absolute inset-0 opacity-65"
+          className="absolute inset-0 opacity-70"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
-            backgroundSize: '200px 200px',
-            backgroundPosition: '50px 40px',
+            backgroundSize: '180px 180px',
+            backgroundPosition: '40px 60px',
             backgroundRepeat: 'repeat',
+          }}
+        />
+        {/* 7. 遠山、遠樹（畫在雲上面） */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
+            backgroundSize: '100% 65%',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+            opacity: 0.9,
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
+            backgroundSize: '100% 60%',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+            opacity: 0.85,
           }}
         />
       </div>

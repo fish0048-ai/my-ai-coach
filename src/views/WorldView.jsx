@@ -99,7 +99,7 @@ export default function WorldView() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-[60vh] rounded-panel overflow-hidden card-base">
+      <div className="flex-1 min-h-[60vh] rounded-panel overflow-hidden card-base border border-gray-800 shadow-card">
         <Suspense fallback={<WorldLoadingFallback />}>
           {mode === '3d' ? <World3DView /> : <World2DView />}
         </Suspense>

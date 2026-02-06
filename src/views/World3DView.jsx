@@ -16,12 +16,24 @@ const KENNEY_BASE = '/models/kenney/';
   useGLTF.preload(KENNEY_BASE + f);
 });
 
-/** 單一 Kenney GLB 建築：依 size 縮放，置於地面（點擊由外層 group 處理） */
+/** 單一 Kenney GLB 建築：依 size 縮放，材質微調以符合 Modern Fitness Dark 色調 */
 function KenneyBuilding({ url, size }) {
   const { scene } = useGLTF(KENNEY_BASE + url);
   const [, h] = size;
   const scale = (h * 0.9) / 1;
-  const clone = React.useMemo(() => scene.clone(), [scene]);
+  const clone = React.useMemo(() => {
+    const c = scene.clone();
+    c.traverse((child) => {
+      if (child.material) {
+        const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+        if (mat && mat.color) {
+          mat.color.multiplyScalar(0.82);
+          mat.needsUpdate = true;
+        }
+      }
+    });
+    return c;
+  }, [scene]);
 
   return (
     <group scale={scale} castShadow receiveShadow>
@@ -60,25 +72,27 @@ function BoxBuilding({ building, onRunRoom, position: pos }) {
 function WorldScene({ onRunRoom }) {
   return (
     <>
-      {/* 燈光與環境 */}
+      {/* 燈光與環境：Modern Fitness Dark 色調（冷色、偏暗、主色微染） */}
       <color attach="background" args={['#020617']} />
-      <fog attach="fog" args={['#020617', 30, 140]} />
-      <ambientLight intensity={0.45} color="#e0f2fe" />
+      <fog attach="fog" args={['#020617', 25, 120]} />
+      <ambientLight intensity={0.22} color="#64748b" />
       <directionalLight
-        intensity={0.85}
-        color="#e5edff"
-        position={[40, 60, 40]}
+        intensity={0.5}
+        color="#94a3b8"
+        position={[40, 50, 40]}
         castShadow
       />
+      <directionalLight intensity={0.15} color="#1e40af" position={[-20, 30, -20]} />
+      <pointLight intensity={0.2} color="#3b82f6" position={[0, 15, 0]} distance={60} />
 
-      {/* 地面與廣場 */}
+      {/* 地面與廣場（與 surface-900 / surface-800 一致） */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[120, 120, 1, 1]} />
         <meshStandardMaterial color="#020617" />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]} receiveShadow>
         <circleGeometry args={[16, 48]} />
-        <meshStandardMaterial color="#1f2937" />
+        <meshStandardMaterial color="#111827" />
       </mesh>
 
       {/* 建築群：有 kenneyModel 則載入 GLB，否則方塊 */}
@@ -126,13 +140,13 @@ export default function World3DView() {
 
   return (
     <div
-      className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-surface-900"
+      className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-surface-900 border border-gray-800/80 shadow-glass"
       role="application"
       aria-label="3D 虛擬城市場景。點擊建築物即可前往對應功能。"
     >
-      {/* 天空漸層疊加（上方較亮，品牌感） */}
+      {/* 天空漸層疊加：與整站 Modern Fitness Dark + 主色一致 */}
       <div
-        className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary-800/25 via-transparent to-transparent"
+        className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary-800/35 via-transparent to-surface-900/50"
         aria-hidden="true"
       />
 

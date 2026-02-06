@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe, Map, Layers } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe, Map } from 'lucide-react';
 import { signOut } from '../services/authService';
 import KenneyBackground from '../components/KenneyBackground';
 
 const VIEW_TITLES = {
   'map': '基地地圖 Athletica',
   'world-3d': '3D 城市 World',
-  'platformer-demo': '平台素材示範',
   'dashboard': '總覽 Dashboard',
   'calendar': '行事曆 Calendar',
   'nutrition': '智慧營養師 Nutrition',
@@ -91,12 +90,6 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             text="3D 城市 World" 
             active={currentView === 'world-3d'} 
             onClick={() => { setCurrentView('world-3d'); setIsSidebarOpen(false); }} 
-          />
-          <SidebarItem 
-            icon={Layers} 
-            text="平台素材示範" 
-            active={currentView === 'platformer-demo'} 
-            onClick={() => { setCurrentView('platformer-demo'); setIsSidebarOpen(false); }} 
           />
           <div className="px-4 mt-4 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
             Menu

@@ -25,7 +25,6 @@ const KnowledgeBaseView = React.lazy(() => import('./views/KnowledgeBaseView.jsx
 // 靜態 import，避免進入「3D 城市 World」時動態 fetch 失敗（ERR_CONNECTION_REFUSED / server connection lost）
 import WorldView from './views/WorldView.jsx';
 const WorldMap = React.lazy(() => import('./views/WorldMap.jsx'));
-const PlatformerDemoView = React.lazy(() => import('./views/PlatformerDemoView.jsx'));
 
 // 懶載入聊天室元件 (降低初始 Bundle 大小)
 const CoachChat = React.lazy(() => import('./components/AICoach/CoachChat.jsx'));
@@ -156,7 +155,6 @@ export default function App() {
                 case 'knowledge-base': return <KnowledgeBaseView />;
                 case 'map': return <WorldMap />;
                 case 'world-3d': return <WorldView />;
-                case 'platformer-demo': return <PlatformerDemoView />;
                 case 'training':
                 case 'analysis':
                   return <DashboardView />;

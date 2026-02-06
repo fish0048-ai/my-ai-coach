@@ -28,10 +28,10 @@ export default function TodaySchedule({ workouts }) {
                   {workout.type === 'run' ? <TrendingUp size={20} aria-hidden /> : <Dumbbell size={20} aria-hidden />}
                 </div>
                 <div>
-                  <h4 className={`font-bold ${workout.status === 'completed' ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                  <h4 className={`font-bold ${workout.status === 'completed' ? 'text-gray-600 line-through' : 'text-gray-900'}`}>
                     {workout.title}
                   </h4>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-700">
                     {workout.type === 'run'
                       ? `目標: ${workout.runDistance || '?'} km / ${workout.runDuration || '?'} min`
                       : `目標: ${workout.exercises?.length || 0} 組動作`}
@@ -44,7 +44,7 @@ export default function TodaySchedule({ workouts }) {
                     <CheckCircle2 size={14} aria-hidden /> 已完成
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 text-gray-600 text-xs bg-game-outline/10 px-3 py-1.5 rounded-game border-2 border-game-outline/50">
+                  <div className="flex items-center gap-1 text-gray-800 text-xs font-medium bg-game-outline/10 px-3 py-1.5 rounded-game border-2 border-game-outline/50">
                     <Circle size={14} aria-hidden /> 待執行
                   </div>
                 )}
@@ -64,8 +64,8 @@ export default function TodaySchedule({ workouts }) {
         </div>
       ) : (
         <div className="text-center py-6">
-          <p className="text-gray-400 mb-2">今天尚無安排訓練計畫。</p>
-          <p className="text-xs text-gray-500">休息是為了走更長遠的路，或是前往行事曆安排自主訓練？</p>
+          <p className="text-gray-700 mb-2 font-medium">今天尚無安排訓練計畫。</p>
+          <p className="text-sm text-gray-700">休息是為了走更長遠的路，或是前往行事曆安排自主訓練？</p>
         </div>
       )}
     </div>

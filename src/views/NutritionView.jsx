@@ -189,9 +189,9 @@ export default function NutritionView() {
       const pct = Math.min(100, Math.max(0, (current / safeTarget) * 100));
       return (
           <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">{label}</span>
-                  <span className="text-white">{Math.round(current)} / {safeTarget}</span>
+              <div className="flex justify-between text-xs font-medium">
+                  <span className="text-gray-700">{label}</span>
+                  <span className="text-gray-900">{Math.round(current)} / {safeTarget}</span>
               </div>
               <div className="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
                   <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${pct}%` }}></div>
@@ -218,10 +218,10 @@ export default function NutritionView() {
 
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Utensils className="text-game-grass" aria-hidden /> 智慧營養師
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-sm text-gray-700 mt-1 font-medium">
             在營養賢者的調配桌上，放上你的餐點，啟動「鑑定食材」儀式，讓系統幫你拆解熱量與三大營養素。
           </p>
         </div>
@@ -240,14 +240,14 @@ export default function NutritionView() {
           <div className="card-base p-6 flex flex-col items-center justify-center">
               <div className="relative w-32 h-32 flex items-center justify-center border-4 border-game-outline rounded-full mb-4">
                   <div className="text-center">
-                      <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-game-heart' : 'text-white'}`}>{Math.round(remaining)}</span>
-                      <p className="text-xs text-gray-400">剩餘 kcal</p>
+                      <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-game-heart' : 'text-gray-900'}`}>{Math.round(remaining)}</span>
+                      <p className="text-xs font-medium text-gray-700">剩餘 kcal</p>
                   </div>
                   <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
                       <circle cx="64" cy="64" r="60" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="377" strokeDashoffset={dashOffset} strokeLinecap="round" />
                   </svg>
               </div>
-              <p className="text-sm text-gray-400">目標: {targetCal} kcal</p>
+              <p className="text-sm font-medium text-gray-700">目標: {targetCal} kcal</p>
           </div>
           <div className="md:col-span-2 card-base p-6 flex flex-col justify-center space-y-6">
               <ProgressBar label="蛋白質" current={summary.protein} target={targetProtein} color="bg-game-grass" />
@@ -259,7 +259,7 @@ export default function NutritionView() {
       {/* 智能營養建議卡片 */}
       <div className="card-base p-5 bg-game-grass/10 border-game-grass/40">
           <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-white flex gap-2 items-center">
+              <h3 className="font-bold text-gray-900 flex gap-2 items-center">
                   <Sparkles className="text-game-grass" size={20} aria-hidden /> 智能營養建議
               </h3>
               <button onClick={getSmartRecommendation} disabled={loadingRecommendation} className="btn-primary text-xs px-4 py-2 flex gap-2 items-center disabled:opacity-50">
@@ -337,7 +337,7 @@ export default function NutritionView() {
           )}
 
           {!smartRecommendation && !loadingRecommendation && (
-              <p className="text-sm text-gray-500">點擊上方按鈕，AI 將根據您的訓練強度和營養現況生成個人化建議</p>
+              <p className="text-sm font-medium text-gray-700">點擊上方按鈕，AI 將根據您的訓練強度和營養現況生成個人化建議</p>
           )}
       </div>
 

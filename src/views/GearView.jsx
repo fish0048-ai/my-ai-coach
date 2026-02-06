@@ -139,10 +139,10 @@ export default function GearView() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingBag className="text-game-coin" aria-hidden /> 裝備壽命管理
           </h2>
-          <p className="text-gray-400 text-sm">自動追蹤跑鞋里程，預防運動傷害</p>
+          <p className="text-gray-700 text-sm font-medium">自動追蹤跑鞋里程，預防運動傷害</p>
         </div>
         <button 
           onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
@@ -174,13 +174,13 @@ export default function GearView() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <span className="text-xs font-bold text-game-grass uppercase tracking-wider">{gear.brand}</span>
-                    <h3 className="text-xl font-bold text-white mt-1">{gear.model}</h3>
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                    <h3 className="text-xl font-bold text-gray-900 mt-1">{gear.model}</h3>
+                    <p className="text-xs font-medium text-gray-700 mt-1 flex items-center gap-1">
                       <Calendar size={10} aria-hidden /> 啟用: {gear.startDate}
                     </p>
                   </div>
                   {isRetired ? (
-                     <span className="px-2 py-1 bg-surface-700 text-gray-400 text-xs rounded-game border-2 border-game-outline/50">已退役</span>
+                     <span className="px-2 py-1 bg-surface-700 text-gray-200 text-xs font-medium rounded-game border-2 border-game-outline/50">已退役</span>
                   ) : percent >= 100 ? (
                      <span className="px-2 py-1 bg-game-heart/20 text-game-heart text-xs rounded-game border-2 border-game-heart/50 flex items-center gap-1"><AlertTriangle size={10} aria-hidden /> 壽命已盡</span>
                   ) : (
@@ -190,8 +190,8 @@ export default function GearView() {
 
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm font-medium">
-                    <span className="text-white">{usage} km</span>
-                    <span className="text-gray-400">/ {gear.maxDistance} km</span>
+                    <span className="text-gray-900">{usage} km</span>
+                    <span className="text-gray-700">/ {gear.maxDistance} km</span>
                   </div>
                   <div className="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
                     <div 
@@ -199,14 +199,14 @@ export default function GearView() {
                       style={{ width: `${percent}%` }}
                     ></div>
                   </div>
-                  <p className="text-xs text-gray-500 text-right">已使用 {Math.round(percent)}%</p>
+                  <p className="text-xs font-medium text-gray-700 text-right">已使用 {Math.round(percent)}%</p>
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t border-game-outline/50">
                    <button type="button" onClick={() => handleEditClick(gear)} className="btn-secondary flex-1 py-2 text-sm flex items-center justify-center gap-2">
                      <Edit2 size={14} aria-hidden /> 編輯
                    </button>
-                   <button type="button" onClick={() => handleDelete(gear.id)} className="px-3 py-2 bg-surface-700 hover:bg-game-heart/20 hover:text-game-heart text-gray-400 rounded-game border-2 border-game-outline/50 transition-colors min-h-[44px]" aria-label="刪除此裝備"><Trash2 size={16} aria-hidden /></button>
+                   <button type="button" onClick={() => handleDelete(gear.id)} className="px-3 py-2 bg-surface-700 hover:bg-game-heart/20 hover:text-game-heart text-gray-700 rounded-game border-2 border-game-outline/50 transition-colors min-h-[44px]" aria-label="刪除此裝備"><Trash2 size={16} aria-hidden /></button>
                 </div>
               </div>
             </div>

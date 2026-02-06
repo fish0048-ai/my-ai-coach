@@ -72,14 +72,14 @@ export default function WeatherWidget() {
     return (
       <div className="card-base p-4 flex items-center justify-center h-24">
         <Loader className="animate-spin text-game-grass" aria-hidden />
-        <span className="ml-2 text-gray-400 text-sm">正在載入氣象資訊...</span>
+        <span className="ml-2 text-gray-700 text-sm font-medium">正在載入氣象資訊...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="card-base p-4 flex items-center text-gray-400 text-sm">
+      <div className="card-base p-4 flex items-center text-gray-700 text-sm font-medium">
         <MapPin className="mr-2 text-game-heart" size={18} aria-hidden />
         {error} (請允許定位權限以獲取當地天氣)
       </div>

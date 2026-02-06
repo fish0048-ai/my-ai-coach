@@ -11,9 +11,9 @@ import { analyzeTrainingCycle, getPhaseName, getPhaseColor } from '../utils/cycl
 const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
   if (!data || data.length < 2) {
     return (
-      <div className="h-72 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-game-outline/50 rounded-game bg-surface-800/40">
-        <Activity size={48} className="mb-4 opacity-50" aria-hidden />
-        <p>資料不足，無法繪製趨勢 (至少需兩筆)</p>
+      <div className="h-72 flex flex-col items-center justify-center text-gray-700 border-2 border-dashed border-game-outline/50 rounded-game bg-surface-800/40">
+        <Activity size={48} className="mb-4 text-gray-600" aria-hidden />
+        <p className="font-medium">資料不足，無法繪製趨勢 (至少需兩筆)</p>
       </div>
     );
   }
@@ -274,13 +274,13 @@ export default function TrendAnalysisView() {
 
       <div className="card-base flex flex-col xl:flex-row justify-between items-center gap-4 p-4">
         <div className="flex flex-col sm:flex-row items-center gap-4">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <BarChart3 className="text-game-coin" aria-hidden /> 資料中心
             </h2>
             <div className="toggle-group flex p-1">
-                <button type="button" onClick={() => handleCategoryChange('body')} aria-pressed={category==='body'} className={`px-4 py-1.5 rounded-game text-sm font-bold transition-all ${category==='body'?'bg-game-grass text-game-outline':'text-gray-400 hover:text-white'}`}>身體</button>
-                <button type="button" onClick={() => handleCategoryChange('run')} aria-pressed={category==='run'} className={`px-4 py-1.5 rounded-game text-sm font-bold transition-all ${category==='run'?'bg-game-coin text-game-outline':'text-gray-400 hover:text-white'}`}>跑步</button>
-                <button type="button" onClick={() => handleCategoryChange('strength')} aria-pressed={category==='strength'} className={`px-4 py-1.5 rounded-game text-sm font-bold transition-all ${category==='strength'?'bg-game-grass text-game-outline':'text-gray-400 hover:text-white'}`}>重訓</button>
+                <button type="button" onClick={() => handleCategoryChange('body')} aria-pressed={category==='body'} className={`px-4 py-1.5 rounded-game text-sm font-bold transition-all ${category==='body'?'bg-game-grass text-game-outline':'text-gray-700 hover:text-gray-900'}`}>身體</button>
+                <button type="button" onClick={() => handleCategoryChange('run')} aria-pressed={category==='run'} className={`px-4 py-1.5 rounded-game text-sm font-bold transition-all ${category==='run'?'bg-game-coin text-game-outline':'text-gray-700 hover:text-gray-900'}`}>跑步</button>
+                <button type="button" onClick={() => handleCategoryChange('strength')} aria-pressed={category==='strength'} className={`px-4 py-1.5 rounded-game text-sm font-bold transition-all ${category==='strength'?'bg-game-grass text-game-outline':'text-gray-700 hover:text-gray-900'}`}>重訓</button>
             </div>
         </div>
         <div className="flex gap-2">

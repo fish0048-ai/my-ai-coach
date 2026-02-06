@@ -102,7 +102,7 @@ export default function AchievementPanel() {
           <Trophy className="text-game-coin" size={24} aria-hidden />
           <div>
             <h3 className="text-xl font-bold text-gray-900">訓練成就</h3>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs font-medium text-gray-700">
               已解鎖 {achievements.length} 個成就
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function AchievementPanel() {
       <div className="space-y-4">
         {Object.entries(grouped).map(([category, items]) => (
           <div key={category}>
-            <h4 className="text-sm font-semibold text-gray-600 mb-2 uppercase">
+            <h4 className="text-sm font-semibold text-gray-800 mb-2 uppercase">
               {categoryNames[category] || category}
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

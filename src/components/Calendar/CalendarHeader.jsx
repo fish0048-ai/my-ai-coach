@@ -19,7 +19,7 @@ export default function CalendarHeader({
   return (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center card-base p-4 gap-3">
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <CalendarIcon className="text-game-grass" aria-hidden />
           運動行事曆
         </h1>

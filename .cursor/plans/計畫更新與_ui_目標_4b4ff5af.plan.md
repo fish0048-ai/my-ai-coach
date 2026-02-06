@@ -5,6 +5,9 @@ todos:
   - id: plan-update
     content: 更新專案狀態計畫檔（最後更新、ui-roadmap、第七章）
     status: completed
+  - id: ui-audit-color-font
+    content: 依序檢查所有功能介面，設計配色是否配合；字體可讀性（很多字體沒看到）
+    status: completed
 isProject: false
 ---
 
@@ -135,3 +138,38 @@ isProject: false
 4. 存檔後可將 `ui-roadmap` 標為 in_progress 或依實際執行再更新狀態。
 
 以上完成後，計畫檔即包含你要的「計畫更新」與「UI 介面修正長中短期目標」，且順序為總攬 → 行事曆 → 營養師 → 數據趨勢 → 裝備管理 → 重訓分析 → 跑姿分析 → 訓練計畫推薦 → 個人知識庫 → 個人檔案。
+
+---
+
+## 六、依序檢查功能介面：設計配色與字體可讀性
+
+**目標**：依序檢查所有功能介面，確認設計配色與 Kenney 平台風格一致，並**改善字體可讀性**（目前多處字體不明顯或難以辨識）。
+
+**檢查順序**（與第七章 10 區塊一致）：
+
+1. 總攬（Dashboard）  
+2. 行事曆（Calendar）  
+3. 營養師（Nutrition）  
+4. 數據趨勢（Trend Analysis）  
+5. 裝備管理（Gear）  
+6. 重訓分析（Strength Analysis）  
+7. 跑姿分析（Run Analysis）  
+8. 訓練計畫推薦（Training Plan）  
+9. 個人知識庫（Knowledge Base）  
+10. 個人檔案（Profile）
+
+**每區塊檢查要項**：
+
+- **設計配色**：標題、內文、按鈕、卡片、邊框是否使用 game-* / card-base / btn-* / border-game-outline；是否與整站 Kenney 風格一致。  
+- **字體可讀性**：文字與背景對比是否足夠；字級、字重、顏色（如 `text-gray-900`、`text-game-outline`）是否讓文字「看得到」；小字（`text-xs`、`text-sm`）是否在淺底或深底上可讀。  
+- **修正方向**：不足處補上統一 class；對比不足處調整為深色字（如 `text-gray-900`）於淺底、淺字於深色區塊；必要時提高字級或字重。
+
+**YAML todo**：`ui-audit-color-font` —「依序檢查所有功能介面，設計配色是否配合；字體可讀性（很多字體沒看到）」— 狀態已標為 **`completed`**。
+
+**執行紀錄（2026-02-06）**：已依序檢查並修正下列區塊之字體可讀性與配色：
+- **總攬**：StatsOverview、TodaySchedule、PRTracker、AchievementPanel、RunningStatsSection、GameProfileStrip、BodyHeatmap 空狀態、WeatherWidget、BackupBanner — 將 `text-gray-400`/`text-gray-500` 改為 `text-gray-700` 或 `text-gray-900`，`text-white` 於淺底改為 `text-gray-900`，小字改為 `text-xs` + `font-medium`。
+- **行事曆**：CalendarHeader 標題改為 `text-gray-900`；CalendarGrid 星期列改為 `text-gray-800`、訓練 pill 改為 `text-xs font-medium`；CalendarDayModal 空狀態與標籤改為較深色。
+- **營養師**：頁標題、ProgressBar、剩餘熱量區、智能建議標題與說明改為深色字。
+- **數據趨勢**：頁標題改為 `text-gray-900`，toggle 按鈕改為 `text-gray-700`/`hover:text-gray-900`，空狀態改為 `text-gray-700`。
+- **裝備管理**：頁標題、副標、裝備卡片型號/里程/狀態/按鈕改為深色字。
+- **個人知識庫**：頁標題、說明、新增表單標題與 label 改為 `text-gray-900`/`text-gray-700`。

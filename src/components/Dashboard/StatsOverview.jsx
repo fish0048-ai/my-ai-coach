@@ -22,10 +22,10 @@ export default function StatsOverview({ stats, userData }) {
               <Icon className={text} size={20} aria-hidden />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-500">{label}</p>
+              <p className="text-xs font-medium text-gray-700">{label}</p>
               <p className="text-lg font-bold text-gray-900 tabular-nums">
                 {value}
-                {suffix && <span className="text-sm font-medium text-gray-500 ml-0.5"> {suffix}</span>}
+                {suffix && <span className="text-sm font-medium text-gray-700 ml-0.5"> {suffix}</span>}
               </p>
             </div>
           </div>

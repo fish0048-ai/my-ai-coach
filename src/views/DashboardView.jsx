@@ -42,7 +42,7 @@ function GameProfileStrip({ gameProfile }) {
         <div className="h-2 bg-game-outline/30 rounded-full overflow-hidden border-2 border-game-outline">
           <div className="h-full bg-game-grass rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
         </div>
-        <span className="text-[10px] text-game-outline/80">{currentXP}/{nextLevelXP}</span>
+        <span className="text-xs font-medium text-gray-700">{currentXP}/{nextLevelXP}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <img src={`${import.meta.env.BASE_URL || ''}kenney-platformer/tiles/hud_coin.png`} alt="" className="w-6 h-6 object-contain" aria-hidden />
@@ -127,7 +127,7 @@ export default function DashboardView() {
             <h1 className="text-2xl font-bold text-gray-900">
               歡迎回來，{userData?.name || '健身夥伴'}
             </h1>
-            <p className="text-gray-600">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
+            <p className="text-gray-700 font-medium">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
           </div>
           {/* RPG 等級／經驗／金幣（司令部） */}
           <GameProfileStrip gameProfile={userData?.gameProfile} />
@@ -174,7 +174,7 @@ export default function DashboardView() {
         <div className="lg:col-span-2 card-base p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-bold text-gray-900">肌群負荷</h3>
-            <span className="text-[10px] text-gray-500">行事曆紀錄</span>
+            <span className="text-xs font-medium text-gray-700">行事曆紀錄</span>
           </div>
           
           <div className="flex-1 min-h-[280px] flex flex-col rounded-game border-[3px] border-game-outline relative bg-white/70">
@@ -182,9 +182,9 @@ export default function DashboardView() {
             {Object.keys(stats.muscleFatigue || {}).length === 0 && !loading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-game-outline/20 z-10 pointer-events-none rounded-game">
                     <div className="text-center">
-                        <Dumbbell className="mx-auto text-gray-500 mb-2" size={32} />
-                        <p className="text-gray-800 font-bold">尚無訓練資料</p>
-                        <p className="text-gray-600 text-sm">快去行事曆新增一筆重訓紀錄吧！</p>
+                        <Dumbbell className="mx-auto text-gray-600 mb-2" size={32} />
+                        <p className="text-gray-900 font-bold">尚無訓練資料</p>
+                        <p className="text-gray-700 text-sm font-medium">快去行事曆新增一筆重訓紀錄吧！</p>
                     </div>
                 </div>
             )}

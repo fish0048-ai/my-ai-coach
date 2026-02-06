@@ -156,12 +156,12 @@ export default function PRTracker() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900 truncate">{pr.name}</span>
-                    <span className="text-xs text-gray-500">·</span>
-                    <span className="text-xs text-gray-600">{pr.label}</span>
+                    <span className="text-xs text-gray-600">·</span>
+                    <span className="text-xs font-medium text-gray-700">{pr.label}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-lg font-bold text-game-coin">{pr.value}</span>
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <span className="text-xs font-medium text-gray-700 flex items-center gap-1">
                       <Calendar size={12} aria-hidden />
                       {dateStr}
                     </span>
@@ -174,7 +174,7 @@ export default function PRTracker() {
       </div>
 
       {recentPRs.length >= 6 && (
-        <p className="text-xs text-gray-500 mt-4 text-center">
+        <p className="text-xs font-medium text-gray-700 mt-4 text-center">
           顯示最近 6 個 PR，查看更多請前往訓練儀表板
         </p>
       )}

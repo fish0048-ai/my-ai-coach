@@ -78,7 +78,7 @@ export default function CalendarDayModal({
               <h2 className="text-xl font-bold text-white">
                 {selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日
               </h2>
-              {modalView === 'list' && <span className="text-xs text-gray-500 bg-surface-800 px-2 py-1 rounded-game border border-game-outline/50">當日清單</span>}
+              {modalView === 'list' && <span className="text-xs font-medium text-gray-300 bg-surface-800 px-2 py-1 rounded-game border border-game-outline/50">當日清單</span>}
               {modalView === 'form' && <span className="text-xs text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border border-game-outline/50">{currentDocId ? '編輯' : '新增'}</span>}
             </div>
           </div>
@@ -88,8 +88,8 @@ export default function CalendarDayModal({
           {modalView === 'list' && (
             <div className="space-y-4">
               {dayWorkouts.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-game-outline/50 rounded-game">
-                  <p>當日尚無紀錄</p>
+                <div className="text-center py-12 text-gray-400 border-2 border-dashed border-game-outline/50 rounded-game">
+                  <p className="font-medium">當日尚無紀錄</p>
                 </div>
               ) : (
                 dayWorkouts.map((workout) => (

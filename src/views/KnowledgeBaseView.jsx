@@ -118,11 +118,11 @@ export default function KnowledgeBaseView() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BookOpen className="text-game-grass" aria-hidden />
             個人知識庫（AI 記憶）
           </h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-700 mt-1 font-medium">
             將重要的訓練日記、傷痛紀錄與復健建議收進這裡，AI 教練回答問題時會優先參考這些內容。
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function KnowledgeBaseView() {
             type="button"
             onClick={handleBackfillEmbeddings}
             disabled={backfilling || records.length === 0}
-            className="text-xs text-gray-400 hover:text-game-grass flex items-center gap-1 disabled:opacity-50"
+            className="text-xs text-gray-700 hover:text-game-grass flex items-center gap-1 disabled:opacity-50 font-medium"
             title="為缺少向量的舊紀錄產生 embedding（需 API Key）"
           >
             {backfilling ? <Loader size={12} className="animate-spin" /> : <RefreshCw size={12} />}
@@ -140,7 +140,7 @@ export default function KnowledgeBaseView() {
           <button
             type="button"
             onClick={() => setCurrentView('dashboard')}
-            className="text-xs text-gray-400 hover:text-white underline underline-offset-4"
+            className="text-xs text-gray-700 hover:text-gray-900 underline underline-offset-4 font-medium"
           >
             回到 Dashboard
           </button>
@@ -151,15 +151,15 @@ export default function KnowledgeBaseView() {
       <div className="card-base p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Plus className="text-game-grass" size={18} aria-hidden />
-          <h2 className="text-sm font-semibold text-white">新增紀錄</h2>
+          <h2 className="text-sm font-semibold text-gray-900">新增紀錄</h2>
         </div>
-        <p className="text-xs text-gray-400 mb-2">
+        <p className="text-xs text-gray-700 mb-2 font-medium">
           建議記下：長期困擾的傷痛、物理治療師給的重點、賽前/賽後身體反應等。
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">類型</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">類型</label>
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
@@ -171,7 +171,7 @@ export default function KnowledgeBaseView() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">日期</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">日期</label>
             <input
               type="date"
               value={newDate}

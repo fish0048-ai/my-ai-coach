@@ -21,7 +21,7 @@ export default function CalendarGrid({
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-2 mb-2 text-center text-gray-400 font-bold">
+      <div className="grid grid-cols-7 gap-2 mb-2 text-center text-gray-800 font-bold">
         {WEEKDAYS.map((d) => (
           <div key={d}>{d}</div>
         ))}
@@ -75,7 +75,7 @@ export default function CalendarGrid({
                       key={workout.id || wIdx}
                       draggable
                       onDragStart={(e) => onDragStart(e, workout)}
-                      className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
+                      className={`text-xs font-medium px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
                         workout.status === 'planned'
                           ? 'border-2 border-game-grass/50 text-game-grass border-dashed'
                           : isRun
@@ -87,7 +87,7 @@ export default function CalendarGrid({
                       {workout.status === 'planned' && <Clock size={8} />}
                       {workout.title || (isRun ? '跑步' : '訓練')}
                       {isRun && workout.runType === 'Interval' && workout.runIntervalSets && (
-                        <span className="text-[9px] opacity-75">({workout.runIntervalSets}組)</span>
+                        <span className="text-[10px] font-medium opacity-90">({workout.runIntervalSets}組)</span>
                       )}
                     </div>
                   );

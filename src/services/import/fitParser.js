@@ -4,9 +4,15 @@
  * 不包含上傳邏輯，僅負責解析
  */
 
+// #region agent log
+fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'fitParser.js', message: 'fitParser module load start (before FitParser import)', data: {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {});
+// #endregion
 import FitParser from 'fit-file-parser';
 import { formatDate } from '../../utils/date';
 import { detectMuscleGroup } from '../../utils/exerciseDB';
+// #region agent log
+fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'fitParser.js', message: 'fitParser module load done (after FitParser import)', data: {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {});
+// #endregion
 
 /**
  * 解析 FIT 檔案

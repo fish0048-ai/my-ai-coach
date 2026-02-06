@@ -1,6 +1,9 @@
 import { collection, addDoc, query, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { updateAIContext } from '../utils/contextManager';
+// #region agent log
+fetch('http://127.0.0.1:7242/ingest/72344403-1b12-4983-948d-82f1cc7f3c6d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'importService.js', message: 'importService module evaluating (before fitParser import)', data: {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {});
+// #endregion
 import { parseFITFile } from './import/fitParser';
 import { parseCSVFile } from './import/csvParser';
 

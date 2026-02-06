@@ -56,28 +56,41 @@
   }
 }
 
+/* 登入後整頁背景：Kenney 天空 + 雲 + 草地（SVG 當 CSS 背景圖） */
+.app-background {
+  background-color: var(--color-game-sky);
+  background-image:
+    url('/kenney-bg/background_clouds.svg'),
+    linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 55%, transparent 55%),
+    url('/kenney-bg/background_solid_grass.svg');
+  background-size: 256px 256px, 100% 100%, 100% 45%;
+  background-position: 0 0, top left, bottom left;
+  background-repeat: repeat, no-repeat, no-repeat;
+}
+
 @layer components {
-  /* 卡片基底：Kenney 粗線條、平台感 */
+  /* 卡片基底：亮色 HUD 風（白/米色 + 深色粗描邊） */
   .card-base {
-    @apply bg-surface-800 rounded-card border-[3px] border-game-outline shadow-card;
+    @apply rounded-card border-[3px] border-game-outline shadow-card text-gray-900;
+    background-color: #fafaf8;
   }
 
   .card-base:hover {
     @apply border-game-outline shadow-card-hover;
   }
 
-  /* Glassmorphism：AI Coach / 浮動面板（保留深色玻璃） */
+  /* Glassmorphism：AI Coach / 浮動面板（亮色玻璃） */
   .glass-panel {
-    background-color: rgba(15, 23, 42, 0.92);
+    background-color: rgba(250, 250, 248, 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 3px solid var(--color-game-outline);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.95);
+    box-shadow: 0 18px 45px rgba(26, 26, 46, 0.15);
   }
 
   /* 人性化：按鈕基底（觸控友善 min 44px）+ 平台粗邊 */
   .btn-base {
-    @apply min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-3 rounded-button font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-surface-900 border-[3px] border-game-outline;
+    @apply min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-3 rounded-button font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white border-[3px] border-game-outline;
   }
 
   .btn-primary {
@@ -88,24 +101,33 @@
     @apply btn-base bg-game-grass text-white hover:bg-game-grass-dark active:bg-game-grass-dark;
   }
 
-  /* 人性化：表單欄位基底（平台粗邊） */
+  /* 人性化：表單欄位基底（白/米色 + 深色粗邊） */
   .input-base {
-    @apply w-full bg-surface-800 border-[3px] border-game-outline rounded-button px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    @apply w-full border-[3px] border-game-outline rounded-button px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    background-color: #fafaf8;
+    color: #111827;
   }
 
-  /* 統一：提示條（說明文字列） */
+  .input-base::placeholder {
+    @apply text-gray-500;
+  }
+
+  /* 統一：提示條（亮色 HUD） */
   .hint-bar {
-    @apply px-4 py-2 rounded-game bg-surface-800/80 border-[3px] border-game-outline text-gray-300 text-xs flex items-center justify-center gap-4;
+    @apply px-4 py-2 rounded-game border-[3px] border-game-outline text-gray-700 text-xs flex items-center justify-center gap-4;
+    background-color: rgba(250, 250, 248, 0.95);
   }
 
   /* 統一：HUD 條（等級／經驗／金幣） */
   .hud-strip {
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-game bg-white/95 border-[3px] border-game-outline shadow-card;
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-game border-[3px] border-game-outline shadow-card text-gray-900;
+    background-color: rgba(255, 255, 255, 0.95);
   }
 
   /* 統一：分段切換（2D/3D、Tab 等） */
   .toggle-group {
     @apply flex rounded-game overflow-hidden border-[3px] border-game-outline;
+    background-color: #f5f5f0;
   }
   .toggle-group button {
     @apply flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset border-r-[3px] border-game-outline last:border-r-0;
@@ -114,15 +136,16 @@
     @apply bg-game-grass text-white;
   }
   .toggle-group button[aria-pressed="false"] {
-    @apply bg-surface-800 text-gray-400 hover:text-white hover:bg-surface-700;
+    @apply text-gray-700 hover:bg-game-grass/20 hover:text-gray-900;
   }
 
   /* 統一：內嵌按鈕組（快捷入口等） */
   .button-group-inline {
     @apply flex gap-1 rounded-game overflow-hidden border-[3px] border-game-outline;
+    background-color: #f5f5f0;
   }
   .button-group-inline button {
-    @apply flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-medium text-gray-300 hover:text-white hover:bg-game-grass transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset rounded-none first:rounded-l-game last:rounded-r-game;
+    @apply flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-medium text-gray-800 hover:bg-game-grass hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset rounded-none first:rounded-l-game last:rounded-r-game;
   }
 }
 

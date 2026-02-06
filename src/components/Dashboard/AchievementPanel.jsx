@@ -51,9 +51,9 @@ export default function AchievementPanel() {
       <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="text-game-coin" size={24} aria-hidden />
-          <h3 className="text-xl font-bold text-white">訓練成就</h3>
+          <h3 className="text-xl font-bold text-gray-900">訓練成就</h3>
         </div>
-        <p className="text-gray-400 text-sm">載入中...</p>
+        <p className="text-gray-600 text-sm">載入中...</p>
       </div>
     );
   }
@@ -63,9 +63,9 @@ export default function AchievementPanel() {
       <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="text-game-coin" size={24} aria-hidden />
-          <h3 className="text-xl font-bold text-white">訓練成就</h3>
+          <h3 className="text-xl font-bold text-gray-900">訓練成就</h3>
         </div>
-        <p className="text-gray-400 text-sm mb-4">
+        <p className="text-gray-600 text-sm mb-4">
           還沒有解鎖任何成就。完成訓練後，系統會自動識別並解鎖成就！
         </p>
         <button
@@ -101,8 +101,8 @@ export default function AchievementPanel() {
         <div className="flex items-center gap-3">
           <Trophy className="text-game-coin" size={24} aria-hidden />
           <div>
-            <h3 className="text-xl font-bold text-white">訓練成就</h3>
-            <p className="text-xs text-gray-400">
+            <h3 className="text-xl font-bold text-gray-900">訓練成就</h3>
+            <p className="text-xs text-gray-600">
               已解鎖 {achievements.length} 個成就
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function AchievementPanel() {
       <div className="space-y-4">
         {Object.entries(grouped).map(([category, items]) => (
           <div key={category}>
-            <h4 className="text-sm font-semibold text-gray-400 mb-2 uppercase">
+            <h4 className="text-sm font-semibold text-gray-600 mb-2 uppercase">
               {categoryNames[category] || category}
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

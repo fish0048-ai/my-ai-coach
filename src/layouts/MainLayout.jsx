@@ -23,10 +23,10 @@ const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
     type="button"
     aria-current={active ? 'page' : undefined}
     className={`w-full flex items-center gap-3 px-6 py-3 transition-all duration-200 min-h-[44px]
-      rounded-r-button border-r-[3px] border-game-outline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900
+      rounded-r-button border-r-[3px] border-game-outline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fafaf8]
       ${active
         ? 'bg-game-grass text-white shadow-card'
-        : 'text-gray-400 hover:bg-surface-700 hover:text-white'
+        : 'text-gray-600 hover:bg-game-grass/20 hover:text-gray-900'
       }`}
   >
     <Icon size={20} aria-hidden />
@@ -40,7 +40,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
   const handleSignOut = () => signOut();
 
   return (
-    <div className="flex h-screen bg-transparent text-gray-900 overflow-hidden font-sans">
+    <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -49,31 +49,32 @@ export default function MainLayout({ children, currentView, setCurrentView, user
         />
       )}
 
-      {/* Sidebar：Kenney 平台粗邊風格 */}
+      {/* Sidebar：亮色底 + 深色粗描邊（HUD 風） */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-surface-800 border-r-[3px] border-game-outline shadow-card
-        transform transition-transform duration-300 ease-in-out flex flex-col
+        fixed lg:static inset-y-0 left-0 z-30 w-64 border-r-[3px] border-game-outline shadow-card flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        bg-[#fafaf8]
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="p-6 border-b-[3px] border-game-outline flex items-center justify-between">
+        <div className="p-6 border-b-[3px] border-game-outline flex items-center justify-between bg-[#fafaf8]">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-game-grass rounded-button flex items-center justify-center border-2 border-game-outline shadow-card">
               <Dumbbell className="text-white" size={20} aria-hidden />
             </div>
-            <span className="text-xl font-bold text-white" style={{ textShadow: '0 1px 0 #1a1a2e' }}>My AI Coach</span>
+            <span className="text-xl font-bold text-gray-900" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>My AI Coach</span>
           </div>
           <button
             onClick={() => setIsSidebarOpen(false)}
             type="button"
             aria-label="關閉導航選單"
-            className="lg:hidden p-2 -mr-2 text-gray-400 hover:text-white hover:bg-surface-800 rounded-button transition-colors"
+            className="lg:hidden p-2 -mr-2 text-gray-600 hover:text-gray-900 hover:bg-game-grass/20 rounded-button transition-colors"
           >
             <X size={24} aria-hidden />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4" aria-label="主導航選單">
-          <div className="px-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        <nav className="flex-1 overflow-y-auto py-4 bg-[#fafaf8]" aria-label="主導航選單">
+          <div className="px-4 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
             Athletica
           </div>
           <SidebarItem 
@@ -88,7 +89,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             active={currentView === 'world-3d'} 
             onClick={() => { setCurrentView('world-3d'); setIsSidebarOpen(false); }} 
           />
-          <div className="px-4 mt-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="px-4 mt-4 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
             Menu
           </div>
           <SidebarItem 
@@ -122,7 +123,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             onClick={() => { setCurrentView('gear'); setIsSidebarOpen(false); }} 
           />
           
-          <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
             AI Tools
           </div>
           <SidebarItem 
@@ -150,7 +151,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             onClick={() => { setCurrentView('knowledge-base'); setIsSidebarOpen(false); }} 
           />
           
-          <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="px-4 mt-6 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
             Account
           </div>
           <SidebarItem 
@@ -161,12 +162,12 @@ export default function MainLayout({ children, currentView, setCurrentView, user
           />
         </nav>
 
-        <div className="p-4 border-t border-gray-800 shrink-0">
+        <div className="p-4 border-t-[3px] border-game-outline shrink-0 bg-[#fafaf8]">
           <button
             onClick={handleSignOut}
             type="button"
             aria-label="登出"
-            className="flex items-center gap-3 px-4 py-3 w-full min-h-[44px] text-gray-400 hover:text-white hover:bg-surface-800 rounded-button transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900"
+            className="flex items-center gap-3 px-4 py-3 w-full min-h-[44px] text-gray-700 hover:text-gray-900 hover:bg-game-grass/20 rounded-button transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fafaf8]"
           >
             <LogOut size={20} aria-hidden />
             <span>登出</span>
@@ -174,16 +175,16 @@ export default function MainLayout({ children, currentView, setCurrentView, user
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface-900/95">
-        {/* Header：平台風格粗邊 */}
-        <header className="h-16 bg-surface-800 border-b-[3px] border-game-outline flex items-center justify-between px-4 lg:px-8 shrink-0">
+      {/* Main Content Area：亮色底 + 白/米色卡片區 */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white/85 min-h-0">
+        {/* Header：亮色 + 深色粗描邊 */}
+        <header className="h-16 border-b-[3px] border-game-outline flex items-center justify-between px-4 lg:px-8 shrink-0 bg-[#fafaf8]">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
               type="button"
               aria-label="開啟導航選單"
-              className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-white hover:bg-surface-800 rounded-button transition-colors"
+              className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-game-grass/20 rounded-button transition-colors"
             >
               <Menu size={24} aria-hidden />
             </button>
@@ -192,7 +193,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
               <button
                 type="button"
                 onClick={() => setCurrentView('map')}
-                className="flex items-center gap-2 px-2 sm:px-3 py-2 text-sm font-medium text-gray-400 hover:text-primary-400 hover:bg-surface-800 rounded-button transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] sm:min-h-0"
+                className="flex items-center gap-2 px-2 sm:px-3 py-2 text-sm font-medium text-gray-600 hover:text-primary-600 hover:bg-game-grass/20 rounded-button transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] sm:min-h-0"
                 aria-label="回到基地地圖"
                 title="回到基地地圖"
               >
@@ -200,26 +201,26 @@ export default function MainLayout({ children, currentView, setCurrentView, user
                 <span className="hidden sm:inline">回到地圖</span>
               </button>
             )}
-            <h1 className="text-lg font-semibold text-white truncate">
+            <h1 className="text-lg font-semibold text-gray-900 truncate">
               {VIEW_TITLES[currentView] || 'My AI Coach'}
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 pl-4 border-l border-gray-800">
+          <div className="flex items-center gap-2 pl-4 border-l-[3px] border-game-outline">
             <button
               onClick={() => setIsChatOpen(true)}
               type="button"
               aria-label="開啟 AI 教練聊天"
-              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white hover:bg-surface-800 rounded-button transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-game-grass/20 rounded-button transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
               <MessageSquare size={20} aria-hidden />
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary-500 rounded-full" aria-hidden />
             </button>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shrink-0 border-2 border-game-outline">
                 {user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
-              <span className="hidden md:block text-sm text-gray-300 truncate">
+              <span className="hidden md:block text-sm text-gray-700 truncate">
                 {user?.email?.split('@')[0]}
               </span>
             </div>

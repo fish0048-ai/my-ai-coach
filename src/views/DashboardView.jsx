@@ -118,10 +118,10 @@ export default function DashboardView() {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-gray-900">
               歡迎回來，{userData?.name || '健身夥伴'}
             </h1>
-            <p className="text-gray-400">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
+            <p className="text-gray-600">今天是 {new Date().toLocaleDateString('zh-TW', {month:'long', day:'numeric', weekday:'long'})}</p>
           </div>
           {/* RPG 等級／經驗／金幣（司令部） */}
           <GameProfileStrip gameProfile={userData?.gameProfile} />
@@ -167,18 +167,18 @@ export default function DashboardView() {
         {/* 肌群負荷 */}
         <div className="lg:col-span-2 card-base p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-bold text-white">肌群負荷</h3>
+            <h3 className="text-base font-bold text-gray-900">肌群負荷</h3>
             <span className="text-[10px] text-gray-500">行事曆紀錄</span>
           </div>
           
-          <div className="flex-1 min-h-[280px] flex flex-col bg-surface-900/60 rounded-game border-2 border-game-outline/50 relative">
+          <div className="flex-1 min-h-[280px] flex flex-col rounded-game border-[3px] border-game-outline relative bg-white/70">
             <BodyHeatmap data={stats.muscleFatigue} />
             {Object.keys(stats.muscleFatigue || {}).length === 0 && !loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center bg-game-outline/20 z-10 pointer-events-none rounded-game">
                     <div className="text-center">
                         <Dumbbell className="mx-auto text-gray-500 mb-2" size={32} />
-                        <p className="text-gray-300 font-bold">尚無訓練資料</p>
-                        <p className="text-gray-500 text-sm">快去行事曆新增一筆重訓紀錄吧！</p>
+                        <p className="text-gray-800 font-bold">尚無訓練資料</p>
+                        <p className="text-gray-600 text-sm">快去行事曆新增一筆重訓紀錄吧！</p>
                     </div>
                 </div>
             )}
@@ -186,7 +186,7 @@ export default function DashboardView() {
         </div>
 
         <div className="card-base p-4 flex flex-col">
-          <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+          <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
             綜合訓練建議
           </h3>
           <TrainingAdviceSection stats={stats} z2Lower={z2Lower} z2Upper={z2Upper} />

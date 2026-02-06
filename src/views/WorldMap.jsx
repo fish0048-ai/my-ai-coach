@@ -64,8 +64,8 @@ export default function WorldMap() {
         </div>
       </div>
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-white tracking-tight">{MAP_TITLE}</h1>
-        <p className="text-sm text-gray-400 mt-1">{MAP_SUBTITLE}</p>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{MAP_TITLE}</h1>
+        <p className="text-sm text-gray-600 mt-1">{MAP_SUBTITLE}</p>
       </div>
 
       <div
@@ -80,19 +80,19 @@ export default function WorldMap() {
               key={b.id}
               type="button"
               onClick={() => handleBuildingClick(b)}
-              className="card-base p-6 flex flex-col items-center justify-center gap-3 min-h-[140px] transition-all duration-200 hover:scale-[1.02] hover:shadow-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-game-coin focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 rounded-panel"
+              className="card-base p-6 flex flex-col items-center justify-center gap-3 min-h-[140px] transition-all duration-200 hover:scale-[1.02] hover:shadow-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-game-coin focus-visible:ring-offset-2 focus-visible:ring-offset-[#fafaf8] rounded-panel"
               style={{ ['--building-color']: b.color }}
               aria-label={`前往${b.label}`}
               title={`${b.label} · ${b.sublabel}`}
             >
               <div
-                className="w-14 h-14 rounded-panel flex items-center justify-center bg-surface-800 border border-gray-700"
-                style={{ backgroundColor: `${b.color}22`, borderColor: `${b.color}44` }}
+                className="w-14 h-14 rounded-panel flex items-center justify-center border-2 border-game-outline"
+                style={{ backgroundColor: `${b.color}30`, borderColor: `${b.color}99` }}
               >
-                {Icon && <Icon size={28} className="text-gray-200" aria-hidden />}
+                {Icon && <Icon size={28} className="text-gray-800" aria-hidden />}
               </div>
               <div className="text-center">
-                <div className="font-bold text-white text-sm">{b.label}</div>
+                <div className="font-bold text-gray-900 text-sm">{b.label}</div>
                 <div className="text-xs text-gray-500">{b.sublabel}</div>
               </div>
             </button>

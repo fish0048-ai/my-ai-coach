@@ -10,7 +10,7 @@ export default function TodaySchedule({ workouts }) {
 
   return (
     <div className="card-base p-4">
-        <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+        <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
         <CalendarClock className="text-game-grass" size={18} aria-hidden />
         今日訓練課表
       </h3>
@@ -20,7 +20,7 @@ export default function TodaySchedule({ workouts }) {
             <div
               key={workout.id}
               className={`flex items-center justify-between p-3 rounded-game border-2 transition-all ${
-                workout.status === 'completed' ? 'bg-game-grass/15 border-game-grass/40' : 'bg-surface-800/60 border-game-outline/40'
+                workout.status === 'completed' ? 'bg-game-grass/15 border-game-grass/40' : 'bg-game-outline/10 border-game-outline/40'
               }`}
             >
               <div className="flex items-center gap-4">
@@ -28,7 +28,7 @@ export default function TodaySchedule({ workouts }) {
                   {workout.type === 'run' ? <TrendingUp size={20} aria-hidden /> : <Dumbbell size={20} aria-hidden />}
                 </div>
                 <div>
-                  <h4 className={`font-bold ${workout.status === 'completed' ? 'text-gray-400 line-through' : 'text-white'}`}>
+                  <h4 className={`font-bold ${workout.status === 'completed' ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                     {workout.title}
                   </h4>
                   <p className="text-xs text-gray-400">
@@ -44,7 +44,7 @@ export default function TodaySchedule({ workouts }) {
                     <CheckCircle2 size={14} aria-hidden /> 已完成
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 text-gray-400 text-xs bg-surface-700/60 px-3 py-1.5 rounded-game border-2 border-game-outline/50">
+                  <div className="flex items-center gap-1 text-gray-600 text-xs bg-game-outline/10 px-3 py-1.5 rounded-game border-2 border-game-outline/50">
                     <Circle size={14} aria-hidden /> 待執行
                   </div>
                 )}

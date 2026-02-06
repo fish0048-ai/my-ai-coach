@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      include: ['buffer'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
+  ],
   resolve: {
     alias: {
       // 一些套件仍引用舊版 three examples 路徑，將其導向新版 module 版本
@@ -33,9 +44,15 @@ export default defineConfig({
           if (id.includes('node_modules/jspdf')) {
             return 'pdf-vendor';
           }
+          // Buffer 及其依賴（base64-js, ieee754）保留在主 bundle，避免 chunk 拆分導致
+          // base64-js 初始化時 exports 未定義（Ru.byteLength TypeError）
+          if (id.includes('node_modules/buffer') ||
+              id.includes('node_modules/base64-js') ||
+              id.includes('node_modules/ieee754')) {
+            return; // 不分離，隨 main 載入
+          }
           // 其他工具庫
-          if (id.includes('node_modules/buffer') || 
-              id.includes('node_modules/fit-file-parser') || 
+          if (id.includes('node_modules/fit-file-parser') ||
               id.includes('node_modules/zustand')) {
             return 'utils-vendor';
           }

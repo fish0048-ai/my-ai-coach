@@ -3,11 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// --- 新增：FIT 檔案解析所需的 Buffer Polyfill ---
-// 這是為了讓瀏覽器端能夠處理二進位檔案 (Garmin FIT)
-import { Buffer } from 'buffer';
-window.Buffer = Buffer;
-// ---------------------------------------------
+// Buffer 由 vite-plugin-node-polyfills 全域注入，fit-file-parser 會使用 window.Buffer
 
 // 註冊 Service Worker 支援 PWA
 if ('serviceWorker' in navigator) {

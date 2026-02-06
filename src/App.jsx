@@ -9,6 +9,7 @@ import { Loader, AlertTriangle, MessageSquare } from 'lucide-react';
 import { signInWithGoogle } from './services/authService';
 import ErrorToast from './components/common/ErrorToast';
 import { handleError } from './services/core/errorService';
+import KenneyBackground from './components/KenneyBackground';
 
 // --- 1. 使用 Lazy Loading 隔離錯誤並優化效能 ---
 const DashboardView = React.lazy(() => import('./views/DashboardView.jsx'));
@@ -79,15 +80,7 @@ const LoginView = () => {
 
     return (
         <div className="h-screen flex items-center justify-center text-gray-900 flex-col gap-8 px-4 app-background relative">
-          {/* 背景圖層：與 MainLayout 相同 Kenney 圖 */}
-          <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
-            <div className="absolute inset-0" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_dirt.png)', backgroundSize: '100% 14%', backgroundPosition: 'bottom left', backgroundRepeat: 'no-repeat' }} />
-            <div className="absolute inset-0" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_grass.png)', backgroundSize: '100% 30%', backgroundPosition: 'center bottom', backgroundRepeat: 'no-repeat' }} />
-            <div className="absolute inset-0 opacity-85" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)', backgroundSize: '260px 260px', backgroundPosition: '0 0', backgroundRepeat: 'repeat', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)', maskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)' }} />
-            <div className="absolute inset-0 opacity-75" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)', backgroundSize: '180px 180px', backgroundPosition: '40px 60px', backgroundRepeat: 'repeat', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)', maskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)' }} />
-            <div className="absolute inset-0 opacity-90" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)', backgroundSize: '256px 256px', backgroundPosition: 'left bottom', backgroundRepeat: 'repeat-x' }} />
-            <div className="absolute inset-0 opacity-85" style={{ backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)', backgroundSize: '256px 256px', backgroundPosition: 'left bottom', backgroundRepeat: 'repeat-x' }} />
-          </div>
+          <KenneyBackground />
            <div className="text-center space-y-4 p-8 rounded-panel bg-white/95 border-[3px] border-game-outline shadow-card relative z-10">
              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-game-grass border-[3px] border-game-outline mb-2 shadow-card">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>

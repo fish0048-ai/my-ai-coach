@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe, Map, Layers } from 'lucide-react';
 import { signOut } from '../services/authService';
+import KenneyBackground from '../components/KenneyBackground';
 
 const VIEW_TITLES = {
   'map': '基地地圖 Athletica',
@@ -42,71 +43,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
 
   return (
     <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full relative">
-      {/* 背景圖層：fixed 滿版，由下到上繪製。雲先畫，遠山/遠樹畫在雲上面才不會被蓋住 */}
-      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
-        {/* 1. 土（Kenney 圖） */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_dirt.png)',
-            backgroundSize: '100% 14%',
-            backgroundPosition: 'bottom left',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-        {/* 2. 草地（Kenney 圖） */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_solid_grass.png)',
-            backgroundSize: '100% 30%',
-            backgroundPosition: 'center bottom',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-        {/* 3. 雲朵：只出現在最上方，以下完全透明 */}
-        <div
-          className="absolute inset-0 opacity-85"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
-            backgroundSize: '260px 260px',
-            backgroundPosition: '0 0',
-            backgroundRepeat: 'repeat',
-            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)',
-            maskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-75"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
-            backgroundSize: '180px 180px',
-            backgroundPosition: '40px 60px',
-            backgroundRepeat: 'repeat',
-            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)',
-            maskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)',
-          }}
-        />
-        {/* 4. 遠山、遠樹：256×256 不拉伸，橫向重複鋪滿底部 */}
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
-            backgroundSize: '256px 256px',
-            backgroundPosition: 'left bottom',
-            backgroundRepeat: 'repeat-x',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-85"
-          style={{
-            backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
-            backgroundSize: '256px 256px',
-            backgroundPosition: 'left bottom',
-            backgroundRepeat: 'repeat-x',
-          }}
-        />
-      </div>
+      <KenneyBackground />
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 

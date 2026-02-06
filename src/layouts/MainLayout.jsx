@@ -44,11 +44,11 @@ export default function MainLayout({ children, currentView, setCurrentView, user
     <div className="flex h-screen text-gray-900 overflow-hidden font-sans app-background min-h-full relative">
       {/* 背景圖層：fixed 滿版，由下到上繪製。雲先畫，遠山/遠樹畫在雲上面才不會被蓋住 */}
       <div className="fixed inset-0 pointer-events-none z-0" aria-hidden>
-        {/* 1. 天空漸層 */}
+        {/* 1. 天空漸層 → 中間白色過渡 → 下方透明（讓遠山遠樹露出） */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 45%, #C3E3FF 100%)',
+            background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 36%, #ffffff 42%, #ffffff 68%, transparent 74%)',
           }}
         />
         {/* 2. 備援：純 CSS 草地+土（柔和漸層，避免硬邊線） */}

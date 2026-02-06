@@ -101,23 +101,23 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             maskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 72%)',
           }}
         />
-        {/* 7. 遠山、遠樹：100% auto 保持比例不拉伸，center bottom 只露出底部綠色區 */}
+        {/* 7. 遠山、遠樹：原先尺寸 256×256 不拉伸，橫向重複鋪滿底部 */}
         <div
           className="absolute inset-0 opacity-90"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
-            backgroundSize: '100% auto',
-            backgroundPosition: 'center bottom',
-            backgroundRepeat: 'no-repeat',
+            backgroundSize: '256px 256px',
+            backgroundPosition: 'left bottom',
+            backgroundRepeat: 'repeat-x',
           }}
         />
         <div
           className="absolute inset-0 opacity-85"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
-            backgroundSize: '100% auto',
-            backgroundPosition: 'center bottom',
-            backgroundRepeat: 'no-repeat',
+            backgroundSize: '256px 256px',
+            backgroundPosition: 'left bottom',
+            backgroundRepeat: 'repeat-x',
           }}
         />
       </div>

@@ -33,6 +33,7 @@ function GameProfileStrip({ gameProfile }) {
       role="status"
       aria-label={`等級 ${level}，經驗值 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}
     >
+      <img src="/kenney-platformer/tiles/hud_player_helmet_yellow.png" alt="" className="w-8 h-8 object-contain" aria-hidden />
       <div className="flex items-center gap-1.5">
         <Zap size={18} className="text-game-grass" aria-hidden />
         <span className="text-sm font-bold text-level">Lv.{level}</span>
@@ -44,8 +45,8 @@ function GameProfileStrip({ gameProfile }) {
         <span className="text-[10px] text-game-outline/80">{currentXP}/{nextLevelXP}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <img src="/kenney-ui/coin_gold.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
-        <span className="text-sm font-bold text-level" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>×{coins}</span>
+        <img src="/kenney-platformer/tiles/hud_coin.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
+        <span className="text-sm font-bold text-level">×{coins}</span>
       </div>
     </div>
   );

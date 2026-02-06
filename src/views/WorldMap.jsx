@@ -50,6 +50,7 @@ export default function WorldMap() {
       {/* 左上角：HUD 風格（Kenney 平台－等級、經驗條、金幣） */}
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="hud-strip" role="status" aria-label={`等級 ${level}，經驗 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}>
+          <img src="/kenney-platformer/tiles/hud_player_helmet_yellow.png" alt="" className="w-8 h-8 object-contain" aria-hidden />
           <div className="flex items-center gap-1.5">
             <Zap size={18} className="text-game-grass" aria-hidden />
             <span className="text-sm font-bold text-game-outline">Lv.{level}</span>
@@ -58,8 +59,8 @@ export default function WorldMap() {
             <div className="h-full bg-game-grass rounded-full transition-all" style={{ width: `${xpPct}%` }} />
           </div>
           <div className="flex items-center gap-1.5">
-            <img src="/kenney-ui/coin_gold.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
-            <span className="text-sm font-bold text-game-outline" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>×{coins}</span>
+            <img src="/kenney-platformer/tiles/hud_coin.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
+            <span className="text-sm font-bold text-game-outline">×{coins}</span>
           </div>
         </div>
       </div>

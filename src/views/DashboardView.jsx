@@ -130,8 +130,9 @@ export default function DashboardView() {
               onClick={() => setShowShareMenu(!showShareMenu)}
               disabled={sharing}
               className="btn-secondary flex items-center gap-2 px-4 py-2"
+              aria-expanded={showShareMenu}
             >
-              <Share2 size={18} />
+              <Share2 size={18} aria-hidden />
               <span className="hidden md:inline">分享</span>
             </button>
             {showShareMenu && <ShareMenu onClose={() => setShowShareMenu(false)} onSharingChange={setSharing} />}

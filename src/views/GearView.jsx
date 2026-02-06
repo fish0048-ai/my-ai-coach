@@ -140,7 +140,7 @@ export default function GearView() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <ShoppingBag className="text-orange-500" /> 裝備壽命管理
+            <ShoppingBag className="text-game-coin" aria-hidden /> 裝備壽命管理
           </h2>
           <p className="text-gray-400 text-sm">自動追蹤跑鞋里程，預防運動傷害</p>
         </div>
@@ -148,7 +148,7 @@ export default function GearView() {
           onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
           className="btn-primary flex items-center gap-2 px-4 py-2"
         >
-          <Plus size={18} /> 新增裝備
+          <Plus size={18} aria-hidden /> 新增裝備
         </button>
       </div>
 
@@ -159,32 +159,32 @@ export default function GearView() {
           const percent = Math.min(100, (usage / gear.maxDistance) * 100);
           const isRetired = gear.status === 'retired';
           
-          let statusColor = "bg-green-500";
-          if (percent > 80) statusColor = "bg-yellow-500";
-          if (percent >= 100) statusColor = "bg-red-500";
-          if (isRetired) statusColor = "bg-gray-600";
+          let statusColor = "bg-game-grass";
+          if (percent > 80) statusColor = "bg-game-coin";
+          if (percent >= 100) statusColor = "bg-game-heart";
+          if (isRetired) statusColor = "bg-surface-600";
 
           return (
             <div key={gear.id} className={`card-base rounded-panel ${isRetired ? 'opacity-70' : ''} overflow-hidden relative group`}>
-              <div className="absolute top-0 right-0 p-4 opacity-10">
+              <div className="absolute top-0 right-0 p-4 opacity-10" aria-hidden>
                 <ShoppingBag size={80} />
               </div>
 
               <div className="p-6 relative z-10">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-xs font-bold text-primary-400 uppercase tracking-wider">{gear.brand}</span>
+                    <span className="text-xs font-bold text-game-grass uppercase tracking-wider">{gear.brand}</span>
                     <h3 className="text-xl font-bold text-white mt-1">{gear.model}</h3>
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <Calendar size={10} /> 啟用: {gear.startDate}
+                      <Calendar size={10} aria-hidden /> 啟用: {gear.startDate}
                     </p>
                   </div>
                   {isRetired ? (
-                     <span className="px-2 py-1 bg-gray-700 text-gray-400 text-xs rounded border border-gray-600">已退役</span>
+                     <span className="px-2 py-1 bg-surface-700 text-gray-400 text-xs rounded-game border-2 border-game-outline/50">已退役</span>
                   ) : percent >= 100 ? (
-                     <span className="px-2 py-1 bg-red-900/50 text-red-400 text-xs rounded border border-red-700 flex items-center gap-1"><AlertTriangle size={10}/> 壽命已盡</span>
+                     <span className="px-2 py-1 bg-game-heart/20 text-game-heart text-xs rounded-game border-2 border-game-heart/50 flex items-center gap-1"><AlertTriangle size={10} aria-hidden /> 壽命已盡</span>
                   ) : (
-                     <span className="px-2 py-1 bg-green-900/30 text-green-400 text-xs rounded border border-green-700 flex items-center gap-1"><CheckCircle size={10}/> 服役中</span>
+                     <span className="px-2 py-1 bg-game-grass/20 text-game-grass text-xs rounded-game border-2 border-game-grass/50 flex items-center gap-1"><CheckCircle size={10} aria-hidden /> 服役中</span>
                   )}
                 </div>
 
@@ -193,7 +193,7 @@ export default function GearView() {
                     <span className="text-white">{usage} km</span>
                     <span className="text-gray-400">/ {gear.maxDistance} km</span>
                   </div>
-                  <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
                     <div 
                       className={`h-full ${statusColor} transition-all duration-1000`} 
                       style={{ width: `${percent}%` }}
@@ -202,19 +202,11 @@ export default function GearView() {
                   <p className="text-xs text-gray-500 text-right">已使用 {Math.round(percent)}%</p>
                 </div>
 
-                <div className="flex gap-2 pt-4 border-t border-gray-700/50">
-                   <button 
-                     onClick={() => handleEditClick(gear)}
-                     className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                   >
-                     <Edit2 size={14} /> 編輯
+                <div className="flex gap-2 pt-4 border-t border-game-outline/50">
+                   <button type="button" onClick={() => handleEditClick(gear)} className="btn-secondary flex-1 py-2 text-sm flex items-center justify-center gap-2">
+                     <Edit2 size={14} aria-hidden /> 編輯
                    </button>
-                   <button 
-                     onClick={() => handleDelete(gear.id)}
-                     className="px-3 py-2 bg-gray-700 hover:bg-red-900/50 hover:text-red-400 text-gray-400 rounded-lg transition-colors"
-                   >
-                     <Trash2 size={16} />
-                   </button>
+                   <button type="button" onClick={() => handleDelete(gear.id)} className="px-3 py-2 bg-surface-700 hover:bg-game-heart/20 hover:text-game-heart text-gray-400 rounded-game border-2 border-game-outline/50 transition-colors min-h-[44px]" aria-label="刪除此裝備"><Trash2 size={16} aria-hidden /></button>
                 </div>
               </div>
             </div>
@@ -222,12 +214,15 @@ export default function GearView() {
         })}
         
         {gears.length === 0 && !loading && (
-             <div 
+             <div
+                role="button"
+                tabIndex={0}
                 onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
-                className="bg-surface-800/50 rounded-2xl border-2 border-dashed border-gray-800 flex flex-col items-center justify-center p-8 cursor-pointer hover:border-primary-500 hover:bg-surface-800 transition-all group min-h-[200px]"
+                onKeyDown={(e) => e.key === 'Enter' && (setEditingGear(null), resetForm(), setShowModal(true))}
+                className="bg-surface-800/50 rounded-game border-2 border-dashed border-game-outline flex flex-col items-center justify-center p-8 cursor-pointer hover:border-game-grass hover:bg-surface-800 transition-all group min-h-[200px]"
              >
-                <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-600 text-gray-400 group-hover:text-white transition-colors">
-                   <Plus size={24} />
+                <div className="w-12 h-12 bg-surface-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-game-grass text-gray-400 group-hover:text-game-outline transition-colors">
+                   <Plus size={24} aria-hidden />
                 </div>
                 <p className="text-gray-400 font-medium">新增第一雙跑鞋</p>
              </div>
@@ -236,107 +231,66 @@ export default function GearView() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-surface-900 w-full max-w-md rounded-2xl border border-gray-800 shadow-2xl p-6">
+          <div className="card-base bg-surface-900 w-full max-w-md rounded-game shadow-2xl p-6">
             <h3 className="text-xl font-bold text-white mb-6">
               {editingGear ? '編輯裝備' : '新增裝備'}
             </h3>
             
             <div className="space-y-4">
-              {/* 計算預覽區塊 */}
-              <div className="bg-gray-800 p-3 rounded-lg border border-gray-600">
-                  <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-1"><Calculator size={12}/> 里程計算預覽</h4>
+              <div className="bg-surface-800/60 p-3 rounded-game border-2 border-game-outline/50">
+                  <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-1"><Calculator size={12} aria-hidden /> 里程計算預覽</h4>
                   <div className="flex justify-between items-center text-sm mb-1">
                       <span>系統紀錄 (行事曆):</span>
                       <span className="text-gray-300">{previewSystemDist.toFixed(1)} km</span>
                   </div>
                   <div className="flex justify-between items-center text-sm mb-1">
                       <span>+ 手動增減 (校正):</span>
-                      <span className="text-blue-400">{previewManualDist > 0 ? '+' : ''}{previewManualDist} km</span>
+                      <span className="text-game-grass">{previewManualDist > 0 ? '+' : ''}{previewManualDist} km</span>
                   </div>
-                  <div className="border-t border-gray-600 my-1 pt-1 flex justify-between items-center font-bold">
+                  <div className="border-t border-game-outline/50 my-1 pt-1 flex justify-between items-center font-bold">
                       <span>= 目前總里程:</span>
-                      <span className="text-green-400">{previewTotal} km</span>
+                      <span className="text-game-coin">{previewTotal} km</span>
                   </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">品牌</label>
-                  <input 
-                    value={formData.brand} 
-                    onChange={e => setFormData({...formData, brand: e.target.value})}
-                    placeholder="Nike"
-                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                  />
+                  <input value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} placeholder="Nike" className="input-base w-full" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">型號</label>
-                  <input 
-                    value={formData.model} 
-                    onChange={e => setFormData({...formData, model: e.target.value})}
-                    placeholder="Pegasus 40"
-                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                  />
+                  <input value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Pegasus 40" className="input-base w-full" />
                 </div>
               </div>
 
               <div>
                   <label className="text-xs text-gray-500 block mb-1">啟用日期 (從這天開始計算系統里程)</label>
-                  <input 
-                    type="date"
-                    value={formData.startDate} 
-                    onChange={e => setFormData({...formData, startDate: e.target.value})}
-                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                  />
+                  <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="input-base w-full" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                   <div>
-                      <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1"><Gauge size={10}/> 預期壽命 (km)</label>
-                      <input 
-                        type="number"
-                        value={formData.maxDistance} 
-                        onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})}
-                        className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                      />
+                      <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1"><Gauge size={10} aria-hidden /> 預期壽命 (km)</label>
+                      <input type="number" value={formData.maxDistance} onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})} className="input-base w-full" />
                   </div>
                   <div>
-                      <label className="text-xs text-gray-500 block mb-1 text-blue-300 flex items-center gap-1"><Plus size={10}/> 手動增減 (km)</label>
-                      <input 
-                        type="number"
-                        value={formData.initialDistance} 
-                        onChange={e => setFormData({...formData, initialDistance: e.target.value})}
-                        className="w-full bg-surface-800 border border-primary-500/50 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                        placeholder="例如: 50 或 -10"
-                      />
+                      <label className="text-xs text-gray-500 block mb-1 text-game-grass flex items-center gap-1"><Plus size={10} aria-hidden /> 手動增減 (km)</label>
+                      <input type="number" value={formData.initialDistance} onChange={e => setFormData({...formData, initialDistance: e.target.value})} className="input-base w-full" placeholder="例如: 50 或 -10" />
                   </div>
               </div>
 
               <div>
                   <label className="text-xs text-gray-500 block mb-1">狀態</label>
-                  <select 
-                    value={formData.status} 
-                    onChange={e => setFormData({...formData, status: e.target.value})}
-                    className="w-full bg-surface-800 border border-gray-800 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                  >
+                  <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="input-base w-full">
                     <option value="active">服役中 (Active)</option>
                     <option value="retired">已退役 (Retired)</option>
                   </select>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button 
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold"
-                >
-                  取消
-                </button>
-                <button 
-                  onClick={handleSave}
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold"
-                >
-                  儲存
-                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 py-2 font-bold">取消</button>
+                <button type="button" onClick={handleSave} className="btn-primary flex-1 py-2 font-bold">儲存</button>
               </div>
             </div>
           </div>

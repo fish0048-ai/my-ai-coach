@@ -11,15 +11,15 @@ export default function TrainingAdviceSection({ stats, z2Lower, z2Upper }) {
 
   return (
     <div className="space-y-3 flex-1">
-      <div className="p-3 rounded-lg bg-gray-900/40 border border-gray-700/50">
+      <div className="p-3 rounded-game bg-surface-900/60 border-2 border-game-outline/50">
         <div className="flex items-center gap-2 mb-1.5">
-          <Dumbbell className="text-primary-400" size={14} />
+          <Dumbbell className="text-game-grass" size={14} aria-hidden />
           <h4 className="font-semibold text-white text-sm">重訓：肌群平衡</h4>
         </div>
         {muscleEntries.length > 0 ? (
           <p className="text-sm text-gray-400 leading-relaxed">
             數據顯示
-            <span className="text-green-400 font-bold mx-1">{topMuscle}</span>
+            <span className="text-game-grass font-bold mx-1">{topMuscle}</span>
             是您最近最強化的部位。建議這幾天可以安排拮抗肌群或核心訓練來平衡身體發展。
           </p>
         ) : (
@@ -27,38 +27,38 @@ export default function TrainingAdviceSection({ stats, z2Lower, z2Upper }) {
         )}
       </div>
 
-      <div className="p-3 rounded-lg bg-gray-900/40 border border-gray-700/50">
+      <div className="p-3 rounded-game bg-surface-900/60 border-2 border-game-outline/50">
         <div className="flex items-center gap-2 mb-1.5">
-          <TrendingUp className="text-orange-400" size={14} />
+          <TrendingUp className="text-game-coin" size={14} aria-hidden />
           <h4 className="font-semibold text-white text-sm">跑步：進度管理</h4>
         </div>
         {weeklyDist > 0 ? (
           <div className="space-y-2">
             <p className="text-sm text-gray-400 leading-relaxed">
               本週跑量 <span className="text-white font-bold">{stats.weeklyDistance} km</span>。
-              為預防受傷，下週總里程建議控制在 <span className="text-orange-400 font-bold">{(weeklyDist * 1.1).toFixed(1)} km</span> 以內 (10%原則)。
+              為預防受傷，下週總里程建議控制在 <span className="text-game-coin font-bold">{(weeklyDist * 1.1).toFixed(1)} km</span> 以內 (10%原則)。
             </p>
-            <div className="text-xs text-gray-500 bg-surface-800/40 px-2 py-1.5 rounded flex justify-between items-center mt-2">
+            <div className="text-xs text-gray-500 bg-surface-800/40 px-2 py-1.5 rounded-game border border-game-outline/40 flex justify-between items-center mt-2">
               <span>Zone 2 目標心率</span>
-              <span className="font-mono text-primary-400 font-semibold">{z2Lower}–{z2Upper} bpm</span>
+              <span className="font-mono text-game-grass font-semibold">{z2Lower}–{z2Upper} bpm</span>
             </div>
           </div>
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-gray-400 leading-relaxed">
-              本週尚未有跑步紀錄。建議安排一次輕鬆跑，將心率維持在 <span className="text-primary-400 font-semibold">Zone 2</span> 以建立有氧底層。
+              本週尚未有跑步紀錄。建議安排一次輕鬆跑，將心率維持在 <span className="text-game-grass font-semibold">Zone 2</span> 以建立有氧底層。
             </p>
-            <div className="text-xs text-gray-500 bg-surface-800/40 px-2 py-1.5 rounded flex justify-between items-center mt-2">
+            <div className="text-xs text-gray-500 bg-surface-800/40 px-2 py-1.5 rounded-game border border-game-outline/40 flex justify-between items-center mt-2">
               <span>Zone 2 目標心率</span>
-              <span className="font-mono text-primary-400 font-semibold">{z2Lower}–{z2Upper} bpm</span>
+              <span className="font-mono text-game-grass font-semibold">{z2Lower}–{z2Upper} bpm</span>
             </div>
           </div>
         )}
       </div>
 
-      <div className={`p-3 rounded-lg border transition-colors ${stats?.latestAnalysis ? 'bg-purple-900/15 border-purple-500/25' : 'bg-gray-900/40 border-gray-700/50'}`}>
-        <h4 className="font-semibold text-purple-400 mb-1.5 text-sm flex items-center gap-2">
-          {stats?.latestAnalysis ? <Sparkles size={14} /> : <AlertCircle size={14} />}
+      <div className={`p-3 rounded-game border-2 transition-colors ${stats?.latestAnalysis ? 'bg-game-coin/15 border-game-coin/40' : 'bg-surface-900/60 border-game-outline/50'}`}>
+        <h4 className="font-semibold text-game-coin mb-1.5 text-sm flex items-center gap-2">
+          {stats?.latestAnalysis ? <Sparkles size={14} aria-hidden /> : <AlertCircle size={14} aria-hidden />}
           動作優化建議
         </h4>
         {stats?.latestAnalysis ? (

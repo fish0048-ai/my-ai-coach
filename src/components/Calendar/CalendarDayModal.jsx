@@ -71,24 +71,24 @@ export default function CalendarDayModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-surface-900 w-full max-w-4xl rounded-2xl border border-gray-800 shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+      <div className="card-base bg-surface-900 w-full max-w-4xl rounded-game shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-game-outline/50 flex justify-between items-center">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-xl font-bold text-white">
                 {selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日
               </h2>
-              {modalView === 'list' && <span className="text-xs text-gray-500 bg-surface-800 px-2 py-1 rounded">當日清單</span>}
-              {modalView === 'form' && <span className="text-xs text-blue-400 bg-blue-900/20 px-2 py-1 rounded">{currentDocId ? '編輯' : '新增'}</span>}
+              {modalView === 'list' && <span className="text-xs text-gray-500 bg-surface-800 px-2 py-1 rounded-game border border-game-outline/50">當日清單</span>}
+              {modalView === 'form' && <span className="text-xs text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border border-game-outline/50">{currentDocId ? '編輯' : '新增'}</span>}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={24} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="關閉"><X size={24} aria-hidden /></button>
         </div>
         <div className="p-6 overflow-y-auto flex-1">
           {modalView === 'list' && (
             <div className="space-y-4">
               {dayWorkouts.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
+                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-game-outline/50 rounded-game">
                   <p>當日尚無紀錄</p>
                 </div>
               ) : (
@@ -103,10 +103,11 @@ export default function CalendarDayModal({
                 ))
               )}
               <button
+                type="button"
                 onClick={onAddNew || (() => { setCurrentDocId(null); setModalView('form'); })}
-                className="w-full py-4 rounded-xl border-2 border-dashed border-gray-700 text-gray-400 hover:text-white"
+                className="w-full py-4 rounded-game border-2 border-dashed border-game-outline/50 text-gray-400 hover:text-white hover:border-game-grass/50"
               >
-                <Plus /> 新增運動
+                <Plus aria-hidden /> 新增運動
               </button>
             </div>
           )}
@@ -121,19 +122,17 @@ export default function CalendarDayModal({
             />
           )}
         </div>
-        <div className="p-6 border-t border-gray-800 flex justify-between">
+        <div className="p-6 border-t border-game-outline/50 flex justify-between">
           {modalView === 'form' && (
             <>
               {currentDocId && (
-                <button onClick={onDelete} className="flex items-center gap-2 text-red-400 hover:text-red-300 px-4 py-2">
-                  <Trash2 size={18} /> 刪除
+                <button type="button" onClick={onDelete} className="flex items-center gap-2 text-game-heart hover:text-game-heart/80 px-4 py-2 min-h-[44px]">
+                  <Trash2 size={18} aria-hidden /> 刪除
                 </button>
               )}
               <div className="flex gap-3 ml-auto">
-                <button onClick={() => setModalView('list')} className="text-gray-400 hover:text-white px-4">取消</button>
-                <button onClick={onSave} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-500 transition-colors">
-                  儲存
-                </button>
+                <button type="button" onClick={() => setModalView('list')} className="btn-secondary px-4 py-2">取消</button>
+                <button type="button" onClick={onSave} className="btn-primary px-6 py-2 font-bold">儲存</button>
               </div>
             </>
           )}

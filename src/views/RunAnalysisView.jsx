@@ -303,24 +303,17 @@ export default function RunAnalysisView() {
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Activity className="text-green-500" /> 跑姿 AI 分析
-          <span className="text-xs text-green-300 bg-green-900/30 px-2 py-1 rounded border border-green-700">動力學/送髖</span>
+          <Activity className="text-game-grass" aria-hidden /> 跑姿 AI 分析
+          <span className="text-xs text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border-2 border-game-outline/50">動力學/送髖</span>
         </h1>
         <div className="flex gap-2">
             {(videoFile || isFitMode) && (
                 <>
-                    <button 
-                      onClick={() => setShowIdealForm(!showIdealForm)} 
-                      className={`px-3 py-1.5 rounded-lg border text-sm flex gap-1 ${
-                        showIdealForm 
-                          ? 'bg-green-600 text-white border-green-500 shadow-lg shadow-green-500/50' 
-                          : 'bg-gray-800 text-gray-400 border-gray-700'
-                      }`}
-                    >
-                        <Layers size={16}/> {showIdealForm ? '隱藏模擬' : '顯示理想送髖'}
+                    <button type="button" onClick={() => setShowIdealForm(!showIdealForm)} className={`px-3 py-1.5 rounded-game border-2 text-sm flex gap-1 ${showIdealForm ? 'bg-game-grass text-game-outline border-game-grass' : 'btn-secondary'}`}>
+                        <Layers size={16} aria-hidden /> {showIdealForm ? '隱藏模擬' : '顯示理想送髖'}
                     </button>
-                    <button onClick={() => setShowSkeleton(!showSkeleton)} className="px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 text-sm flex gap-1">
-                        {showSkeleton ? <Eye size={16}/> : <EyeOff size={16}/>} 骨架
+                    <button type="button" onClick={() => setShowSkeleton(!showSkeleton)} className="btn-secondary px-3 py-1.5 text-sm flex gap-1">
+                        {showSkeleton ? <Eye size={16} aria-hidden /> : <EyeOff size={16} aria-hidden />} 骨架
                     </button>
                 </>
             )}
@@ -329,27 +322,27 @@ export default function RunAnalysisView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <div 
-            className={`relative aspect-video bg-gray-900 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-blue-500 hover:bg-gray-800'}`}
+          <div
+            className={`relative aspect-video bg-surface-900 rounded-game border-2 border-dashed border-game-outline flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-game-grass hover:bg-surface-800'}`}
             onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}
           >
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
             {analysisStep === 'scanning' && (
-              <div className="absolute inset-0 bg-gray-900/90 z-30 flex flex-col items-center justify-center text-blue-400">
-                  <Cpu className="animate-pulse mb-2" size={32}/> 
+              <div className="absolute inset-0 bg-surface-900/90 z-30 flex flex-col items-center justify-center text-game-grass">
+                  <Cpu className="animate-pulse mb-2" size={32} aria-hidden />
                   <p className="mb-2">全影片掃描中 ({scanProgress}%)</p>
-                  <div className="w-64 h-1 bg-gray-700 rounded overflow-hidden">
-                      <div className="h-full bg-blue-500 transition-all duration-100" style={{width: `${scanProgress}%`}}></div>
+                  <div className="w-64 h-1 bg-surface-700 rounded overflow-hidden">
+                      <div className="h-full bg-game-grass transition-all duration-100" style={{width: `${scanProgress}%`}} />
                   </div>
               </div>
             )}
-            {analysisStep === 'analyzing_ai' && <div className="absolute inset-0 bg-gray-900/80 z-30 flex items-center justify-center text-purple-400 font-mono"><BrainCircuit className="animate-pulse mr-2"/> AI 診斷中...</div>}
+            {analysisStep === 'analyzing_ai' && <div className="absolute inset-0 bg-surface-900/80 z-30 flex items-center justify-center text-game-coin font-mono"><BrainCircuit className="animate-pulse mr-2" aria-hidden /> AI 診斷中...</div>}
             {videoError && (
-                <div className="absolute inset-0 z-40 bg-gray-900 flex flex-col items-center justify-center text-red-400 p-4 text-center">
-                    <AlertTriangle size={48} className="mb-2" />
+                <div className="absolute inset-0 z-40 bg-surface-900 flex flex-col items-center justify-center text-game-heart p-4 text-center">
+                    <AlertTriangle size={48} className="mb-2" aria-hidden />
                     <p className="font-bold">影片無法播放</p>
                     <p className="text-sm text-gray-400">{videoError}</p>
-                    <button onClick={clearAll} className="mt-4 px-4 py-2 bg-gray-800 rounded hover:bg-gray-700 text-white">重試</button>
+                    <button type="button" onClick={clearAll} className="btn-primary mt-4 px-4 py-2">重試</button>
                 </div>
             )}
             {!videoFile && !isFitMode && !videoError && (
@@ -380,17 +373,17 @@ export default function RunAnalysisView() {
           <div className="flex gap-4 justify-center">
              {(videoFile || isFitMode) && analysisStep === 'idle' && (
                  <>
-                    <button onClick={handleUploadClick} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-all">更換檔案</button>
+                    <button type="button" onClick={handleUploadClick} className="btn-secondary px-6 py-2 font-bold">更換檔案</button>
                     {!isFitMode && (
-                        <button onClick={startFullVideoScan} className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all hover:scale-105"><Cpu size={20} /> 開始全影片分析</button>
+                        <button type="button" onClick={startFullVideoScan} className="btn-primary flex items-center gap-2 px-8 py-3 font-bold"><Cpu size={20} aria-hidden /> 開始全影片分析</button>
                     )}
                  </>
              )}
              {(analysisStep === 'internal_complete' || analysisStep === 'ai_complete') && (
                  <>
-                    <button onClick={() => { setAnalysisStep('idle'); setMetrics(null); setAiFeedback(''); }} className="px-6 py-2 bg-gray-700 text-white rounded-lg">重置</button>
-                    {analysisStep !== 'ai_complete' && <button onClick={performAIAnalysis} className="px-6 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2"><Sparkles size={18}/> AI 診斷</button>}
-                    {analysisStep === 'ai_complete' && <button onClick={saveToCalendar} disabled={isSaving} className="px-6 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2"><Save size={18}/> 儲存</button>}
+                    <button type="button" onClick={() => { setAnalysisStep('idle'); setMetrics(null); setAiFeedback(''); }} className="btn-secondary px-6 py-2">重置</button>
+                    {analysisStep !== 'ai_complete' && <button type="button" onClick={performAIAnalysis} className="btn-primary px-6 py-2 flex items-center gap-2"><Sparkles size={18} aria-hidden /> AI 診斷</button>}
+                    {analysisStep === 'ai_complete' && <button type="button" onClick={saveToCalendar} disabled={isSaving} className="btn-primary px-6 py-2 flex items-center gap-2"><Save size={18} aria-hidden /> 儲存</button>}
                  </>
              )}
           </div>
@@ -398,9 +391,9 @@ export default function RunAnalysisView() {
 
         <div className="space-y-4">
            {metrics && (
-              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
+              <div className="card-base p-4 flex items-center justify-between">
                   <div>
-                      <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-yellow-400"/> 跑姿評分</h3>
+                      <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-game-coin" aria-hidden /> 跑姿評分</h3>
                       <p className="text-xs text-gray-400">基於動力學指標計算</p>
                   </div>
                   <ScoreGauge score={score} showBlue />
@@ -408,25 +401,25 @@ export default function RunAnalysisView() {
            )}
 
            {videoFile && !metrics && analysisStep !== 'scanning' && (
-             <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-700 text-center">
+             <div className="card-base p-6 text-center">
                  <div className="text-4xl font-bold text-white font-mono">{realtimeAngle}°</div>
                  <div className="text-sm text-gray-400">即時膝蓋角度</div>
-                 {hipExtensionAngle > 0 && <div className="text-green-400 mt-2 text-sm font-bold">送髖(前擺): {hipExtensionAngle}°</div>}
+                 {hipExtensionAngle > 0 && <div className="text-game-grass mt-2 text-sm font-bold">送髖(前擺): {hipExtensionAngle}°</div>}
              </div>
            )}
 
            {metrics && (
              <>
                 <MetricsPanel metrics={metrics} title="動態資料" onUpdateMetric={updateMetric} />
-                <div className="bg-blue-900/20 p-5 rounded-xl border border-blue-500/30 text-gray-300 text-sm space-y-3">
-                    <h3 className="text-blue-400 font-bold flex items-center gap-2"><BookOpen size={16} /> 什麼是送髖 (Hip Drive)?</h3>
+                <div className="card-base p-5 bg-game-grass/10 border-game-grass/40 text-gray-300 text-sm space-y-3">
+                    <h3 className="text-game-grass font-bold flex items-center gap-2"><BookOpen size={16} aria-hidden /> 什麼是送髖 (Hip Drive)?</h3>
                     <p><strong>定義：</strong> 跑步時利用骨盆前傾，主動帶動大腿<strong>向前抬起</strong>。</p>
                 </div>
              </>
            )}
            {aiFeedback && (
-               <div className="bg-purple-900/20 p-5 rounded-xl border border-purple-500/30 text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
-                   <h3 className="text-purple-400 font-bold mb-2 flex items-center gap-2"><Sparkles size={16}/> 跑姿診斷</h3>
+               <div className="card-base p-5 bg-game-coin/10 border-game-coin/40 text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
+                   <h3 className="text-game-coin font-bold mb-2 flex items-center gap-2"><Sparkles size={16} aria-hidden /> 跑姿診斷</h3>
                    {aiFeedback}
                </div>
            )}

@@ -119,7 +119,7 @@ export default function KnowledgeBaseView() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BookOpen className="text-blue-400" />
+            <BookOpen className="text-game-grass" aria-hidden />
             個人知識庫（AI 記憶）
           </h1>
           <p className="text-sm text-gray-400 mt-1">
@@ -131,7 +131,7 @@ export default function KnowledgeBaseView() {
             type="button"
             onClick={handleBackfillEmbeddings}
             disabled={backfilling || records.length === 0}
-            className="text-xs text-gray-400 hover:text-blue-400 flex items-center gap-1 disabled:opacity-50"
+            className="text-xs text-gray-400 hover:text-game-grass flex items-center gap-1 disabled:opacity-50"
             title="為缺少向量的舊紀錄產生 embedding（需 API Key）"
           >
             {backfilling ? <Loader size={12} className="animate-spin" /> : <RefreshCw size={12} />}
@@ -148,9 +148,9 @@ export default function KnowledgeBaseView() {
       </div>
 
       {/* 新增表單 */}
-      <div className="bg-surface-800 rounded-xl border border-gray-800 p-5 space-y-4 shadow-lg shadow-black/40">
+      <div className="card-base p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
-          <Plus className="text-green-400" size={18} />
+          <Plus className="text-game-grass" size={18} aria-hidden />
           <h2 className="text-sm font-semibold text-white">新增紀錄</h2>
         </div>
         <p className="text-xs text-gray-400 mb-2">
@@ -163,7 +163,7 @@ export default function KnowledgeBaseView() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
-              className="w-full bg-surface-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white"
+              className="input-base w-full text-sm"
             >
               <option value="note">訓練日記</option>
               <option value="injury">傷痛紀錄</option>
@@ -176,7 +176,7 @@ export default function KnowledgeBaseView() {
               type="date"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
-              className="w-full bg-surface-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white"
+              className="input-base w-full text-sm"
             />
           </div>
           <div className="md:col-span-2">
@@ -186,7 +186,7 @@ export default function KnowledgeBaseView() {
               onChange={(e) => setNewText(e.target.value)}
               rows={2}
               placeholder="例：2024/12/20 長距離後左膝外側緊繃，物理治療師建議加強臀中肌訓練與泡滾筒。"
-              className="w-full bg-surface-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none"
+              className="input-base w-full text-sm resize-none"
             />
           </div>
         </div>
@@ -196,19 +196,19 @@ export default function KnowledgeBaseView() {
             type="button"
             onClick={handleCreate}
             disabled={saving}
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-surface-800 text-white text-sm font-semibold rounded-lg flex items-center gap-2"
+            className="btn-primary px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50"
           >
-            {saving ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
+            {saving ? <Loader size={14} className="animate-spin" aria-hidden /> : <Plus size={14} aria-hidden />}
             新增到知識庫
           </button>
         </div>
       </div>
 
       {/* 篩選 & 列表 */}
-      <div className="bg-surface-800 rounded-xl border border-gray-800 p-5 shadow-lg shadow-black/40">
+      <div className="card-base p-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 text-sm text-gray-300">
-            <Filter size={14} className="text-gray-400" />
+            <Filter size={14} className="text-game-grass" aria-hidden />
             <span>篩選類型：</span>
             <div className="flex flex-wrap gap-2">
               {TYPE_OPTIONS.map((opt) => (
@@ -216,10 +216,10 @@ export default function KnowledgeBaseView() {
                   key={opt.value}
                   type="button"
                   onClick={() => handleFilterChange(opt.value)}
-                  className={`px-3 py-1 rounded-full text-xs border ${
+                  className={`px-3 py-1 rounded-game text-xs border-2 ${
                     filterType === opt.value
-                      ? 'bg-blue-600 border-blue-500 text-white'
-                      : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                      ? 'bg-game-grass border-game-grass text-game-outline'
+                      : 'bg-surface-900 border-game-outline/50 text-gray-300 hover:border-game-outline'
                   }`}
                 >
                   {opt.label}
@@ -252,16 +252,16 @@ export default function KnowledgeBaseView() {
               return (
                 <div
                   key={rec.id}
-                  className="flex items-start justify-between gap-3 bg-surface-900/60 border border-gray-800 rounded-lg px-3 py-2.5"
+                  className="flex items-start justify-between gap-3 bg-surface-900/60 border-2 border-game-outline/40 rounded-game px-3 py-2.5"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="text-xs text-gray-400">{date}</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-600/20 text-blue-300 border border-blue-500/40">
+                      <span className="px-2 py-0.5 rounded-game text-[10px] bg-game-grass/20 text-game-grass border border-game-outline/50">
                         {typeLabel}
                       </span>
                       {rec.metadata?.source === 'calendar' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-600/10 text-green-300 border border-green-500/30">
+                        <span className="px-2 py-0.5 rounded-game text-[10px] bg-game-coin/10 text-game-coin border border-game-outline/50">
                           來自行事曆
                         </span>
                       )}
@@ -273,10 +273,11 @@ export default function KnowledgeBaseView() {
                   <button
                     type="button"
                     onClick={() => handleDelete(rec.id)}
-                    className="text-gray-500 hover:text-red-400 flex-shrink-0 p-1 rounded-lg hover:bg-surface-800"
+                    className="text-gray-500 hover:text-game-heart flex-shrink-0 p-1 rounded-game hover:bg-surface-800 min-h-[44px]"
                     title="刪除紀錄"
+                    aria-label="刪除此筆紀錄"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} aria-hidden />
                   </button>
                 </div>
               );

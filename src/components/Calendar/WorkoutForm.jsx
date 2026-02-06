@@ -23,29 +23,33 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
   return (
     <div className="space-y-6">
         {/* 1. 頂部：類型切換 */}
-        <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
-            <button 
-                onClick={() => setEditForm(prev => ({ ...prev, type: 'strength' }))} 
-                className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'strength' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+        <div className="toggle-group flex p-1">
+            <button
+                type="button"
+                onClick={() => setEditForm(prev => ({ ...prev, type: 'strength' }))}
+                aria-pressed={editForm.type === 'strength'}
+                className={`flex-1 py-2 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'strength' ? 'bg-game-grass text-game-outline' : 'text-gray-400 hover:text-white'}`}
             >
-                <Dumbbell size={16} /> 重量訓練
+                <Dumbbell size={16} aria-hidden /> 重量訓練
             </button>
-            <button 
-                onClick={() => setEditForm(prev => ({ ...prev, type: 'run' }))} 
-                className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'run' ? 'bg-orange-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+            <button
+                type="button"
+                onClick={() => setEditForm(prev => ({ ...prev, type: 'run' }))}
+                aria-pressed={editForm.type === 'run'}
+                className={`flex-1 py-2 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'run' ? 'bg-game-coin text-game-outline' : 'text-gray-400 hover:text-white'}`}
             >
-                <Activity size={16} /> 跑步有氧
+                <Activity size={16} aria-hidden /> 跑步有氧
             </button>
         </div>
 
         {/* 2. 標題與 AI 按鈕 */}
         <div className="space-y-3">
-            <input 
-                type="text" 
-                value={editForm.title} 
-                onChange={e => setEditForm({...editForm, title: e.target.value})} 
-                placeholder={editForm.type === 'run' ? "標題 (例：晨跑 5K)" : "標題 (例：腿部轟炸日)"} 
-                className="w-full bg-gray-800 text-white text-lg font-bold border border-gray-700 rounded-xl px-4 py-3 focus:border-blue-500 outline-none" 
+            <input
+                type="text"
+                value={editForm.title}
+                onChange={e => setEditForm({...editForm, title: e.target.value})}
+                placeholder={editForm.type === 'run' ? "標題 (例：晨跑 5K)" : "標題 (例：腿部轟炸日)"}
+                className="input-base w-full text-lg font-bold"
             />
             
             {/* 跑步類型選擇（僅在跑步模式下顯示） */}
@@ -81,7 +85,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                 </button>
                             ))}
                     </div>
-                    <div className="text-xs text-gray-500 bg-gray-900/50 p-2 rounded border border-gray-700">
+                    <div className="text-xs text-gray-500 bg-surface-800/60 p-2 rounded-game border-2 border-game-outline/40">
                         {editForm.runType 
                             ? `已選擇：${
                                 editForm.runType === 'Easy' ? '輕鬆跑' : 
@@ -96,20 +100,21 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                 </div>
             )}
             
-            <button 
-                onClick={() => handleHeadCoachGenerate(editForm.runType)} 
-                disabled={isGenerating} 
-                className={`w-full text-white px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 border border-white/10 shadow-lg ${editForm.type === 'run' ? 'bg-gradient-to-r from-orange-600 to-red-600' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}
+            <button
+                type="button"
+                onClick={() => handleHeadCoachGenerate(editForm.runType)}
+                disabled={isGenerating}
+                className="btn-primary w-full px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
             >
-                {isGenerating ? <Loader size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                {isGenerating ? <Loader size={16} className="animate-spin" aria-hidden /> : <Sparkles size={16} aria-hidden />}
                 {isGenerating ? 'AI 正在思考課表...' : '✨ 請 AI 總教練安排今日課表'}
             </button>
         </div>
 
         {/* 3. 核心數據區塊 (根據類型切換) */}
-        <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+        <div className="bg-surface-800/60 p-4 rounded-game border-2 border-game-outline/50">
             <h4 className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1">
-                <Gauge size={12}/> 核心資料
+                <Gauge size={12} aria-hidden /> 核心資料
             </h4>
 
             {editForm.type === 'strength' ? (

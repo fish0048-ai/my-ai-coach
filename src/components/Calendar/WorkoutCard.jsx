@@ -21,31 +21,30 @@ export default function WorkoutCard({ workout, gears, onEdit, onStatusToggle }) 
   return (
     <div
       onClick={() => onEdit(workout)}
-      className="bg-surface-800 p-4 rounded-xl border border-gray-800 cursor-pointer flex justify-between items-center group hover:border-primary-500 transition-colors"
+      className="card-base p-4 rounded-game cursor-pointer flex justify-between items-center group hover:border-game-grass transition-colors"
     >
       <div className="flex items-center gap-4">
-        <div
-          className={`p-3 rounded-lg ${isRun ? 'bg-orange-500/20 text-orange-500' : 'bg-green-500/20 text-green-500'}`}
-        >
-          {isRun ? <Activity size={24} /> : <Dumbbell size={24} />}
+        <div className={`p-3 rounded-game border-2 border-game-outline/50 ${isRun ? 'bg-game-coin/20 text-game-coin' : 'bg-game-grass/20 text-game-grass'}`}>
+          {isRun ? <Activity size={24} aria-hidden /> : <Dumbbell size={24} aria-hidden />}
         </div>
         <div>
           <h3 className="font-bold text-white">{workout.title || (isRun ? '跑步' : '訓練')}</h3>
           <p className="text-xs text-gray-400">{subtitle}</p>
           {usedGear && (
-            <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-300">
-              <ShoppingBag size={10} /> {usedGear.brand} {usedGear.model}
+            <div className="mt-1 flex items-center gap-1 text-[10px] text-game-grass">
+              <ShoppingBag size={10} aria-hidden /> {usedGear.brand} {usedGear.model}
             </div>
           )}
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Edit3 size={18} className="text-gray-600 group-hover:text-white" />
+        <Edit3 size={18} className="text-gray-500 group-hover:text-white" aria-hidden />
         <button
           onClick={(e) => onStatusToggle(e, workout)}
-          className={`p-2 rounded-full transition-colors ${workout.status === 'completed' ? 'text-green-500 bg-green-900/20' : 'text-gray-600 hover:text-gray-400'}`}
+          className={`p-2 rounded-game border-2 transition-colors ${workout.status === 'completed' ? 'text-game-grass bg-game-grass/20 border-game-grass/50' : 'text-gray-500 hover:text-gray-400 border-game-outline/50'}`}
+          aria-label={workout.status === 'completed' ? '標記為未完成' : '標記為已完成'}
         >
-          <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} />
+          <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} aria-hidden />
         </button>
       </div>
     </div>

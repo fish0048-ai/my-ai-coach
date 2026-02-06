@@ -7,8 +7,8 @@ import React from 'react';
 export default function StatCard({ icon: Icon, label, value, color }) {
   return (
     <div className="card-base p-6 flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
-        <Icon className={color.replace('bg-', 'text-')} size={24} />
+      <div className={`p-3 rounded-game border-2 border-game-outline/50 ${color} bg-opacity-20`}>
+        <Icon className={color.replace('bg-', 'text-')} size={24} aria-hidden />
       </div>
       <div>
         <p className="text-gray-400 text-sm">{label}</p>

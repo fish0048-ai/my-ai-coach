@@ -8,7 +8,7 @@ export default function StatsOverview({ stats, userData }) {
   const items = [
     { icon: Activity, bg: 'bg-game-grass/20', text: 'text-game-grass', label: '近30天訓練', value: stats?.totalWorkouts },
     { icon: Flame, bg: 'bg-game-coin/20', text: 'text-game-coin', label: '消耗熱量 (估)', value: `${stats?.caloriesBurned || 0}`, suffix: 'kcal' },
-    { icon: Timer, bg: 'bg-primary-500/20', text: 'text-primary-400', label: '訓練時數 (估)', value: `${stats?.totalHours || 0}`, suffix: 'h' },
+    { icon: Timer, bg: 'bg-game-grass/20', text: 'text-game-grass', label: '訓練時數 (估)', value: `${stats?.totalHours || 0}`, suffix: 'h' },
     { icon: Gauge, bg: 'bg-game-grass/20', text: 'text-game-grass', label: '訓練負荷', value: stats?.trainingLoad || 0, suffix: `(${stats?.avgTrainingLoad || 0}/次)` },
     { icon: Trophy, bg: 'bg-game-coin/20', text: 'text-game-coin', label: '達成目標', value: userData?.goal || '未設定', span: true },
   ];

@@ -71,7 +71,7 @@ export default function WeatherWidget() {
   if (loading) {
     return (
       <div className="card-base p-4 flex items-center justify-center h-24">
-        <Loader className="animate-spin text-primary-500" />
+        <Loader className="animate-spin text-game-grass" aria-hidden />
         <span className="ml-2 text-gray-400 text-sm">正在載入氣象資訊...</span>
       </div>
     );
@@ -80,7 +80,7 @@ export default function WeatherWidget() {
   if (error) {
     return (
       <div className="card-base p-4 flex items-center text-gray-400 text-sm">
-        <MapPin className="mr-2 text-red-400" size={18} />
+        <MapPin className="mr-2 text-game-heart" size={18} aria-hidden />
         {error} (請允許定位權限以獲取當地天氣)
       </div>
     );
@@ -91,34 +91,34 @@ export default function WeatherWidget() {
   const advice = getAdvice(temperature, weathercode);
 
   return (
-    <div className="card-base bg-gradient-to-r from-primary-800/40 to-surface-800 rounded-card p-5 border-primary-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
+    <div className="card-base bg-gradient-to-r from-surface-800 to-surface-900 rounded-game p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
       
       {/* 左側：溫度與狀態 */}
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-full bg-gray-800 border border-gray-700 shadow-lg ${color}`}>
-          <WeatherIcon size={32} />
+        <div className={`p-3 rounded-full bg-surface-800 border-2 border-game-outline shadow-lg ${color}`}>
+          <WeatherIcon size={32} aria-hidden />
         </div>
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-3xl font-bold text-white font-mono">{temperature}°C</h2>
-            <span className="text-sm text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700 flex items-center gap-1">
-              {weather.isDefault && <MapPin size={10} />}
+            <span className="text-sm text-gray-400 bg-surface-800 px-2 py-0.5 rounded-game border-2 border-game-outline/50 flex items-center gap-1">
+              {weather.isDefault && <MapPin size={10} aria-hidden />}
               {text}
             </span>
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-            <MapPin size={12} />
+            <MapPin size={12} aria-hidden />
             {weather.isDefault ? "預設地區 (台北)" : "目前位置"}
           </div>
         </div>
       </div>
 
       {/* 右側：AI 建議 */}
-      <div className="flex-1 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+      <div className="flex-1 bg-surface-800/60 rounded-game p-3 border-2 border-game-outline/50">
         <div className="flex items-start gap-2">
-          <Droplets className="text-primary-400 mt-0.5 flex-shrink-0" size={16} />
+          <Droplets className="text-game-grass mt-0.5 flex-shrink-0" size={16} aria-hidden />
           <div>
-            <h4 className="text-primary-400 font-bold text-xs uppercase mb-1">今日運動提醒</h4>
+            <h4 className="text-game-grass font-bold text-xs uppercase mb-1">今日運動提醒</h4>
             <p className="text-gray-300 text-sm leading-relaxed">
               {advice}
             </p>

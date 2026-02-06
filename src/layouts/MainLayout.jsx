@@ -78,27 +78,27 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundRepeat: 'no-repeat',
           }}
         />
-        {/* 6. 雲朵：底部用 mask 柔化，避免出現水藍色硬線 */}
+        {/* 6. 雲朵：只出現在最上方，約 0～38% 高，以下完全透明（中間、下方不露雲） */}
         <div
-          className="absolute inset-0 opacity-80"
+          className="absolute inset-0 opacity-85"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
             backgroundSize: '260px 260px',
             backgroundPosition: '0 0',
             backgroundRepeat: 'repeat',
-            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 55%, transparent 75%)',
-            maskImage: 'linear-gradient(to bottom, black 0%, black 55%, transparent 75%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)',
+            maskImage: 'linear-gradient(to bottom, black 0%, black 32%, transparent 42%)',
           }}
         />
         <div
-          className="absolute inset-0 opacity-70"
+          className="absolute inset-0 opacity-75"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
             backgroundSize: '180px 180px',
             backgroundPosition: '40px 60px',
             backgroundRepeat: 'repeat',
-            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 72%)',
-            maskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 72%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)',
+            maskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)',
           }}
         />
         {/* 7. 遠山、遠樹：原先尺寸 256×256 不拉伸，橫向重複鋪滿底部 */}

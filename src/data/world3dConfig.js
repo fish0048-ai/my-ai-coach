@@ -18,15 +18,29 @@ const BUILDING_POSITIONS = {
   gear: [GRID_UNIT * 1.5, 0, -GRID_UNIT * 1.5],
 };
 
+/**
+ * Kenney City Kit Industrial 模型對應（public/models/kenney/*.glb）
+ * 有設定時 World3DView 會載入 GLB，否則使用程式生成的方塊。
+ */
+const KENNEY_MODEL = {
+  calendar: 'building-a.glb',
+  dashboard: 'building-b.glb',
+  nutrition: 'building-c.glb',
+  ai_coach: 'building-d.glb',
+  knowledge_base: 'building-e.glb',
+  trend: 'building-f.glb',
+  gear: 'building-g.glb',
+};
+
 /** 建築物尺寸 [寬, 高, 深] 與顏色（hex） */
 const BUILDING_SPEC = {
-  calendar: { size: [6, 5, 6], color: 0x93c5fd },
-  dashboard: { size: [6, 6.5, 6], color: 0xc4b5fd },
-  nutrition: { size: [5.5, 5.2, 5.5], color: 0xfde68a },
-  ai_coach: { size: [6, 7, 6], color: 0x7dd3fc },
-  knowledge_base: { size: [7, 6.2, 6], color: 0xbbf7d0 },
-  trend: { size: [5.2, 7.2, 5.2], color: 0xf9a8d4 },
-  gear: { size: [5.5, 5.8, 5.5], color: 0xfdba74 },
+  calendar: { size: [6, 5, 6], color: 0x93c5fd, kenneyModel: KENNEY_MODEL.calendar },
+  dashboard: { size: [6, 6.5, 6], color: 0xc4b5fd, kenneyModel: KENNEY_MODEL.dashboard },
+  nutrition: { size: [5.5, 5.2, 5.5], color: 0xfde68a, kenneyModel: KENNEY_MODEL.nutrition },
+  ai_coach: { size: [6, 7, 6], color: 0x7dd3fc, kenneyModel: KENNEY_MODEL.ai_coach },
+  knowledge_base: { size: [7, 6.2, 6], color: 0xbbf7d0, kenneyModel: KENNEY_MODEL.knowledge_base },
+  trend: { size: [5.2, 7.2, 5.2], color: 0xf9a8d4, kenneyModel: KENNEY_MODEL.trend },
+  gear: { size: [5.5, 5.8, 5.5], color: 0xfdba74, kenneyModel: KENNEY_MODEL.gear },
 };
 
 /** 進入建築時觸發的動作 → 對應 App 的 view 或 panel */

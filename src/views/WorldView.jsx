@@ -8,7 +8,8 @@ import { Map, Box, Calendar, LayoutDashboard, MessageCircle, BookOpen } from 'lu
 import { useViewStore } from '../store/viewStore';
 
 const World2DView = React.lazy(() => import('./World2DView.jsx'));
-const World3DView = React.lazy(() => import('./World3DView.jsx'));
+// World3DView 改為靜態 import，與 WorldView 同 chunk 載入，避免切到 3D 時第二次動態 fetch 失敗（ERR_CONNECTION_REFUSED / Failed to fetch dynamically imported module）
+import World3DView from './World3DView.jsx';
 
 /** 載入中骨架：無障礙 + 視覺 */
 function WorldLoadingFallback() {

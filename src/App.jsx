@@ -21,7 +21,8 @@ const NutritionView = React.lazy(() => import('./views/NutritionView.jsx'));
 const GearView = React.lazy(() => import('./views/GearView.jsx'));
 const TrainingPlanView = React.lazy(() => import('./views/TrainingPlanView.jsx'));
 const KnowledgeBaseView = React.lazy(() => import('./views/KnowledgeBaseView.jsx'));
-const WorldView = React.lazy(() => import('./views/WorldView.jsx'));
+// 靜態 import，避免進入「3D 城市 World」時動態 fetch 失敗（ERR_CONNECTION_REFUSED / server connection lost）
+import WorldView from './views/WorldView.jsx';
 const WorldMap = React.lazy(() => import('./views/WorldMap.jsx'));
 
 // 懶載入聊天室元件 (降低初始 Bundle 大小)

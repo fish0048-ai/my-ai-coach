@@ -56,16 +56,17 @@
   }
 }
 
-/* 登入後整頁背景：Kenney 天空 + 雲 + 草地（SVG 當 CSS 背景圖） */
+/* 登入後整頁背景：藍天 + 白雲 + 草地（Kenney SVG 當 CSS 背景圖） */
 .app-background {
   background-color: var(--color-game-sky);
+  /* 圖層由下到上：草地條 → 天空漸層 → 雲朵 repeat */
   background-image:
-    url('/kenney-bg/background_clouds.svg'),
-    linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 55%, transparent 55%),
-    url('/kenney-bg/background_solid_grass.svg');
-  background-size: 256px 256px, 100% 100%, 100% 45%;
-  background-position: 0 0, top left, bottom left;
-  background-repeat: repeat, no-repeat, no-repeat;
+    url('/kenney-bg/background_solid_grass.svg'),
+    linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 50%, var(--color-game-sky) 58%, transparent 58%),
+    url('/kenney-bg/background_clouds.svg');
+  background-size: 100% 38%, 100% 100%, 320px 320px;
+  background-position: bottom left, top left, 0 0;
+  background-repeat: no-repeat, no-repeat, repeat;
 }
 
 @layer components {

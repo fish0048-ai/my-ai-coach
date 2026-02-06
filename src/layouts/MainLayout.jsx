@@ -175,10 +175,10 @@ export default function MainLayout({ children, currentView, setCurrentView, user
         </div>
       </div>
 
-      {/* Main Content Area：亮色底 + 白/米色卡片區 */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white/85 min-h-0">
-        {/* Header：亮色 + 深色粗描邊 */}
-        <header className="h-16 border-b-[3px] border-game-outline flex items-center justify-between px-4 lg:px-8 shrink-0 bg-[#fafaf8]">
+      {/* Main Content Area：透明讓藍天白雲草地透出，僅 Header 輕量遮罩 */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-transparent min-h-0">
+        {/* Header：半透明白/米色 + 深色粗描邊，不擋住天空感 */}
+        <header className="h-16 border-b-[3px] border-game-outline flex items-center justify-between px-4 lg:px-8 shrink-0 bg-[#fafaf8]/90 backdrop-blur-sm">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}

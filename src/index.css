@@ -58,7 +58,7 @@
 
 /* 登入後整頁背景：由 MainLayout 內 .app-background-layers 多層 div 繪製（可個別設 opacity） */
 .app-background {
-  background-color: var(--color-game-sky);
+  background-color: #ffffff;
   position: relative;
 }
 

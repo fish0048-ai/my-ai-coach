@@ -51,10 +51,14 @@ export default defineConfig({
               id.includes('node_modules/ieee754')) {
             return; // 不分離，隨 main 載入
           }
-          // 其他工具庫
-          if (id.includes('node_modules/fit-file-parser') ||
-              id.includes('node_modules/zustand')) {
+          // fit-file-parser 單獨成 chunk，僅在行事曆／FIT 匯入時載入；不與 zustand 同捆，
+          // 避免 production 載入 utils-vendor 時 Buffer/defineProperties 在非物件上執行（Object.defineProperties called on non-object）
+          if (id.includes('node_modules/fit-file-parser')) {
             return 'utils-vendor';
+          }
+          // zustand 保留在主 bundle，避免啟動時載入 utils-vendor 觸發 polyfill 錯誤
+          if (id.includes('node_modules/zustand')) {
+            return;
           }
           // lucide-react 圖標庫（使用頻繁但較大）
           if (id.includes('node_modules/lucide-react')) {

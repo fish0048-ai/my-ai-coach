@@ -1,6 +1,6 @@
 /**
  * Kenney 平台素材示範頁（對齊 Sample A.png）
- * 分層：背景（藍天+雲+遠山）→ 地形（草地波浪緣 terrain_grass_cloud）→ HUD（白底粗描邊）→ 物件
+ * 背景：Kenney 全素材搭配組合（遠樹、遠山、蘑菇、雙層雲、裝飾地景），可愛不單調
  */
 import React from 'react';
 
@@ -10,33 +10,92 @@ const GROUND_Y = TILE * 1.1;
 export default function PlatformerDemoView() {
   return (
     <div className="fixed inset-0 overflow-hidden bg-game-sky">
-      {/* ========== 1. 背景層（與 Sample A 一致）========== */}
-      {/* 天空：淺藍底色 */}
+      {/* ========== 1. 背景層：多層組合（由後到前）========== */}
+      {/* 天空漸層 */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 60%, #C3E3FF 100%)',
+          background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 55%, #C3E3FF 100%)',
         }}
       />
-      {/* 遠山／遠景：background_color_hills 增加層次 */}
+      {/* 遠景：淡出遠樹（柔和綠意） */}
       <div
-        className="absolute inset-0 opacity-70"
+        className="absolute inset-0 opacity-50"
         style={{
-          backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'bottom center',
+          backgroundImage: 'url(/kenney-platformer/backgrounds/background_fade_trees.png)',
+          backgroundSize: '100% 75%',
+          backgroundPosition: 'center bottom',
           backgroundRepeat: 'no-repeat',
         }}
       />
-      {/* 雲朵：重複鋪滿 */}
+      {/* 遠景：淡出遠山（層次感） */}
       <div
-        className="absolute inset-0 opacity-90"
+        className="absolute inset-0 opacity-55"
+        style={{
+          backgroundImage: 'url(/kenney-platformer/backgrounds/background_fade_hills.png)',
+          backgroundSize: '100% 70%',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+      {/* 遠景：彩色樹林（可愛樹木剪影） */}
+      <div
+        className="absolute inset-0 opacity-45"
+        style={{
+          backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+      {/* 遠景：彩色遠山 */}
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+      {/* 遠景：彩色蘑菇（點綴，低透明度） */}
+      <div
+        className="absolute inset-0 opacity-25"
+        style={{
+          backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_mushrooms.png)',
+          backgroundSize: '80% 50%',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+      {/* 雲朵層 1：較大、主雲 */}
+      <div
+        className="absolute inset-0 opacity-85"
         style={{
           backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
-          backgroundSize: '256px 256px',
+          backgroundSize: '280px 280px',
+          backgroundPosition: '0 0',
           backgroundRepeat: 'repeat',
         }}
       />
+      {/* 雲朵層 2：較小、偏移，增加層次 */}
+      <div
+        className="absolute inset-0 opacity-75"
+        style={{
+          backgroundImage: 'url(/kenney-platformer/backgrounds/background_clouds.png)',
+          backgroundSize: '200px 200px',
+          backgroundPosition: '60px 50px',
+          backgroundRepeat: 'repeat',
+        }}
+      />
+      {/* 裝飾：遠方小山與灌木（tiles 當背景點綴） */}
+      <div className="absolute inset-0 pointer-events-none" style={{ bottom: '15%' }}>
+        <img src="/kenney-platformer/tiles/hill.png" alt="" className="absolute opacity-30" style={{ left: '5%', bottom: 0, width: TILE * 2, height: TILE * 1.5, objectFit: 'contain', objectPosition: 'bottom' }} />
+        <img src="/kenney-platformer/tiles/hill.png" alt="" className="absolute opacity-25" style={{ right: '8%', bottom: 0, width: TILE * 2.2, height: TILE * 1.6, objectFit: 'contain', objectPosition: 'bottom' }} />
+        <img src="/kenney-platformer/tiles/hill_top.png" alt="" className="absolute opacity-35" style={{ left: '25%', bottom: 0, width: TILE * 1.5, height: TILE * 1.2, objectFit: 'contain', objectPosition: 'bottom' }} />
+        <img src="/kenney-platformer/tiles/bush.png" alt="" className="absolute opacity-20" style={{ left: '15%', bottom: TILE * 0.3, width: TILE * 0.8, height: TILE * 0.8 }} />
+        <img src="/kenney-platformer/tiles/bush.png" alt="" className="absolute opacity-20" style={{ right: '20%', bottom: TILE * 0.2, width: TILE * 0.7, height: TILE * 0.7 }} />
+      </div>
 
       {/* ========== 2. 地形層：草地波浪緣（terrain_grass_cloud，像 Sample A 的綠平台）========== */}
       <div

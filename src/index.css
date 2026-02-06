@@ -56,18 +56,35 @@
   }
 }
 
-/* 登入後整頁背景：與平台素材示範同邏輯（藍天 + 雲 + 草地 + 土），使用 kenney-platformer 素材 */
+/* 登入後整頁背景：Kenney 多層組合（藍天 + 遠樹/遠山 + 雙層雲 + 草地 + 土），可愛不單調 */
 .app-background {
   background-color: var(--color-game-sky);
-  /* 圖層由下到上：土(最底) → 草地 → 天空漸層 → 雲朵 */
+  /* 圖層由下到上：土 → 草地 → 天空漸層 → 淡出遠樹(柔和) → 淡出遠山 → 雲朵(大) → 雲朵(小偏移) */
   background-image:
     url('/kenney-platformer/backgrounds/background_clouds.png'),
+    url('/kenney-platformer/backgrounds/background_clouds.png'),
+    url('/kenney-platformer/backgrounds/background_fade_hills.png'),
+    url('/kenney-platformer/backgrounds/background_fade_trees.png'),
     linear-gradient(180deg, var(--color-game-sky-light) 0%, var(--color-game-sky) 50%, var(--color-game-sky) 58%, transparent 58%),
     url('/kenney-platformer/backgrounds/background_solid_grass.png'),
     url('/kenney-platformer/backgrounds/background_solid_dirt.png');
-  background-size: 256px 256px, 100% 100%, 100% 26%, 100% 12%;
-  background-position: 0 0, top left, left 62%, bottom left;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-size:
+    320px 320px,
+    220px 220px,
+    100% 85%,
+    100% 80%,
+    100% 100%,
+    100% 26%,
+    100% 12%;
+  background-position:
+    40px 30px,
+    -20px 80px,
+    center bottom,
+    center bottom,
+    top left,
+    left 62%,
+    bottom left;
+  background-repeat: repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
 }
 
 @layer components {

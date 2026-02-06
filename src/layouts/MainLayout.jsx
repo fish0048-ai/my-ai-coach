@@ -51,14 +51,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 32%, #ffffff 38%, #ffffff 72%, transparent 76%)',
           }}
         />
-        {/* 2. 備援：純 CSS 草地+土（柔和漸層，避免硬邊線） */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(180deg, transparent 50%, rgba(46,204,113,0.3) 62%, #2ECC71 72%, #8d6e63 88%, #5d4037 100%)',
-          }}
-        />
-        {/* 4. 土（Kenney 圖） */}
+        {/* 3. 土（Kenney 圖） */}
         <div
           className="absolute inset-0"
           style={{
@@ -68,7 +61,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundRepeat: 'no-repeat',
           }}
         />
-        {/* 5. 草地（Kenney 圖） */}
+        {/* 4. 草地（Kenney 圖） */}
         <div
           className="absolute inset-0"
           style={{
@@ -78,7 +71,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundRepeat: 'no-repeat',
           }}
         />
-        {/* 6. 雲朵：只出現在最上方，約 0～38% 高，以下完全透明（中間、下方不露雲） */}
+        {/* 5. 雲朵：只出現在最上方，以下完全透明 */}
         <div
           className="absolute inset-0 opacity-85"
           style={{
@@ -101,7 +94,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             maskImage: 'linear-gradient(to bottom, black 0%, black 28%, transparent 38%)',
           }}
         />
-        {/* 7. 遠山、遠樹：原先尺寸 256×256 不拉伸，橫向重複鋪滿底部 */}
+        {/* 6. 遠山、遠樹：原先尺寸 256×256 不拉伸，橫向重複鋪滿底部 */}
         <div
           className="absolute inset-0 opacity-90"
           style={{

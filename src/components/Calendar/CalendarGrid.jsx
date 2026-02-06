@@ -36,13 +36,14 @@ export default function CalendarGrid({
           const isToday = todayStr === dateStr;
           const isDragOver = dragOverDate === dateStr;
 
-          let bgClass = 'bg-surface-900 border-gray-800';
+          let bgClass = 'bg-surface-900 border-2 border-game-outline/50';
           let textClass = 'text-gray-300';
           if (isDragOver) {
-            bgClass = 'bg-primary-900/40 border-primary-400 border-dashed scale-105 shadow-xl';
+            bgClass = 'bg-game-grass/30 border-game-grass border-2 border-dashed scale-105 shadow-xl';
+            textClass = 'text-game-grass';
           } else if (isSelected) {
-            bgClass = 'bg-primary-900/20 border-primary-500';
-            textClass = 'text-primary-400';
+            bgClass = 'bg-game-grass/20 border-2 border-game-grass';
+            textClass = 'text-game-grass';
           }
 
           return (
@@ -55,7 +56,7 @@ export default function CalendarGrid({
               onDrop={(e) => onDrop(e, dateStr)}
               onClick={() => onDateClick(cellDate)}
               className={`relative p-2 rounded-card border transition-all cursor-pointer flex flex-col hover:bg-surface-700 aspect-square overflow-hidden ${bgClass} ${
-                isToday ? 'ring-2 ring-accent-400 ring-offset-2 ring-offset-surface-900' : ''
+                isToday ? 'ring-2 ring-game-grass ring-offset-2 ring-offset-surface-900' : ''
               }`}
             >
               <span className={`text-sm font-bold ${textClass}`}>{day}</span>
@@ -76,10 +77,10 @@ export default function CalendarGrid({
                       onDragStart={(e) => onDragStart(e, workout)}
                       className={`text-[10px] px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
                         workout.status === 'planned'
-                          ? 'border border-primary-500/50 text-primary-300 border-dashed'
+                          ? 'border-2 border-game-grass/50 text-game-grass border-dashed'
                           : isRun
-                            ? 'bg-orange-500/20 text-orange-400'
-                            : 'bg-accent-500/20 text-accent-400'
+                            ? 'bg-game-coin/20 text-game-coin'
+                            : 'bg-game-grass/20 text-game-grass'
                       }`}
                       title={title}
                     >

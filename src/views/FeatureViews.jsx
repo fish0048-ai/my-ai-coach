@@ -212,9 +212,9 @@ export default function FeatureViews({ view }) {
             />
 
             {/* 資料備份與恢復 */}
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <div className="card-base p-6">
               <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Database className="text-blue-400" />
+                <Database className="text-game-grass" aria-hidden />
                 資料備份與恢復
               </h3>
               
@@ -235,16 +235,16 @@ export default function FeatureViews({ view }) {
                       }
                     }}
                     disabled={backingUp}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+                    className="btn-primary w-full px-4 py-3 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {backingUp ? (
                       <>
-                        <Loader size={18} className="animate-spin"/>
+                        <Loader size={18} className="animate-spin" aria-hidden />
                         <span>備份中...</span>
                       </>
                     ) : (
                       <>
-                        <Download size={18}/>
+                        <Download size={18} aria-hidden />
                         <span>下載備份</span>
                       </>
                     )}
@@ -297,16 +297,16 @@ export default function FeatureViews({ view }) {
                   <button
                     onClick={() => backupFileInputRef.current?.click()}
                     disabled={restoring}
-                    className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+                    className="btn-secondary w-full px-4 py-3 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {restoring ? (
                       <>
-                        <Loader size={18} className="animate-spin"/>
+                        <Loader size={18} className="animate-spin" aria-hidden />
                         <span>恢復中...</span>
                       </>
                     ) : (
                       <>
-                        <Upload size={18}/>
+                        <Upload size={18} aria-hidden />
                         <span>選擇備份檔案恢復</span>
                       </>
                     )}
@@ -315,16 +315,16 @@ export default function FeatureViews({ view }) {
 
                 {/* 恢復結果 */}
                 {restoreResult && (
-                  <div className={`p-4 rounded-lg border ${
+                  <div className={`p-4 rounded-game border-2 ${
                     restoreResult.success 
-                      ? 'bg-green-900/20 border-green-700/50' 
-                      : 'bg-yellow-900/20 border-yellow-700/50'
+                      ? 'bg-game-grass/20 border-game-grass/50' 
+                      : 'bg-game-coin/20 border-game-coin/50'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
                       {restoreResult.success ? (
-                        <CheckCircle2 className="text-green-400" size={18}/>
+                        <CheckCircle2 className="text-game-grass" size={18} aria-hidden />
                       ) : (
-                        <AlertCircle className="text-yellow-400" size={18}/>
+                        <AlertCircle className="text-game-coin" size={18} aria-hidden />
                       )}
                       <span className="text-sm font-semibold text-white">
                         {restoreResult.success ? '恢復完成' : '恢復部分完成'}
@@ -338,7 +338,7 @@ export default function FeatureViews({ view }) {
                       {restoreResult.restored.gears && <p>✓ 裝備記錄：{restoreResult.restored.gears} 筆</p>}
                       {restoreResult.restored.achievements && <p>✓ 成就記錄：{restoreResult.restored.achievements} 筆</p>}
                       {restoreResult.errors && restoreResult.errors.length > 0 && (
-                        <div className="mt-2 text-yellow-400">
+                        <div className="mt-2 text-game-coin">
                           <p className="font-semibold">錯誤：</p>
                           {restoreResult.errors.map((err, idx) => (
                             <p key={idx}>• {err}</p>
@@ -349,7 +349,7 @@ export default function FeatureViews({ view }) {
                   </div>
                 )}
 
-                <div className="text-xs text-gray-500 pt-2 border-t border-gray-700">
+                <div className="text-xs text-gray-500 pt-2 border-t border-game-outline/40">
                   <p>💡 建議定期備份資料，保護您的訓練記錄</p>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx';
 import WeatherWidget from '../components/WeatherWidget.jsx';
-import { Share2, Dumbbell, Zap, Coins } from 'lucide-react';
+import { Share2, Dumbbell, Zap } from 'lucide-react';
 import { getDefaultGameProfile } from '../services/game/gameProfileService';
 import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
@@ -18,7 +18,7 @@ import TrainingAdviceSection from '../components/Dashboard/TrainingAdviceSection
 import { useUserStore } from '../store/userStore';
 import { getBackupReminder } from '../services/backup/backupService';
 
-/** RPG 遊戲化：等級、經驗條、金幣（司令部用） */
+/** RPG 遊戲化：等級、經驗條、金幣（司令部用，與 WorldMap HUD 一致） */
 function GameProfileStrip({ gameProfile }) {
   const gp = gameProfile || getDefaultGameProfile();
   const level = gp.level ?? 1;
@@ -29,26 +29,23 @@ function GameProfileStrip({ gameProfile }) {
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-2 rounded-panel bg-surface-800/80 border border-gray-700 shrink-0"
+      className="hud-strip shrink-0"
       role="status"
       aria-label={`等級 ${level}，經驗值 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}
     >
-      <div className="flex items-center gap-2">
-        <Zap size={18} className="text-primary-400" aria-hidden />
-        <span className="text-sm font-bold text-white">Lv.{level}</span>
+      <div className="flex items-center gap-1.5">
+        <Zap size={18} className="text-game-grass" aria-hidden />
+        <span className="text-sm font-bold text-level">Lv.{level}</span>
       </div>
       <div className="hidden sm:block w-24">
-        <div className="h-2 bg-surface-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary-500 rounded-full transition-all duration-300"
-            style={{ width: `${pct}%` }}
-          />
+        <div className="h-2 bg-game-outline/30 rounded-full overflow-hidden border-2 border-game-outline">
+          <div className="h-full bg-game-grass rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
         </div>
-        <span className="text-[10px] text-gray-500">{currentXP}/{nextLevelXP}</span>
+        <span className="text-[10px] text-game-outline/80">{currentXP}/{nextLevelXP}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <Coins size={16} className="text-amber-400" aria-hidden />
-        <span className="text-sm font-bold text-amber-400">{coins}</span>
+        <img src="/kenney-ui/coin_gold.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
+        <span className="text-sm font-bold text-level" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>×{coins}</span>
       </div>
     </div>
   );
@@ -173,7 +170,7 @@ export default function DashboardView() {
             <span className="text-[10px] text-gray-500">行事曆紀錄</span>
           </div>
           
-          <div className="flex-1 min-h-[280px] flex flex-col bg-gray-900/40 rounded-lg relative">
+          <div className="flex-1 min-h-[280px] flex flex-col bg-surface-900/60 rounded-game border-2 border-game-outline/50 relative">
             <BodyHeatmap data={stats.muscleFatigue} />
             {Object.keys(stats.muscleFatigue || {}).length === 0 && !loading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">

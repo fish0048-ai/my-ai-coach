@@ -30,15 +30,15 @@ const getCategoryIcon = (category) => {
 const getCategoryColor = (category) => {
   switch (category) {
     case 'streak':
-      return 'bg-orange-500/20 border-orange-500 text-orange-400';
+      return 'bg-game-coin/20 border-game-coin text-game-coin';
     case 'running':
-      return 'bg-green-500/20 border-green-500 text-green-400';
+      return 'bg-game-grass/20 border-game-grass text-game-grass';
     case 'strength':
-      return 'bg-blue-500/20 border-blue-500 text-blue-400';
+      return 'bg-game-grass/20 border-game-outline text-game-grass';
     case 'special':
-      return 'bg-purple-500/20 border-purple-500 text-purple-400';
+      return 'bg-game-coin/20 border-game-coin text-game-coin';
     default:
-      return 'bg-gray-500/20 border-gray-500 text-gray-400';
+      return 'bg-surface-700/60 border-game-outline/60 text-gray-300';
   }
 };
 
@@ -55,7 +55,7 @@ export default function AchievementBadge({ achievement, size = 'md' }) {
   };
 
   return (
-    <div className={`rounded-lg border-2 ${colorClass} ${sizeClasses[size]} transition-all hover:scale-105 cursor-pointer`}>
+    <div className={`rounded-game border-2 ${colorClass} ${sizeClasses[size]} transition-all hover:scale-105 cursor-pointer`}>
       <div className="flex items-center gap-2">
         <div className="text-2xl">{achievement.icon || '🏆'}</div>
         <div className="flex-1 min-w-0">

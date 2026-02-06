@@ -2,7 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design Token：Kenney 平台風格（明亮飽和、粗線條、HUD 感） */
+/**
+ * 統一 UI 設計：Kenney 平台風格
+ * - 配色：game-sky / game-grass / game-earth / game-coin / game-heart / game-outline（粗邊）
+ * - 卡片：.card-base（3px 深邊、shadow-card）
+ * - 按鈕：.btn-primary（藍）、.btn-secondary（草地綠）、min-h-[44px]、border-game-outline
+ * - 區塊：.hint-bar（說明列）、.hud-strip（等級/金幣 HUD）、.toggle-group（分段切換）、.button-group-inline（快捷鈕組）
+ * - 表單：.input-base（粗邊）
+ * 全站請沿用上述 class 與 Tailwind game-* / surface-*，勿使用單獨 gray-* 邊框以維持一致。
+ */
 
 :root {
   /* 色彩：平台遊戲 */
@@ -80,6 +88,38 @@
   .input-base {
     @apply w-full bg-surface-800 border-[3px] border-game-outline rounded-button px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
   }
+
+  /* 統一：提示條（說明文字列） */
+  .hint-bar {
+    @apply px-4 py-2 rounded-game bg-surface-800/80 border-[3px] border-game-outline text-gray-300 text-xs flex items-center justify-center gap-4;
+  }
+
+  /* 統一：HUD 條（等級／經驗／金幣） */
+  .hud-strip {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-game bg-white/95 border-[3px] border-game-outline shadow-card;
+  }
+
+  /* 統一：分段切換（2D/3D、Tab 等） */
+  .toggle-group {
+    @apply flex rounded-game overflow-hidden border-[3px] border-game-outline;
+  }
+  .toggle-group button {
+    @apply flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset border-r-[3px] border-game-outline last:border-r-0;
+  }
+  .toggle-group button[aria-pressed="true"] {
+    @apply bg-game-grass text-white;
+  }
+  .toggle-group button[aria-pressed="false"] {
+    @apply bg-surface-800 text-gray-400 hover:text-white hover:bg-surface-700;
+  }
+
+  /* 統一：內嵌按鈕組（快捷入口等） */
+  .button-group-inline {
+    @apply flex gap-1 rounded-game overflow-hidden border-[3px] border-game-outline;
+  }
+  .button-group-inline button {
+    @apply flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-medium text-gray-300 hover:text-white hover:bg-game-grass transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset rounded-none first:rounded-l-game last:rounded-r-game;
+  }
 }
 
 @layer utilities {
@@ -91,6 +131,14 @@
   /* 載入狀態 */
   .skeleton-pulse {
     @apply animate-pulse bg-surface-700 rounded;
+  }
+
+  /* 數字／金幣強調 */
+  .text-coin {
+    @apply text-game-coin font-bold;
+  }
+  .text-level {
+    @apply text-game-outline font-bold;
   }
 }
 

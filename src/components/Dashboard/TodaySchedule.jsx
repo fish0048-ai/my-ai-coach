@@ -11,7 +11,7 @@ export default function TodaySchedule({ workouts }) {
   return (
     <div className="card-base p-4">
         <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-        <CalendarClock className="text-primary-400" size={18} />
+        <CalendarClock className="text-game-grass" size={18} aria-hidden />
         今日訓練課表
       </h3>
       {workouts?.length > 0 ? (
@@ -19,13 +19,13 @@ export default function TodaySchedule({ workouts }) {
           {workouts.map((workout) => (
             <div
               key={workout.id}
-              className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                workout.status === 'completed' ? 'bg-green-900/15 border-green-500/25' : 'bg-gray-800/50 border-gray-700/50'
+              className={`flex items-center justify-between p-3 rounded-game border-2 transition-all ${
+                workout.status === 'completed' ? 'bg-game-grass/15 border-game-grass/40' : 'bg-surface-800/60 border-game-outline/40'
               }`}
             >
               <div className="flex items-center gap-4">
-                <div className={`p-2 rounded-button ${workout.type === 'run' ? 'bg-orange-500/20 text-orange-400' : 'bg-primary-500/20 text-primary-400'}`}>
-                  {workout.type === 'run' ? <TrendingUp size={20} /> : <Dumbbell size={20} />}
+                <div className={`p-2 rounded-game border border-game-outline/50 ${workout.type === 'run' ? 'bg-game-coin/20 text-game-coin' : 'bg-game-grass/20 text-game-grass'}`}>
+                  {workout.type === 'run' ? <TrendingUp size={20} aria-hidden /> : <Dumbbell size={20} aria-hidden />}
                 </div>
                 <div>
                   <h4 className={`font-bold ${workout.status === 'completed' ? 'text-gray-400 line-through' : 'text-white'}`}>
@@ -40,12 +40,12 @@ export default function TodaySchedule({ workouts }) {
               </div>
               <div className="flex items-center gap-2">
                 {workout.status === 'completed' ? (
-                  <div className="flex items-center gap-1 text-green-400 text-xs font-bold bg-green-900/30 px-3 py-1.5 rounded-full">
-                    <CheckCircle2 size={14} /> 已完成
+                  <div className="flex items-center gap-1 text-game-grass text-xs font-bold bg-game-grass/25 px-3 py-1.5 rounded-game border border-game-outline/50">
+                    <CheckCircle2 size={14} aria-hidden /> 已完成
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 text-gray-400 text-xs bg-gray-700/50 px-3 py-1.5 rounded-full border border-gray-600">
-                    <Circle size={14} /> 待執行
+                  <div className="flex items-center gap-1 text-gray-400 text-xs bg-surface-700/60 px-3 py-1.5 rounded-game border-2 border-game-outline/50">
+                    <Circle size={14} aria-hidden /> 待執行
                   </div>
                 )}
               </div>
@@ -55,7 +55,7 @@ export default function TodaySchedule({ workouts }) {
             <div className="text-right mt-2">
               <button
                 onClick={() => setCurrentView('calendar')}
-                className="text-xs text-primary-400 hover:text-primary-300 flex items-center justify-end gap-1 cursor-pointer hover:underline transition-colors"
+                className="text-xs text-game-grass hover:text-game-grass/90 flex items-center justify-end gap-1 cursor-pointer hover:underline transition-colors"
               >
                 前往行事曆打卡 <ArrowRight size={12} />
               </button>

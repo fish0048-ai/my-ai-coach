@@ -15,14 +15,14 @@ import World3DView from './World3DView.jsx';
 function WorldLoadingFallback() {
   return (
     <div
-      className="w-full min-h-[60vh] flex flex-col items-center justify-center bg-surface-900 rounded-panel"
+      className="w-full min-h-[60vh] flex flex-col items-center justify-center bg-surface-800 rounded-panel border-[3px] border-game-outline"
       role="status"
       aria-live="polite"
       aria-busy="true"
       aria-label="虛擬世界載入中"
     >
-      <div className="w-12 h-12 rounded-full border-2 border-primary-500/30 border-t-primary-500 animate-spin mb-4" />
-      <p className="text-sm text-gray-400">載入世界中...</p>
+      <div className="w-12 h-12 rounded-full border-[3px] border-game-grass/30 border-t-game-grass animate-spin mb-4" />
+      <p className="text-sm text-gray-300">載入世界中...</p>
       <p className="text-xs text-gray-500 mt-1">請稍候</p>
     </div>
   );
@@ -50,8 +50,8 @@ export default function WorldView() {
       <div className="card-base p-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-white" id="world-title">AI Coach World</h2>
         <div className="flex items-center gap-4 flex-wrap">
-          {/* 快捷入口：一鍵進入常用功能 */}
-          <nav className="flex items-center gap-1 rounded-button border border-gray-700 overflow-hidden" aria-label="快捷進入功能">
+          {/* 快捷入口：統一 button-group-inline */}
+          <nav className="button-group-inline" aria-label="快捷進入功能">
             {quickActions.map((item) => {
               const Icon = item.icon;
               return (
@@ -59,9 +59,8 @@ export default function WorldView() {
                   key={item.id}
                   type="button"
                   onClick={() => handleQuickAction(item)}
-                  className="flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-medium text-gray-300 hover:text-white hover:bg-surface-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-surface-900 rounded-none first:rounded-l-button last:rounded-r-button"
                   aria-label={`前往${item.label}`}
-                  title={`前往${item.label}`}
+                  title={`${item.label}`}
                 >
                   <Icon size={14} aria-hidden />
                   <span className="hidden sm:inline">{item.label}</span>
@@ -69,37 +68,19 @@ export default function WorldView() {
               );
             })}
           </nav>
-          {/* 2D / 3D 切換 */}
-          <div className="flex rounded-button overflow-hidden border border-gray-700" role="group" aria-labelledby="world-title">
-            <button
-              type="button"
-              onClick={() => setMode('3d')}
-              className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset ${
-                mode === '3d' ? 'bg-primary-600 text-white' : 'bg-surface-800 text-gray-400 hover:text-white'
-              }`}
-              aria-pressed={mode === '3d'}
-              aria-label="切換至 3D 場景"
-              title="3D 場景"
-            >
+          {/* 2D / 3D 切換：統一 toggle-group */}
+          <div className="toggle-group" role="group" aria-labelledby="world-title">
+            <button type="button" onClick={() => setMode('3d')} aria-pressed={mode === '3d'} aria-label="切換至 3D 場景" title="3D 場景">
               <Box size={16} aria-hidden /> 3D 場景
             </button>
-            <button
-              type="button"
-              onClick={() => setMode('2d')}
-              className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset ${
-                mode === '2d' ? 'bg-primary-600 text-white' : 'bg-surface-800 text-gray-400 hover:text-white'
-              }`}
-              aria-pressed={mode === '2d'}
-              aria-label="切換至 2D 等角地圖"
-              title="2D 等角地圖"
-            >
+            <button type="button" onClick={() => setMode('2d')} aria-pressed={mode === '2d'} aria-label="切換至 2D 等角地圖" title="2D 等角地圖">
               <Map size={16} aria-hidden /> 2D 等角地圖
             </button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-[60vh] rounded-panel overflow-hidden card-base border border-gray-800 shadow-card">
+      <div className="flex-1 min-h-[60vh] rounded-panel overflow-hidden card-base">
         <Suspense fallback={<WorldLoadingFallback />}>
           {mode === '3d' ? <World3DView /> : <World2DView />}
         </Suspense>

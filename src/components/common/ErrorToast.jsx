@@ -41,19 +41,14 @@ export default function ErrorToast() {
 
   return (
     <div className="fixed top-4 right-4 z-[9999] animate-slide-in" role="alert" aria-live="assertive">
-      <div className="bg-red-900/90 border border-red-700 rounded-card shadow-card p-4 max-w-md flex items-start gap-3">
-        <AlertCircle className="text-red-400 flex-shrink-0 mt-0.5" size={20} />
+      <div className="bg-surface-800 rounded-card border-[3px] border-game-heart shadow-card p-4 max-w-md flex items-start gap-3">
+        <AlertCircle className="text-game-heart flex-shrink-0 mt-0.5" size={20} aria-hidden />
         <div className="flex-1">
-          <h4 className="text-red-300 font-semibold mb-1">錯誤</h4>
-          <p className="text-red-200 text-sm">{error.message}</p>
+          <h4 className="text-game-heart font-semibold mb-1">錯誤</h4>
+          <p className="text-gray-200 text-sm">{error.message}</p>
         </div>
-        <button
-          onClick={handleClose}
-          type="button"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-red-400 hover:text-red-300 transition-colors flex-shrink-0 -mr-2"
-          aria-label="關閉錯誤提示"
-        >
-          <X size={18} />
+        <button onClick={handleClose} type="button" className="min-h-[44px] min-w-[44px] flex items-center justify-center text-game-heart hover:text-white hover:bg-game-heart/20 rounded-game transition-colors flex-shrink-0 -mr-2" aria-label="關閉錯誤提示">
+          <X size={18} aria-hidden />
         </button>
       </div>
     </div>

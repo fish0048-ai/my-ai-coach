@@ -34,7 +34,7 @@ const IsoBuilding = ({ b, onClick }) => {
   const tooltip = `點擊前往：${b.name}`;
   return (
     <g
-      className="cursor-pointer transition-transform hover:scale-105 duration-300 group focus-within:ring-2 focus-within:ring-primary-500 rounded"
+      className="cursor-pointer transition-transform hover:scale-105 duration-300 group focus-within:ring-2 focus-within:ring-game-grass rounded"
       onClick={() => onClick(b)}
       role="button"
       tabIndex={0}
@@ -202,14 +202,14 @@ export default function World2DView() {
   }, [runRoomAction]);
 
   return (
-    <div className="relative w-full min-h-[70vh] rounded-panel bg-surface-900 border border-gray-800 overflow-hidden shadow-card">
+    <div className="relative w-full min-h-[70vh] rounded-panel bg-surface-800 overflow-hidden border-[3px] border-game-outline shadow-card">
       <div className="absolute top-0 left-0 right-0 z-10 px-6 py-4 bg-gradient-to-b from-surface-800 to-transparent flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white tracking-tight">AI Coach World</h2>
           <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">2D 等角地圖</p>
         </div>
         <div className="flex gap-2">
-          <div className="px-3 py-1 bg-primary-500/10 border border-primary-500/20 rounded-button text-[10px] text-primary-400 font-bold">等角 2D</div>
+          <div className="px-3 py-1.5 bg-game-grass/20 border-2 border-game-outline rounded-game text-[10px] text-game-grass font-bold">等角 2D</div>
         </div>
       </div>
 
@@ -300,13 +300,13 @@ export default function World2DView() {
 
       <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2 pointer-events-none">
         {enterFeedback && (
-          <div className="px-4 py-2 bg-primary-500/20 border border-primary-500/40 rounded-button text-primary-400 text-sm font-medium shadow-card" role="status" aria-live="polite">
+          <div className="px-4 py-2 bg-game-grass/30 border-[3px] border-game-outline rounded-game text-game-outline text-sm font-medium shadow-card" role="status" aria-live="polite">
             {enterFeedback}
           </div>
         )}
-        <div className="px-6 py-2 bg-surface-800/90 border border-gray-700 rounded-full shadow-card backdrop-blur-md">
-          <p className="text-[11px] text-gray-300 font-medium tracking-wider uppercase flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" aria-hidden />
+        <div className="px-6 py-2 hud-strip max-w-max">
+          <p className="text-[11px] text-game-outline font-medium tracking-wider uppercase flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-game-grass animate-pulse" aria-hidden />
             點擊建築物即可前往該功能
           </p>
         </div>

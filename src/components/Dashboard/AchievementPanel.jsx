@@ -50,7 +50,7 @@ export default function AchievementPanel() {
     return (
       <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Trophy className="text-yellow-400" size={24} />
+          <Trophy className="text-game-coin" size={24} aria-hidden />
           <h3 className="text-xl font-bold text-white">訓練成就</h3>
         </div>
         <p className="text-gray-400 text-sm">載入中...</p>
@@ -62,7 +62,7 @@ export default function AchievementPanel() {
     return (
       <div className="card-base p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Trophy className="text-yellow-400" size={24} />
+          <Trophy className="text-game-coin" size={24} aria-hidden />
           <h3 className="text-xl font-bold text-white">訓練成就</h3>
         </div>
         <p className="text-gray-400 text-sm mb-4">
@@ -72,7 +72,7 @@ export default function AchievementPanel() {
           onClick={checkNewAchievements}
           className="btn-primary px-4 py-2 text-sm"
         >
-          <Sparkles size={16} />
+          <Sparkles size={16} aria-hidden />
           檢查成就
         </button>
       </div>
@@ -99,7 +99,7 @@ export default function AchievementPanel() {
     <div className="card-base p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Trophy className="text-yellow-400" size={24} />
+          <Trophy className="text-game-coin" size={24} aria-hidden />
           <div>
             <h3 className="text-xl font-bold text-white">訓練成就</h3>
             <p className="text-xs text-gray-400">
@@ -108,8 +108,8 @@ export default function AchievementPanel() {
           </div>
         </div>
         {newlyUnlocked.length > 0 && (
-          <div className="flex items-center gap-1 text-green-400 text-sm animate-pulse">
-            <Sparkles size={16} />
+          <div className="flex items-center gap-1 text-game-grass text-sm animate-pulse">
+            <Sparkles size={16} aria-hidden />
             <span>新解鎖 {newlyUnlocked.length} 個成就！</span>
           </div>
         )}
@@ -138,7 +138,7 @@ export default function AchievementPanel() {
         onClick={checkNewAchievements}
         className="btn-secondary mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm"
       >
-        <Sparkles size={16} />
+        <Sparkles size={16} aria-hidden />
         檢查新成就
         <ChevronRight size={16} />
       </button>

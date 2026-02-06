@@ -49,11 +49,7 @@ export default function WorldMap() {
     <div className="animate-fade-in h-full flex flex-col p-4 lg:p-6">
       {/* 左上角：HUD 風格（Kenney 平台－等級、經驗條、金幣） */}
       <div className="flex items-center justify-between gap-4 mb-4">
-        <div
-          className="flex items-center gap-3 px-4 py-2.5 rounded-game bg-white/95 border-[3px] border-game-outline shadow-card"
-          role="status"
-          aria-label={`等級 ${level}，經驗 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}
-        >
+        <div className="hud-strip" role="status" aria-label={`等級 ${level}，經驗 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}>
           <div className="flex items-center gap-1.5">
             <Zap size={18} className="text-game-grass" aria-hidden />
             <span className="text-sm font-bold text-game-outline">Lv.{level}</span>

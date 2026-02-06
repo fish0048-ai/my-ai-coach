@@ -46,17 +46,14 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-red-400 p-8">
-          <AlertTriangle size={48} className="mb-4" />
+        <div className="flex flex-col items-center justify-center h-full text-game-heart p-8 bg-surface-900">
+          <AlertTriangle size={48} className="mb-4" aria-hidden />
           <h2 className="text-xl font-bold mb-2">此頁面發生錯誤</h2>
-          <div className="bg-gray-800 p-4 rounded-lg border border-red-900 text-left max-w-lg w-full overflow-auto">
-            <p className="font-mono text-xs whitespace-pre-wrap">{this.state.error?.toString()}</p>
+          <div className="card-base p-4 text-left max-w-lg w-full overflow-auto">
+            <p className="font-mono text-xs text-gray-200 whitespace-pre-wrap">{this.state.error?.toString()}</p>
             <p className="text-xs text-gray-500 mt-2">請檢查 Console (F12) 獲取詳細資訊</p>
           </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
-          >
+          <button onClick={() => window.location.reload()} className="mt-6 btn-primary px-6 py-2 min-h-[44px]">
             重新整理網頁
           </button>
         </div>

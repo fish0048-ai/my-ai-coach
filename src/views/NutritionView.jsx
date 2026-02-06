@@ -193,7 +193,7 @@ export default function NutritionView() {
                   <span className="text-gray-400">{label}</span>
                   <span className="text-white">{Math.round(current)} / {safeTarget}</span>
               </div>
-              <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
                   <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${pct}%` }}></div>
               </div>
           </div>
@@ -207,7 +207,7 @@ export default function NutritionView() {
   if (loading) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
-        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+        <Loader className="w-8 h-8 text-game-grass animate-spin" aria-hidden />
       </div>
     );
   }
@@ -219,34 +219,28 @@ export default function NutritionView() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Utensils className="text-green-500" /> 智慧營養師
+            <Utensils className="text-game-grass" aria-hidden /> 智慧營養師
           </h2>
           <p className="text-xs text-gray-400 mt-1">
             在營養賢者的調配桌上，放上你的餐點，啟動「鑑定食材」儀式，讓系統幫你拆解熱量與三大營養素。
           </p>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={() => fileInputRef.current.click()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl flex gap-2 items-center shadow-lg shadow-blue-900/20"
-          >
-            {analyzing ? <Loader className="animate-spin" size={18}/> : <Camera size={18}/>}
+          <button onClick={() => fileInputRef.current?.click()} className="btn-primary px-4 py-2 flex gap-2 items-center">
+            {analyzing ? <Loader className="animate-spin" size={18} aria-hidden /> : <Camera size={18} aria-hidden />}
             {analyzing ? '鑑定中...' : '鑑定食材'}
           </button>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-gray-700 text-white rounded-xl"
-          >
-            <Plus size={18}/>
+          <button onClick={() => setShowAddForm(!showAddForm)} className="btn-secondary px-4 py-2">
+            <Plus size={18} aria-hidden />
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-surface-800 p-6 rounded-2xl border border-gray-800 flex flex-col items-center justify-center shadow-lg shadow-black/40">
-              <div className="relative w-32 h-32 flex items-center justify-center border-4 border-gray-700 rounded-full mb-4">
+          <div className="card-base p-6 flex flex-col items-center justify-center">
+              <div className="relative w-32 h-32 flex items-center justify-center border-4 border-game-outline rounded-full mb-4">
                   <div className="text-center">
-                      <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-red-400' : 'text-white'}`}>{Math.round(remaining)}</span>
+                      <span className={`text-3xl font-bold ${summary.cal > targetCal ? 'text-game-heart' : 'text-white'}`}>{Math.round(remaining)}</span>
                       <p className="text-xs text-gray-400">剩餘 kcal</p>
                   </div>
                   <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
@@ -255,25 +249,21 @@ export default function NutritionView() {
               </div>
               <p className="text-sm text-gray-400">目標: {targetCal} kcal</p>
           </div>
-          <div className="md:col-span-2 bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col justify-center space-y-6">
-              <ProgressBar label="蛋白質" current={summary.protein} target={targetProtein} color="bg-blue-500" />
-              <ProgressBar label="碳水" current={summary.carbs} target={targetCarbs} color="bg-yellow-500" />
-              <ProgressBar label="脂肪" current={summary.fat} target={targetFat} color="bg-red-500" />
+          <div className="md:col-span-2 card-base p-6 flex flex-col justify-center space-y-6">
+              <ProgressBar label="蛋白質" current={summary.protein} target={targetProtein} color="bg-game-grass" />
+              <ProgressBar label="碳水" current={summary.carbs} target={targetCarbs} color="bg-game-coin" />
+              <ProgressBar label="脂肪" current={summary.fat} target={targetFat} color="bg-game-heart" />
           </div>
       </div>
 
       {/* 智能營養建議卡片 */}
-      <div className="bg-blue-900/20 p-5 rounded-2xl border border-blue-500/30">
+      <div className="card-base p-5 bg-game-grass/10 border-game-grass/40">
           <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-white flex gap-2 items-center">
-                  <Sparkles className="text-blue-400" size={20}/> 智能營養建議
+                  <Sparkles className="text-game-grass" size={20} aria-hidden /> 智能營養建議
               </h3>
-              <button 
-                  onClick={getSmartRecommendation} 
-                  disabled={loadingRecommendation}
-                  className="text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 px-4 py-2 rounded text-white flex gap-2 items-center transition-colors"
-              >
-                  {loadingRecommendation ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} 
+              <button onClick={getSmartRecommendation} disabled={loadingRecommendation} className="btn-primary text-xs px-4 py-2 flex gap-2 items-center disabled:opacity-50">
+                  {loadingRecommendation ? <Loader size={14} className="animate-spin" aria-hidden /> : <Sparkles size={14} aria-hidden />}
                   {loadingRecommendation ? '分析中...' : '生成智能建議'}
               </button>
           </div>
@@ -282,7 +272,7 @@ export default function NutritionView() {
               <div className="space-y-4">
                   {/* 訓練資訊 */}
                   {smartRecommendation.trainingInfo?.hasTraining && (
-                      <div className="bg-surface-800/50 p-3 rounded-lg border border-gray-800">
+                      <div className="bg-surface-800/50 p-3 rounded-game border-2 border-game-outline/40">
                           <p className="text-xs text-gray-400 mb-1">今日訓練</p>
                           <p className="text-sm text-white">
                               {smartRecommendation.trainingInfo.type} · 
@@ -300,7 +290,7 @@ export default function NutritionView() {
                           <ul className="space-y-1">
                               {smartRecommendation.recommendations.map((rec, idx) => (
                                   <li key={idx} className="text-sm text-gray-300 flex items-start gap-2">
-                                      <span className="text-blue-400 mt-1">•</span>
+                                      <span className="text-game-grass mt-1">•</span>
                                       <span>{rec}</span>
                                   </li>
                               ))}
@@ -317,7 +307,7 @@ export default function NutritionView() {
                                   <div key={idx} className="bg-surface-800/50 p-3 rounded-lg border border-gray-800">
                                       <div className="flex justify-between items-start mb-1">
                                           <p className="text-sm font-semibold text-white">{meal.name}</p>
-                                          <span className="text-xs text-blue-400">{meal.calories} kcal</span>
+                                          <span className="text-xs text-game-coin">{meal.calories} kcal</span>
                                       </div>
                                       <p className="text-xs text-gray-400 mb-2">{meal.description}</p>
                                       <div className="flex gap-3 text-xs text-gray-500">
@@ -333,8 +323,8 @@ export default function NutritionView() {
 
                   {/* 營養缺口提醒 */}
                   {smartRecommendation.gaps && (
-                      <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-700/50">
-                          <p className="text-xs text-yellow-400 mb-1">⚠️ 營養缺口提醒</p>
+                      <div className="bg-game-coin/20 p-3 rounded-game border-2 border-game-coin/50">
+                          <p className="text-xs text-game-coin mb-1">⚠️ 營養缺口提醒</p>
                           {smartRecommendation.gaps.protein && (
                               <p className="text-xs text-gray-300">{smartRecommendation.gaps.protein}</p>
                           )}
@@ -352,20 +342,20 @@ export default function NutritionView() {
       </div>
 
       {/* 原有簡單建議 */}
-      <div className="bg-green-900/20 p-5 rounded-2xl border border-green-500/30">
-          <h3 className="font-bold text-white mb-2 flex gap-2"><ChefHat size={20}/> 快速飲食建議</h3>
+      <div className="card-base p-5 bg-game-grass/10 border-game-grass/40">
+          <h3 className="font-bold text-white mb-2 flex gap-2"><ChefHat size={20} aria-hidden /> 快速飲食建議</h3>
           {suggestion ? <p className="text-sm text-gray-300 whitespace-pre-wrap">{suggestion}</p> : <p className="text-sm text-gray-500">點擊下方按鈕取得建議</p>}
-          <button onClick={getSuggestion} disabled={suggesting} className="mt-3 text-xs bg-green-600 px-4 py-2 rounded text-white flex gap-2 items-center w-fit">
-              {suggesting ? <Loader size={14} className="animate-spin"/> : <Sparkles size={14}/>} 
+          <button onClick={getSuggestion} disabled={suggesting} className="btn-secondary mt-3 text-xs px-4 py-2 flex gap-2 items-center w-fit disabled:opacity-50">
+              {suggesting ? <Loader size={14} className="animate-spin" aria-hidden /> : <Sparkles size={14} aria-hidden />}
               {suggesting ? '思考中...' : '生成建議'}
           </button>
       </div>
 
       {showAddForm && (
-        <div className="bg-surface-800 p-6 rounded-2xl border border-gray-800 animate-slideUp shadow-lg shadow-black/40">
+        <div className="card-base p-6 animate-slideUp">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <ChefHat className="text-amber-300" size={20} />
+              <ChefHat className="text-game-coin" size={20} aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-white">鑑定結果登記簿</p>
                 <p className="text-[11px] text-gray-400">確認數值後，將此份食材寫入今日卷宗</p>
@@ -377,41 +367,38 @@ export default function NutritionView() {
               placeholder="食物名稱"
               value={foodName}
               onChange={e=>setFoodName(e.target.value)}
-              className="col-span-2 bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+              className="input-base col-span-2"
             />
             <input
               type="number"
               placeholder="熱量"
               value={foodCal}
               onChange={e=>setFoodCal(e.target.value)}
-              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+              className="input-base"
             />
             <input
               type="number"
               placeholder="蛋白質"
               value={foodProtein}
               onChange={e=>setFoodProtein(e.target.value)}
-              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+              className="input-base"
             />
             <input
               type="number"
               placeholder="碳水"
               value={foodCarbs}
               onChange={e=>setFoodCarbs(e.target.value)}
-              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+              className="input-base"
             />
             <input
               type="number"
               placeholder="脂肪"
               value={foodFat}
               onChange={e=>setFoodFat(e.target.value)}
-              className="bg-surface-900 border-gray-800 rounded px-3 py-2 text-white border"
+              className="input-base"
             />
           </div>
-          <button
-            onClick={handleAddFood}
-            className="w-full py-2 bg-green-600 text-white rounded font-bold"
-          >
+          <button onClick={handleAddFood} className="btn-primary w-full py-2 font-bold">
             確認寫入卷宗
           </button>
         </div>
@@ -419,12 +406,12 @@ export default function NutritionView() {
 
       <div className="space-y-2">
           {logs.map(log => (
-              <div key={log.id} className="bg-surface-800 p-4 rounded-xl border border-gray-800 flex justify-between items-center shadow-lg shadow-black/40">
+              <div key={log.id} className="card-base p-4 flex justify-between items-center">
                   <div>
                       <h4 className="font-bold text-white">{log.name}</h4>
-                      <span className="text-xs text-green-400">{log.calories} kcal</span>
+                      <span className="text-xs text-game-grass">{log.calories} kcal</span>
                   </div>
-                  <button onClick={() => handleDelete(log.id)} className="text-gray-500 hover:text-red-400"><Trash2 size={18}/></button>
+                  <button onClick={() => handleDelete(log.id)} className="text-gray-500 hover:text-game-heart" aria-label="刪除此筆紀錄"><Trash2 size={18} aria-hidden /></button>
               </div>
           ))}
       </div>

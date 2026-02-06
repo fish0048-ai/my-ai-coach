@@ -31,13 +31,9 @@ export default function CalendarView() {
         fileLoading={state.fileLoading}
       />
 
-      <div className="bg-surface-800/50 p-2 rounded-card text-xs text-gray-400 flex items-center justify-center gap-4">
-        <span className="flex items-center gap-1">
-          <Move size={12} /> 拖曳可移動日期
-        </span>
-        <span className="flex items-center gap-1">
-          <Copy size={12} /> 按住 Ctrl 拖曳可複製
-        </span>
+      <div className="hint-bar">
+        <span className="flex items-center gap-1"><Move size={12} aria-hidden /> 拖曳可移動日期</span>
+        <span className="flex items-center gap-1"><Copy size={12} aria-hidden /> 按住 Ctrl 拖曳可複製</span>
       </div>
 
       <div className="flex-1 card-base p-4 overflow-y-auto">

@@ -81,8 +81,8 @@ const LoginView = () => {
         <div className="h-screen flex items-center justify-center text-gray-900 flex-col gap-8 px-4 app-background relative">
           <KenneyBackground />
            <div className="text-center space-y-4 p-8 rounded-panel bg-white/95 border-[3px] border-game-outline shadow-card relative z-10">
-             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-game-grass border-[3px] border-game-outline mb-2 shadow-card">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>
+             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-game-grass border-[3px] border-game-outline mb-2 shadow-card overflow-hidden">
+                <img src={`${import.meta.env.BASE_URL || ''}kenney-platformer/characters/character_beige_idle.png`} alt="" className="w-14 h-14 object-contain object-bottom" aria-hidden />
              </div>
              <h1 className="text-4xl md:text-5xl font-bold text-game-outline" style={{ textShadow: '0 2px 0 rgba(255,255,255,0.5)' }}>
                 My AI Coach

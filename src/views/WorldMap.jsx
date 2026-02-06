@@ -7,23 +7,18 @@ import { useViewStore } from '../store/viewStore';
 import { useUserStore } from '../store/userStore';
 import { MAP_BUILDINGS, MAP_TITLE, MAP_SUBTITLE } from '../data/athleticaMapConfig';
 import { getDefaultGameProfile } from '../services/game/gameProfileService';
-import {
-  LayoutDashboard,
-  Calendar,
-  Utensils,
-  MessageSquare,
-  LineChart,
-  ShoppingBag,
-  Zap,
-} from 'lucide-react';
+import { Zap } from 'lucide-react';
 
-const BUILDING_ICONS = {
-  dashboard: LayoutDashboard,
-  calendar: Calendar,
-  nutrition: Utensils,
-  ai_coach: MessageSquare,
-  trend: LineChart,
-  gear: ShoppingBag,
+const BASE = import.meta.env.BASE_URL || '';
+
+/** 各建築對應 Kenney Tiles 圖示（來自 kenney_new-platformer-pack） */
+const BUILDING_TILES = {
+  dashboard: 'door_closed.png',      // 司令部
+  calendar: 'flag_green_a.png',      // 競技場
+  nutrition: 'gem_yellow.png',       // 補給站
+  ai_coach: 'sign_exit.png',         // 賢者之塔
+  trend: 'switch_blue.png',          // 科技實驗室
+  gear: 'lock_yellow.png',           // 裝備庫
 };
 
 export default function WorldMap() {
@@ -50,7 +45,7 @@ export default function WorldMap() {
       {/* 左上角：HUD 風格（Kenney 平台－等級、經驗條、金幣） */}
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="hud-strip" role="status" aria-label={`等級 ${level}，經驗 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}>
-          <img src="/kenney-platformer/tiles/hud_player_helmet_yellow.png" alt="" className="w-8 h-8 object-contain" aria-hidden />
+          <img src={`${BASE}kenney-platformer/tiles/hud_player_helmet_yellow.png`} alt="" className="w-8 h-8 object-contain" aria-hidden />
           <div className="flex items-center gap-1.5">
             <Zap size={18} className="text-game-grass" aria-hidden />
             <span className="text-sm font-bold text-game-outline">Lv.{level}</span>
@@ -59,7 +54,7 @@ export default function WorldMap() {
             <div className="h-full bg-game-grass rounded-full transition-all" style={{ width: `${xpPct}%` }} />
           </div>
           <div className="flex items-center gap-1.5">
-            <img src="/kenney-platformer/tiles/hud_coin.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
+            <img src={`${BASE}kenney-platformer/tiles/hud_coin.png`} alt="" className="w-6 h-6 object-contain" aria-hidden />
             <span className="text-sm font-bold text-game-outline">×{coins}</span>
           </div>
         </div>
@@ -75,7 +70,7 @@ export default function WorldMap() {
         aria-label="基地建築導航"
       >
         {MAP_BUILDINGS.map((b) => {
-          const Icon = BUILDING_ICONS[b.id];
+          const tile = BUILDING_TILES[b.id];
           return (
             <button
               key={b.id}
@@ -87,10 +82,17 @@ export default function WorldMap() {
               title={`${b.label} · ${b.sublabel}`}
             >
               <div
-                className="w-14 h-14 rounded-panel flex items-center justify-center border-2 border-game-outline"
-                style={{ backgroundColor: `${b.color}30`, borderColor: `${b.color}99` }}
+                className="w-14 h-14 rounded-panel flex items-center justify-center border-2 border-game-outline bg-[#fafaf8]"
+                style={{ borderColor: `${b.color}99` }}
               >
-                {Icon && <Icon size={28} className="text-gray-800" aria-hidden />}
+                {tile && (
+                  <img
+                    src={`${BASE}kenney-platformer/tiles/${tile}`}
+                    alt=""
+                    className="w-10 h-10 object-contain"
+                    aria-hidden
+                  />
+                )}
               </div>
               <div className="text-center">
                 <div className="font-bold text-gray-900 text-sm">{b.label}</div>

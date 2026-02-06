@@ -106,10 +106,14 @@
     @apply text-gray-500;
   }
 
-  /* 統一：提示條（亮色 HUD） */
+  /* 統一：提示條（亮色 HUD，Kenney 木紋底） */
   .hint-bar {
     @apply px-4 py-2 rounded-game border-[3px] border-game-outline text-gray-700 text-xs flex items-center justify-center gap-4;
     background-color: rgba(250, 250, 248, 0.95);
+    background-image: url('/kenney-platformer/tiles/block_plank.png');
+    background-size: 48px 48px;
+    background-blend-mode: overlay;
+    background-repeat: repeat;
   }
 
   /* 統一：HUD 條（等級／經驗／金幣） */
@@ -160,6 +164,18 @@
   }
   .text-level {
     @apply text-game-outline font-bold;
+  }
+
+  /* Kenney 素材裝飾：可選木紋／磚塊底（用於卡片或區塊） */
+  .bg-kenney-plank {
+    background-image: url('/kenney-platformer/tiles/block_plank.png');
+    background-size: 64px 64px;
+    background-repeat: repeat;
+  }
+  .bg-kenney-brick {
+    background-image: url('/kenney-platformer/tiles/brick_brown.png');
+    background-size: 64px 64px;
+    background-repeat: repeat;
   }
 }
 

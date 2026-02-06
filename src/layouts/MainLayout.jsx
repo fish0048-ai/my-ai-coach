@@ -51,11 +51,11 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             background: 'linear-gradient(180deg, #D6EEF8 0%, #C3E3FF 45%, #C3E3FF 100%)',
           }}
         />
-        {/* 2. 備援：純 CSS 草地+土（圖片未載入時也看得到綠底） */}
+        {/* 2. 備援：純 CSS 草地+土（柔和漸層，避免硬邊線） */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(180deg, transparent 55%, #2ECC71 70%, #8d6e63 85%, #5d4037 100%)',
+            background: 'linear-gradient(180deg, transparent 50%, rgba(46,204,113,0.3) 62%, #2ECC71 72%, #8d6e63 88%, #5d4037 100%)',
           }}
         />
         {/* 4. 土（Kenney 圖） */}
@@ -78,7 +78,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundRepeat: 'no-repeat',
           }}
         />
-        {/* 6. 雲朵（在遠山/遠樹下面） */}
+        {/* 6. 雲朵：底部用 mask 柔化，避免出現水藍色硬線 */}
         <div
           className="absolute inset-0 opacity-80"
           style={{
@@ -86,6 +86,8 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundSize: '260px 260px',
             backgroundPosition: '0 0',
             backgroundRepeat: 'repeat',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 55%, transparent 75%)',
+            maskImage: 'linear-gradient(to bottom, black 0%, black 55%, transparent 75%)',
           }}
         />
         <div
@@ -95,27 +97,27 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             backgroundSize: '180px 180px',
             backgroundPosition: '40px 60px',
             backgroundRepeat: 'repeat',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 72%)',
+            maskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 72%)',
           }}
         />
-        {/* 7. 遠山、遠樹（畫在雲上面） */}
+        {/* 7. 遠山、遠樹：100% auto 保持比例不拉伸，center bottom 只露出底部綠色區 */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 opacity-90"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_hills.png)',
-            backgroundSize: '100% 65%',
+            backgroundSize: '100% auto',
             backgroundPosition: 'center bottom',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.9,
           }}
         />
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 opacity-85"
           style={{
             backgroundImage: 'url(/kenney-platformer/backgrounds/background_color_trees.png)',
-            backgroundSize: '100% 60%',
+            backgroundSize: '100% auto',
             backgroundPosition: 'center bottom',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.85,
           }}
         />
       </div>

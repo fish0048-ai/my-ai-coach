@@ -7,10 +7,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Modern Fitness Dark：主色盤
+        // Kenney 平台風格：明亮飽和、HUD 感
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
+          50: '#dbeafe',
+          100: '#bfdbfe',
           400: '#60a5fa',
           500: '#3b82f6',
           600: '#2563eb',
@@ -18,7 +18,7 @@ export default {
           800: '#1e40af',
         },
         accent: {
-          400: '#34d399',
+          400: '#4ade80',
           500: '#22c55e',
         },
         danger: {
@@ -26,21 +26,41 @@ export default {
           500: '#ef4444',
         },
         surface: {
-          600: '#334155',
-          700: '#1e293b',
-          800: '#111827',
-          900: '#020617', // App 主背景
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+        },
+        // 平台遊戲專用（附圖 Kenney 風格）
+        game: {
+          sky: '#87ceeb',
+          'sky-dark': '#5ba3c6',
+          grass: '#7cb342',
+          'grass-dark': '#558b2f',
+          earth: '#8d6e63',
+          'earth-dark': '#5d4037',
+          coin: '#ffd54f',
+          'coin-dark': '#ffa000',
+          heart: '#ef5350',
+          water: '#4fc3f7',
+          outline: '#1a1a2e',
+          cloud: '#f5f5f5',
         },
       },
       borderRadius: {
         'card': '0.75rem',
         'panel': '1rem',
         'button': '0.5rem',
+        'game': '0.5rem',
       },
       boxShadow: {
-        'card': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2)',
-        'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3)',
+        'card': '0 4px 0 0 #1a1a2e, 0 6px 6px -1px rgba(0,0,0,0.2)',
+        'card-hover': '0 6px 0 0 #1a1a2e, 0 8px 12px -2px rgba(0,0,0,0.25)',
         'glass': '0 18px 45px rgba(15, 23, 42, 0.95)',
+        'game-outline': '0 0 0 3px #1a1a2e',
+      },
+      borderWidth: {
+        'game': '3px',
       },
       spacing: {
         '18': '4.5rem',

@@ -16,24 +16,12 @@ const KENNEY_BASE = '/models/kenney/';
   useGLTF.preload(KENNEY_BASE + f);
 });
 
-/** 單一 Kenney GLB 建築：依 size 縮放，材質微調以符合 Modern Fitness Dark 色調 */
+/** 單一 Kenney GLB 建築：依 size 縮放，材質保持明亮以符合平台風格 */
 function KenneyBuilding({ url, size }) {
   const { scene } = useGLTF(KENNEY_BASE + url);
   const [, h] = size;
   const scale = (h * 0.9) / 1;
-  const clone = React.useMemo(() => {
-    const c = scene.clone();
-    c.traverse((child) => {
-      if (child.material) {
-        const mat = Array.isArray(child.material) ? child.material[0] : child.material;
-        if (mat && mat.color) {
-          mat.color.multiplyScalar(0.82);
-          mat.needsUpdate = true;
-        }
-      }
-    });
-    return c;
-  }, [scene]);
+  const clone = React.useMemo(() => scene.clone(), [scene]);
 
   return (
     <group scale={scale} castShadow receiveShadow>
@@ -72,27 +60,27 @@ function BoxBuilding({ building, onRunRoom, position: pos }) {
 function WorldScene({ onRunRoom }) {
   return (
     <>
-      {/* 燈光與環境：Modern Fitness Dark 色調（冷色、偏暗、主色微染） */}
-      <color attach="background" args={['#020617']} />
-      <fog attach="fog" args={['#020617', 25, 120]} />
-      <ambientLight intensity={0.22} color="#64748b" />
+      {/* 燈光與環境：Kenney 平台風格（天空藍、草地綠、暖土） */}
+      <color attach="background" args={['#87ceeb']} />
+      <fog attach="fog" args={['#87ceeb', 40, 130]} />
+      <ambientLight intensity={0.4} color="#b3e5fc" />
       <directionalLight
-        intensity={0.5}
-        color="#94a3b8"
-        position={[40, 50, 40]}
+        intensity={0.7}
+        color="#fffde7"
+        position={[50, 60, 40]}
         castShadow
       />
-      <directionalLight intensity={0.15} color="#1e40af" position={[-20, 30, -20]} />
-      <pointLight intensity={0.2} color="#3b82f6" position={[0, 15, 0]} distance={60} />
+      <directionalLight intensity={0.25} color="#7cb342" position={[-30, 20, 20]} />
+      <directionalLight intensity={0.15} color="#8d6e63" position={[0, -10, 0]} />
 
-      {/* 地面與廣場（與 surface-900 / surface-800 一致） */}
+      {/* 地面：草地綠 + 中央廣場土色 */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[120, 120, 1, 1]} />
-        <meshStandardMaterial color="#020617" />
+        <meshStandardMaterial color="#558b2f" />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]} receiveShadow>
         <circleGeometry args={[16, 48]} />
-        <meshStandardMaterial color="#111827" />
+        <meshStandardMaterial color="#8d6e63" />
       </mesh>
 
       {/* 建築群：有 kenneyModel 則載入 GLB，否則方塊 */}
@@ -140,21 +128,21 @@ export default function World3DView() {
 
   return (
     <div
-      className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-surface-900 border border-gray-800/80 shadow-glass"
+      className="relative w-full min-h-[60vh] h-[calc(100vh-6rem)] rounded-panel overflow-hidden bg-game-sky border-[3px] border-game-outline shadow-card"
       role="application"
       aria-label="3D 虛擬城市場景。點擊建築物即可前往對應功能。"
     >
-      {/* 天空漸層疊加：與整站 Modern Fitness Dark + 主色一致 */}
+      {/* 天空漸層疊加：平台風格 */}
       <div
-        className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary-800/35 via-transparent to-surface-900/50"
+        className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 via-transparent to-game-grass/20"
         aria-hidden="true"
       />
 
-      {/* 重置視角（暫時為語意按鈕，未來可綁 OrbitControls ref） */}
+      {/* 重置視角：平台風格粗邊 */}
       <button
         type="button"
         onClick={handleResetView}
-        className="absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-2 min-h-[44px] text-xs font-medium text-gray-300 bg-surface-800/90 border border-gray-700 rounded-button hover:text-white hover:bg-surface-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        className="absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-2 min-h-[44px] text-xs font-medium text-game-outline bg-white/95 border-[3px] border-game-outline rounded-game shadow-card hover:bg-game-grass hover:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         aria-label="重置視角"
         title="重置視角"
       >

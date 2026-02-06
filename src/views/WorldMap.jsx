@@ -15,7 +15,6 @@ import {
   LineChart,
   ShoppingBag,
   Zap,
-  Coins,
 } from 'lucide-react';
 
 const BUILDING_ICONS = {
@@ -48,23 +47,23 @@ export default function WorldMap() {
 
   return (
     <div className="animate-fade-in h-full flex flex-col p-4 lg:p-6">
-      {/* 左上角：等級、經驗條、金幣（RPG Phase 2） */}
+      {/* 左上角：HUD 風格（Kenney 平台－等級、經驗條、金幣） */}
       <div className="flex items-center justify-between gap-4 mb-4">
         <div
-          className="flex items-center gap-3 px-3 py-2 rounded-panel bg-surface-800/90 border border-gray-700"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-game bg-white/95 border-[3px] border-game-outline shadow-card"
           role="status"
           aria-label={`等級 ${level}，經驗 ${currentXP}/${nextLevelXP}，金幣 ${coins}`}
         >
           <div className="flex items-center gap-1.5">
-            <Zap size={16} className="text-primary-400" aria-hidden />
-            <span className="text-sm font-bold text-white">Lv.{level}</span>
+            <Zap size={18} className="text-game-grass" aria-hidden />
+            <span className="text-sm font-bold text-game-outline">Lv.{level}</span>
           </div>
-          <div className="w-20 h-1.5 bg-surface-700 rounded-full overflow-hidden">
-            <div className="h-full bg-primary-500 rounded-full" style={{ width: `${xpPct}%` }} />
+          <div className="w-24 h-2 bg-game-outline/30 rounded-full overflow-hidden border-2 border-game-outline">
+            <div className="h-full bg-game-grass rounded-full transition-all" style={{ width: `${xpPct}%` }} />
           </div>
-          <div className="flex items-center gap-1">
-            <Coins size={14} className="text-amber-400" aria-hidden />
-            <span className="text-sm font-bold text-amber-400">{coins}</span>
+          <div className="flex items-center gap-1.5">
+            <img src="/kenney-ui/coin_gold.png" alt="" className="w-6 h-6 object-contain" aria-hidden />
+            <span className="text-sm font-bold text-game-outline" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>×{coins}</span>
           </div>
         </div>
       </div>
@@ -85,7 +84,7 @@ export default function WorldMap() {
               key={b.id}
               type="button"
               onClick={() => handleBuildingClick(b)}
-              className="card-base p-6 flex flex-col items-center justify-center gap-3 min-h-[140px] transition-all duration-200 hover:scale-[1.02] hover:shadow-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 rounded-panel border-2 border-transparent hover:border-gray-600"
+              className="card-base p-6 flex flex-col items-center justify-center gap-3 min-h-[140px] transition-all duration-200 hover:scale-[1.02] hover:shadow-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-game-coin focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 rounded-panel"
               style={{ ['--building-color']: b.color }}
               aria-label={`前往${b.label}`}
               title={`${b.label} · ${b.sublabel}`}

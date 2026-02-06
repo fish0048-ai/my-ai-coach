@@ -2,14 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design Token：Modern Fitness Dark + Glassmorphism */
+/* Design Token：Kenney 平台風格（明亮飽和、粗線條、HUD 感） */
 
 :root {
-  /* 色彩 */
-  --color-surface-900: #020617;
-  --color-surface-800: #111827;
+  /* 色彩：平台遊戲 */
+  --color-surface-900: #0f172a;
+  --color-surface-800: #1e293b;
   --color-primary-500: #3b82f6;
   --color-primary-600: #2563eb;
+  --color-game-sky: #87ceeb;
+  --color-game-grass: #7cb342;
+  --color-game-earth: #8d6e63;
+  --color-game-coin: #ffd54f;
+  --color-game-heart: #ef5350;
+  --color-game-outline: #1a1a2e;
   /* 圓角 */
   --radius-card: 0.75rem;
   --radius-panel: 1rem;
@@ -27,39 +33,39 @@
 
 @layer base {
   body {
-    @apply bg-surface-900 text-gray-100 antialiased;
+    @apply bg-gradient-to-b from-game-sky/30 to-surface-900 text-gray-100 antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     overflow-x: hidden;
   }
 
-  /* 可讀性：重要數字突出 */
+  /* 可讀性：重要數字突出（金幣感） */
   [data-highlight] {
-    @apply text-primary-400 font-semibold;
+    @apply text-game-coin font-semibold;
   }
 }
 
 @layer components {
-  /* 卡片基底：全頁面風格統一 */
+  /* 卡片基底：Kenney 粗線條、平台感 */
   .card-base {
-    @apply bg-surface-800 rounded-card border border-gray-800 shadow-card;
+    @apply bg-surface-800 rounded-card border-[3px] border-game-outline shadow-card;
   }
 
   .card-base:hover {
-    @apply border-gray-700;
+    @apply border-game-outline shadow-card-hover;
   }
 
-  /* Glassmorphism：AI Coach / 浮動面板 */
+  /* Glassmorphism：AI Coach / 浮動面板（保留深色玻璃） */
   .glass-panel {
-    background-color: rgba(15, 23, 42, 0.9);
+    background-color: rgba(15, 23, 42, 0.92);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 3px solid var(--color-game-outline);
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.95);
   }
 
-  /* 人性化：按鈕基底（觸控友善 min 44px） */
+  /* 人性化：按鈕基底（觸控友善 min 44px）+ 平台粗邊 */
   .btn-base {
-    @apply min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-3 rounded-button font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-surface-900;
+    @apply min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-3 rounded-button font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-surface-900 border-[3px] border-game-outline;
   }
 
   .btn-primary {
@@ -67,12 +73,12 @@
   }
 
   .btn-secondary {
-    @apply btn-base bg-surface-700 text-gray-200 hover:bg-surface-600 border border-gray-700;
+    @apply btn-base bg-game-grass text-white hover:bg-game-grass-dark active:bg-game-grass-dark;
   }
 
-  /* 人性化：表單欄位基底 */
+  /* 人性化：表單欄位基底（平台粗邊） */
   .input-base {
-    @apply w-full bg-surface-800 border border-gray-700 rounded-button px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full bg-surface-800 border-[3px] border-game-outline rounded-button px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
   }
 }
 
@@ -95,14 +101,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-surface-900);
-}
-
-::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: var(--color-game-outline);
   border-radius: 4px;
 }
 
+::-webkit-scrollbar-thumb {
+  background: var(--color-game-grass);
+  border-radius: 4px;
+  border: 2px solid var(--color-game-outline);
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: var(--color-game-coin);
 }

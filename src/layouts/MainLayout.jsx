@@ -23,10 +23,10 @@ const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
     type="button"
     aria-current={active ? 'page' : undefined}
     className={`w-full flex items-center gap-3 px-6 py-3 transition-all duration-200 min-h-[44px]
-      rounded-r-button focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900
+      rounded-r-button border-r-[3px] border-game-outline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900
       ${active
-        ? 'bg-primary-600 text-white border-r-4 border-primary-800 shadow-card'
-        : 'text-gray-400 hover:bg-surface-800 hover:text-white'
+        ? 'bg-game-grass text-white shadow-card'
+        : 'text-gray-400 hover:bg-surface-700 hover:text-white'
       }`}
   >
     <Icon size={20} aria-hidden />
@@ -40,27 +40,27 @@ export default function MainLayout({ children, currentView, setCurrentView, user
   const handleSignOut = () => signOut();
 
   return (
-    <div className="flex h-screen bg-surface-900 text-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-gradient-to-b from-game-sky/20 to-surface-900 text-gray-100 overflow-hidden font-sans">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          className="fixed inset-0 bg-game-outline/60 z-20 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar：Kenney 平台粗邊風格 */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-surface-900 border-r border-gray-800 
+        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-surface-800 border-r-[3px] border-game-outline shadow-card
         transform transition-transform duration-300 ease-in-out flex flex-col
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+        <div className="p-6 border-b-[3px] border-game-outline flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary-600 rounded-button flex items-center justify-center shadow-card">
+            <div className="w-8 h-8 bg-game-grass rounded-button flex items-center justify-center border-2 border-game-outline shadow-card">
               <Dumbbell className="text-white" size={20} aria-hidden />
             </div>
-            <span className="text-xl font-bold text-white">My AI Coach</span>
+            <span className="text-xl font-bold text-white" style={{ textShadow: '0 1px 0 #1a1a2e' }}>My AI Coach</span>
           </div>
           <button
             onClick={() => setIsSidebarOpen(false)}
@@ -175,9 +175,9 @@ export default function MainLayout({ children, currentView, setCurrentView, user
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface-900">
-        {/* Header */}
-        <header className="h-16 bg-surface-900 border-b border-gray-800 flex items-center justify-between px-4 lg:px-8 shrink-0">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface-900/95">
+        {/* Header：平台風格粗邊 */}
+        <header className="h-16 bg-surface-800 border-b-[3px] border-game-outline flex items-center justify-between px-4 lg:px-8 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}

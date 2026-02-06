@@ -80,18 +80,18 @@ const LoginView = () => {
     };
 
     return (
-        <div className="h-screen flex items-center justify-center bg-gray-900 text-white flex-col gap-8 px-4">
-           <div className="text-center space-y-4">
-             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 mb-2 shadow-lg shadow-blue-900/20">
+        <div className="h-screen flex items-center justify-center bg-gradient-to-b from-game-sky to-game-grass/30 text-white flex-col gap-8 px-4">
+           <div className="text-center space-y-4 p-8 rounded-panel bg-white/95 border-[3px] border-game-outline shadow-card">
+             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-game-grass border-[3px] border-game-outline mb-2 shadow-card">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>
              </div>
-             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+             <h1 className="text-4xl md:text-5xl font-bold text-game-outline" style={{ textShadow: '0 2px 0 rgba(255,255,255,0.5)' }}>
                 My AI Coach
              </h1>
-             <p className="text-gray-400 text-lg">您的個人化 AI 健身夥伴</p>
+             <p className="text-game-outline/80 text-lg">您的個人化 AI 健身夥伴</p>
            </div>
            
-           <button onClick={handleGoogleLogin} className="px-8 py-4 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-xl flex items-center gap-3">
+           <button onClick={handleGoogleLogin} className="px-8 py-4 bg-white text-game-outline rounded-game font-bold border-[3px] border-game-outline shadow-card hover:bg-game-coin/20 transition-all flex items-center gap-3 min-h-[44px]">
              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
              使用 Google 帳號登入
            </button>

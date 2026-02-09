@@ -75,17 +75,17 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                         }
                                         setEditForm(newForm);
                                     }}
-                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                                    className={`py-2 rounded-game text-xs font-bold transition-all border-[3px] min-h-[44px] ${
                                         type.selected 
-                                            ? `${type.color} text-white shadow-lg` 
-                                            : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                            ? `${type.color} text-white shadow-lg border-transparent` 
+                                            : 'bg-[#fafaf8] text-gray-900 border-game-outline hover:bg-game-outline/10'
                                     }`}
                                 >
                                     {type.label}
                                 </button>
                             ))}
                     </div>
-                    <div className="text-xs font-medium text-gray-700 bg-surface-800/60 p-2 rounded-game border-2 border-game-outline/40">
+                    <div className="text-xs font-bold text-gray-800 bg-game-outline/10 p-3 rounded-game border-[3px] border-game-outline">
                         {editForm.runType 
                             ? `已選擇：${
                                 editForm.runType === 'Easy' ? '輕鬆跑' : 
@@ -112,14 +112,14 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
         </div>
 
         {/* 3. 核心數據區塊 (根據類型切換) */}
-        <div className="bg-surface-800/60 p-4 rounded-game border-2 border-game-outline/50">
-            <h4 className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1">
-                <Gauge size={12} aria-hidden /> 核心資料
+        <div className="bg-[#fafaf8] p-4 rounded-game border-[3px] border-game-outline">
+            <h4 className="text-xs text-gray-900 uppercase font-bold mb-3 flex items-center gap-1">
+                <Gauge size={12} className="text-gray-800" aria-hidden /> 核心資料
             </h4>
 
             {editForm.type === 'strength' ? (
                 <div className="space-y-3">
-                    <div className="grid grid-cols-12 gap-2 text-[10px] text-gray-500 px-2 uppercase tracking-wider font-bold">
+                    <div className="grid grid-cols-12 gap-2 text-[10px] text-gray-800 px-2 uppercase tracking-wider font-bold">
                         <div className="col-span-1 text-center">#</div>
                         <div className="col-span-5">動作名稱</div>
                         <div className="col-span-2 text-center">組數</div>
@@ -129,28 +129,28 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                     
                     <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                         {editForm.exercises.map((ex, idx) => (
-                        <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-gray-800 p-2 rounded-lg border border-gray-700 group hover:border-blue-500 transition-colors">
-                            <div className="col-span-1 w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-gray-400 font-mono text-xs mx-auto">{idx + 1}</div>
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white/70 p-2 rounded-game border-2 border-game-outline/50 group hover:border-game-grass transition-colors">
+                            <div className="col-span-1 w-5 h-5 bg-game-outline/20 rounded-full flex items-center justify-center text-gray-900 font-mono text-xs font-bold mx-auto">{idx + 1}</div>
                             <div className="col-span-5 relative">
-                                <input placeholder="動作名稱" value={ex.name} onChange={e => handleExerciseNameChange(idx, e.target.value)} className="w-full bg-transparent text-white text-sm outline-none placeholder-gray-600 font-medium" />
-                                {ex.targetMuscle && <span className="absolute -bottom-2 left-0 text-[9px] text-green-400 bg-green-900/30 px-1 rounded flex items-center gap-0.5"><Tag size={8} /> {ex.targetMuscle}</span>}
+                                <input placeholder="動作名稱" value={ex.name} onChange={e => handleExerciseNameChange(idx, e.target.value)} className="input-base w-full text-sm py-1.5" />
+                                {ex.targetMuscle && <span className="absolute -bottom-2 left-0 text-[9px] font-bold text-gray-800 bg-game-grass/20 px-1 rounded border border-game-outline/50 flex items-center gap-0.5"><Tag size={8} /> {ex.targetMuscle}</span>}
                             </div>
-                            <div className="col-span-2"><input placeholder="3" value={ex.sets} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].sets = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="w-full bg-gray-900/50 text-white text-sm text-center rounded border border-gray-600 focus:border-blue-500 py-1" /></div>
-                            <div className="col-span-2"><input placeholder="10" value={ex.reps} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].reps = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="w-full bg-gray-900/50 text-white text-sm text-center rounded border border-gray-600 focus:border-blue-500 py-1" /></div>
+                            <div className="col-span-2"><input placeholder="3" value={ex.sets} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].sets = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="input-base w-full text-sm text-center py-1.5" /></div>
+                            <div className="col-span-2"><input placeholder="10" value={ex.reps} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].reps = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="input-base w-full text-sm text-center py-1.5" /></div>
                             <div className="col-span-2 relative group">
-                                <input placeholder="kg" value={ex.weight} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].weight = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="w-full bg-gray-900/50 text-white text-sm text-center rounded border border-gray-600 focus:border-blue-500 py-1" />
-                                <button onClick={() => { const newEx = editForm.exercises.filter((_, i) => i !== idx); setEditForm({...editForm, exercises: newEx}); }} className="absolute -right-6 top-1.5 opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:bg-gray-700 rounded transition-all"><Trash2 size={14} /></button>
+                                <input placeholder="kg" value={ex.weight} onChange={e => { const newEx = [...editForm.exercises]; newEx[idx].weight = e.target.value; setEditForm({...editForm, exercises: newEx}); }} className="input-base w-full text-sm text-center py-1.5" />
+                                <button onClick={() => { const newEx = editForm.exercises.filter((_, i) => i !== idx); setEditForm({...editForm, exercises: newEx}); }} className="absolute -right-6 top-1.5 opacity-0 group-hover:opacity-100 p-1 text-game-heart hover:bg-game-heart/10 rounded transition-all font-bold" aria-label="刪除此動作"><Trash2 size={14} /></button>
                             </div>
                         </div>
                         ))}
                     </div>
-                    <button onClick={() => setEditForm(prev => ({ ...prev, exercises: [...prev.exercises, { name: '', sets: 3, reps: '10', weight: '', targetMuscle: '' }] }))} className="w-full py-2 border-2 border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-blue-500 hover:bg-gray-800 rounded-lg text-sm flex items-center justify-center gap-2 transition-all"><Plus size={16} /> 新增動作</button>
+                    <button onClick={() => setEditForm(prev => ({ ...prev, exercises: [...prev.exercises, { name: '', sets: 3, reps: '10', weight: '', targetMuscle: '' }] }))} className="w-full py-2.5 border-[3px] border-dashed border-game-outline text-gray-900 hover:border-game-grass hover:bg-game-grass/10 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[44px]"><Plus size={16} /> 新增動作</button>
                 </div>
             ) : (
                 <div className="space-y-4">
                     {/* 跑步類型選擇 */}
                     <div className="space-y-1">
-                        <label className="text-xs text-gray-400 flex items-center gap-1">跑步類型</label>
+                        <label className="text-xs font-bold text-gray-800 flex items-center gap-1">跑步類型</label>
                         <div className="grid grid-cols-5 gap-2">
                             {[
                                 { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600' },
@@ -169,10 +169,10 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                         }
                                         setEditForm(newForm);
                                     }}
-                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                                    className={`py-2 rounded-game text-xs font-bold transition-all border-[3px] min-h-[44px] ${
                                         editForm.runType === type.value 
-                                            ? `${type.color} text-white shadow-lg` 
-                                            : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                            ? `${type.color} text-white shadow-lg border-transparent` 
+                                            : 'bg-[#fafaf8] text-gray-900 border-game-outline hover:bg-game-outline/10'
                                     }`}
                                 >
                                     {type.label}
@@ -184,17 +184,17 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                     {/* 基本資料 */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="text-xs text-gray-400 flex items-center gap-1">距離 (km)</label>
-                            <input type="number" step="0.01" value={editForm.runDistance} onChange={e => setEditForm({...editForm, runDistance: e.target.value})} placeholder="0.00" className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold font-mono focus:border-orange-500 outline-none" />
+                            <label className="text-xs font-bold text-gray-800 flex items-center gap-1">距離 (km)</label>
+                            <input type="number" step="0.01" value={editForm.runDistance} onChange={e => setEditForm({...editForm, runDistance: e.target.value})} placeholder="0.00" className="input-base px-3 py-2 text-xl font-bold font-mono" />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-xs text-gray-400 flex items-center gap-1">時間 (分鐘)</label>
-                            <input type="number" step="1" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} placeholder="0" className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold font-mono focus:border-orange-500 outline-none" />
+                            <label className="text-xs font-bold text-gray-800 flex items-center gap-1">時間 (分鐘)</label>
+                            <input type="number" step="1" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} placeholder="0" className="input-base px-3 py-2 text-xl font-bold font-mono" />
                         </div>
-                        <div className="col-span-2 bg-gray-800 p-3 rounded-lg border border-gray-600 flex justify-between items-center">
-                            <span className="text-xs text-gray-400">平均配速</span>
-                            <div className="flex items-center gap-2 text-orange-400 font-mono font-bold text-lg">
-                                <Timer size={16} />
+                        <div className="col-span-2 bg-game-outline/10 p-3 rounded-game border-[3px] border-game-outline flex justify-between items-center">
+                            <span className="text-xs font-bold text-gray-800">平均配速</span>
+                            <div className="flex items-center gap-2 text-gray-900 font-mono font-bold text-lg">
+                                <Timer size={16} className="text-gray-800" />
                                 {editForm.runPace || "--'--\" /km"}
                             </div>
                         </div>
@@ -202,97 +202,44 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
 
                     {/* 間歇跑專用欄位 (Interval 或 10-20-30) */}
                     {(editForm.runType === 'Interval' || editForm.runType === '10-20-30') && (
-                        <div className={`${editForm.runType === '10-20-30' ? 'bg-pink-900/20 border-pink-700/50' : 'bg-red-900/20 border-red-700/50'} border rounded-lg p-4 space-y-3`}>
-                            <div className={`flex items-center gap-2 ${editForm.runType === '10-20-30' ? 'text-pink-400' : 'text-red-400'} font-bold text-sm`}>
-                                <Zap size={14} />
+                        <div className={`rounded-game border-[3px] p-4 space-y-3 ${editForm.runType === '10-20-30' ? 'bg-pink-100/50 border-pink-400' : 'bg-red-100/30 border-red-400'}`}>
+                            <div className="flex items-center gap-2 font-bold text-sm text-gray-900">
+                                <Zap size={14} className="text-gray-800" />
                                 {editForm.runType === '10-20-30' ? '10-20-30 間歇設定' : '間歇跑設定'}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '區塊數' : '組數'}</label>
-                                    <input 
-                                        type="number" 
-                                        step="1" 
-                                        min="1"
-                                        value={editForm.runIntervalSets} 
-                                        onChange={e => setEditForm({...editForm, runIntervalSets: e.target.value})} 
-                                        placeholder={editForm.runType === '10-20-30' ? "例：3" : "例：8"} 
-                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
-                                    />
+                                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1">{editForm.runType === '10-20-30' ? '區塊數' : '組數'}</label>
+                                    <input type="number" step="1" min="1" value={editForm.runIntervalSets} onChange={e => setEditForm({...editForm, runIntervalSets: e.target.value})} placeholder={editForm.runType === '10-20-30' ? "例：3" : "例：8"} className="input-base px-3 py-2 text-lg font-bold font-mono" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '衝刺配速' : '每組配速'}</label>
-                                    <input 
-                                        type="text" 
-                                        value={editForm.runIntervalPace || ''} 
-                                        onChange={e => setEditForm({...editForm, runIntervalPace: e.target.value})} 
-                                        placeholder="例：4'00&quot; /km" 
-                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
-                                    />
+                                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1">{editForm.runType === '10-20-30' ? '衝刺配速' : '每組配速'}</label>
+                                    <input type="text" value={editForm.runIntervalPace || ''} onChange={e => setEditForm({...editForm, runIntervalPace: e.target.value})} placeholder="例：4'00&quot; /km" className="input-base px-3 py-2 text-lg font-bold font-mono" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '衝刺功率 (W)' : '間歇功率 (W)'}</label>
-                                    <input 
-                                        type="number" 
-                                        value={editForm.runIntervalPower || ''} 
-                                        onChange={e => setEditForm({...editForm, runIntervalPower: e.target.value})} 
-                                        placeholder="例：300" 
-                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
-                                    />
+                                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1">{editForm.runType === '10-20-30' ? '衝刺功率 (W)' : '間歇功率 (W)'}</label>
+                                    <input type="number" value={editForm.runIntervalPower || ''} onChange={e => setEditForm({...editForm, runIntervalPower: e.target.value})} placeholder="例：300" className="input-base px-3 py-2 text-lg font-bold font-mono" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">維持時間 (秒)</label>
-                                    <input 
-                                        type="number" 
-                                        step="1" 
-                                        min="0"
-                                        value={editForm.runIntervalDuration} 
-                                        onChange={e => setEditForm({...editForm, runIntervalDuration: e.target.value})} 
-                                        placeholder={editForm.runType === '10-20-30' ? "60 (固定)" : "例：60"} 
-                                        readOnly={editForm.runType === '10-20-30'}
-                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500 opacity-70' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
-                                    />
+                                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1">維持時間 (秒)</label>
+                                    <input type="number" step="1" min="0" value={editForm.runIntervalDuration} onChange={e => setEditForm({...editForm, runIntervalDuration: e.target.value})} placeholder={editForm.runType === '10-20-30' ? "60 (固定)" : "例：60"} readOnly={editForm.runType === '10-20-30'} className="input-base px-3 py-2 text-lg font-bold font-mono disabled:opacity-70" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs text-gray-400 flex items-center gap-1">{editForm.runType === '10-20-30' ? '區塊間休息' : '休息時間 (秒)'}</label>
-                                    <input 
-                                        type="number" 
-                                        step="1" 
-                                        min="0"
-                                        value={editForm.runIntervalRest} 
-                                        onChange={e => setEditForm({...editForm, runIntervalRest: e.target.value})} 
-                                        placeholder={editForm.runType === '10-20-30' ? "120" : "例：90"} 
-                                        className={`w-full bg-gray-900 text-white border ${editForm.runType === '10-20-30' ? 'border-pink-600/50 focus:border-pink-500' : 'border-red-600/50 focus:border-red-500'} rounded-lg px-3 py-2 text-lg font-bold font-mono outline-none`} 
-                                    />
+                                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1">{editForm.runType === '10-20-30' ? '區塊間休息' : '休息時間 (秒)'}</label>
+                                    <input type="number" step="1" min="0" value={editForm.runIntervalRest} onChange={e => setEditForm({...editForm, runIntervalRest: e.target.value})} placeholder={editForm.runType === '10-20-30' ? "120" : "例：90"} className="input-base px-3 py-2 text-lg font-bold font-mono" />
                                 </div>
                             </div>
                             {editForm.runIntervalSets && (editForm.runIntervalDuration || editForm.runIntervalRest) && (
-                                <div className="text-xs text-gray-400 bg-gray-900/50 p-2 rounded border border-gray-700">
-                                    <span className={`${editForm.runType === '10-20-30' ? 'text-pink-400' : 'text-red-400'} font-bold`}>訓練內容：</span> 
+                                <div className="text-xs font-medium text-gray-900 bg-white/70 p-3 rounded-game border-2 border-game-outline/50">
+                                    <span className="font-bold text-gray-900">訓練內容：</span> 
                                     {editForm.runType === '10-20-30' 
                                         ? `${editForm.runIntervalSets} 區塊 (每區塊含 5 組 30-20-10 循環)` 
                                         : `${editForm.runIntervalSets} 組`
                                     }
-                                    {editForm.runIntervalPace && (
-                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
-                                            {editForm.runType === '10-20-30' ? '衝刺配速：' : '每組配速：'}{editForm.runIntervalPace}
-                                        </span>
-                                    )}
-                                    {editForm.runIntervalPower && (
-                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
-                                            功率：{editForm.runIntervalPower}W
-                                        </span>
-                                    )}
-                                    {editForm.runIntervalDuration && (
-                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
-                                            維持：{editForm.runIntervalDuration}秒
-                                        </span>
-                                    )}
-                                    {editForm.runIntervalRest && (
-                                        <span className={`ml-2 ${editForm.runType === '10-20-30' ? 'text-pink-300' : 'text-red-300'}`}>
-                                            休息：{editForm.runIntervalRest}秒
-                                        </span>
-                                    )}
+                                    {editForm.runIntervalPace && <span className="ml-2 font-medium text-gray-800">{editForm.runType === '10-20-30' ? '衝刺配速：' : '每組配速：'}{editForm.runIntervalPace}</span>}
+                                    {editForm.runIntervalPower && <span className="ml-2 font-medium text-gray-800">功率：{editForm.runIntervalPower}W</span>}
+                                    {editForm.runIntervalDuration && <span className="ml-2 font-medium text-gray-800">維持：{editForm.runIntervalDuration}秒</span>}
+                                    {editForm.runIntervalRest && <span className="ml-2 font-medium text-gray-800">休息：{editForm.runIntervalRest}秒</span>}
                                 </div>
                             )}
                         </div>
@@ -302,69 +249,62 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
         </div>
 
         {/* 4. 詳細數據區塊 (兩欄排列) */}
-        <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-            <h4 className="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1">
-                <Activity size={12}/> 詳細資料
+        <div className="bg-[#fafaf8] p-4 rounded-game border-[3px] border-game-outline">
+            <h4 className="text-xs text-gray-900 uppercase font-bold mb-3 flex items-center gap-1">
+                <Activity size={12} className="text-gray-800" /> 詳細資料
             </h4>
             <div className="grid grid-cols-2 gap-4">
-                {/* 重訓模式才顯示總時間 */}
                 {editForm.type === 'strength' && (
                     <div className="space-y-1">
-                        <label className="text-xs text-gray-500">總時間 (分)</label>
-                        <input type="number" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:border-blue-500 outline-none" />
+                        <label className="text-xs font-bold text-gray-800">總時間 (分)</label>
+                        <input type="number" value={editForm.runDuration} onChange={e => setEditForm({...editForm, runDuration: e.target.value})} className="input-base w-full py-2 text-sm" />
                     </div>
                 )}
-                
                 <div className="space-y-1">
-                    <label className="text-xs text-gray-500 flex items-center gap-1"><Flame size={10}/> 卡路里 (kcal)</label>
-                    <input type="number" value={editForm.calories} onChange={e => setEditForm({...editForm, calories: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:border-blue-500 outline-none" />
+                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1"><Flame size={10} /> 卡路里 (kcal)</label>
+                    <input type="number" value={editForm.calories} onChange={e => setEditForm({...editForm, calories: e.target.value})} className="input-base w-full py-2 text-sm" />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs text-gray-500 flex items-center gap-1"><Heart size={10}/> 平均心率 (bpm)</label>
-                    <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:border-blue-500 outline-none" />
+                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1"><Heart size={10} /> 平均心率 (bpm)</label>
+                    <input type="number" value={editForm.runHeartRate} onChange={e => setEditForm({...editForm, runHeartRate: e.target.value})} className="input-base w-full py-2 text-sm" />
                 </div>
                 {editForm.type === 'run' && (
                     <div className="space-y-1">
-                        <label className="text-xs text-gray-500 flex items-center gap-1"><Zap size={10}/> 平均功率 (W)</label>
-                        <input type="number" value={editForm.runPower} onChange={e => setEditForm({...editForm, runPower: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:border-orange-500 outline-none" />
+                        <label className="text-xs font-bold text-gray-800 flex items-center gap-1"><Zap size={10} /> 平均功率 (W)</label>
+                        <input type="number" value={editForm.runPower} onChange={e => setEditForm({...editForm, runPower: e.target.value})} className="input-base w-full py-2 text-sm" />
                     </div>
                 )}
                 <div className="space-y-2 col-span-2">
-                    <label className="text-xs text-gray-500 flex items-center gap-1"><BarChart2 size={10}/> 自覺強度 (RPE 1-10)</label>
+                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1"><BarChart2 size={10} /> 自覺強度 (RPE 1-10)</label>
                     <div className="space-y-2">
                         <input 
                             type="range" 
-                            min="1" 
-                            max="10" 
-                            step="1"
+                            min="1" max="10" step="1"
                             value={editForm.rpe || editForm.runRPE || 5} 
-                            onChange={e => {
-                                const rpeValue = parseInt(e.target.value);
-                                setEditForm({...editForm, rpe: rpeValue, runRPE: rpeValue});
-                            }} 
-                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" 
+                            onChange={e => { const rpeValue = parseInt(e.target.value); setEditForm({...editForm, rpe: rpeValue, runRPE: rpeValue}); }} 
+                            className="w-full h-2.5 bg-game-outline/20 rounded-lg appearance-none cursor-pointer accent-game-grass border-2 border-game-outline" 
                         />
                         <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-400">1 (極輕鬆)</span>
-                            <span className="text-lg font-bold text-blue-400">{editForm.rpe || editForm.runRPE || 5}</span>
-                            <span className="text-xs text-gray-400">10 (極限)</span>
+                            <span className="text-xs font-bold text-gray-800">1 (極輕鬆)</span>
+                            <span className="text-lg font-bold text-gray-900">{editForm.rpe || editForm.runRPE || 5}</span>
+                            <span className="text-xs font-bold text-gray-800">10 (極限)</span>
                         </div>
-                        {editForm.rpe || editForm.runRPE ? (
-                            <p className="text-xs text-gray-500 text-center">
+                        {(editForm.rpe || editForm.runRPE) && (
+                            <p className="text-xs font-medium text-gray-800 text-center">
                                 {getRPEDescription(parseInt(editForm.rpe || editForm.runRPE))}
                             </p>
-                        ) : null}
+                        )}
                     </div>
                 </div>
             </div>
         </div>
 
         {/* 5. 備註與裝備 */}
-        <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700 space-y-4">
+        <div className="bg-[#fafaf8] p-4 rounded-game border-[3px] border-game-outline space-y-4">
              {editForm.type === 'run' && (
                 <div className="space-y-1">
-                    <label className="text-xs text-gray-500 flex items-center gap-1"><ShoppingBag size={12} /> 選擇跑鞋</label>
-                    <select value={editForm.gearId} onChange={e => setEditForm({...editForm, gearId: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm focus:border-orange-500 outline-none appearance-none">
+                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1"><ShoppingBag size={12} /> 選擇跑鞋</label>
+                    <select value={editForm.gearId} onChange={e => setEditForm({...editForm, gearId: e.target.value})} className="input-base w-full py-2 text-sm appearance-none">
                         <option value="">-- 未指定 --</option>
                         {gears.filter(g => g.status === 'active' || g.id === editForm.gearId).map(g => (
                             <option key={g.id} value={g.id}>{g.brand} {g.model}</option>
@@ -372,10 +312,9 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                     </select>
                 </div>
             )}
-            
             <div className="space-y-1">
-                <label className="text-xs text-gray-500 flex items-center gap-1"><AlignLeft size={12} /> 備註 / 心得</label>
-                <textarea rows="3" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none" placeholder="今天狀況如何..." />
+                <label className="text-xs font-bold text-gray-800 flex items-center gap-1"><AlignLeft size={12} /> 備註 / 心得</label>
+                <textarea rows="3" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="input-base w-full py-2 text-sm resize-none" placeholder="今天狀況如何..." />
             </div>
         </div>
     </div>

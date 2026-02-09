@@ -11,7 +11,7 @@ export default function MetricsPanel({ metrics, title, onUpdateMetric }) {
     <div className="card-base p-5 rounded-game border-[3px] border-game-outline space-y-3">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-gray-900 font-bold">{title}</h3>
-        <span className="text-xs font-medium text-game-coin"><Edit2 size={10} className="inline" /> 可修正</span>
+        <span className="text-xs font-bold text-gray-800"><Edit2 size={10} className="inline" /> 可修正</span>
       </div>
       {Object.entries(metrics).map(([k, m]) => (
         <div key={k} className="flex justify-between items-center bg-white/60 p-3 rounded-game border-2 border-game-outline/50">

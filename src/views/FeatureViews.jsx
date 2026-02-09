@@ -338,10 +338,10 @@ export default function FeatureViews({ view }) {
                       {restoreResult.restored.gears && <p>✓ 裝備記錄：{restoreResult.restored.gears} 筆</p>}
                       {restoreResult.restored.achievements && <p>✓ 成就記錄：{restoreResult.restored.achievements} 筆</p>}
                       {restoreResult.errors && restoreResult.errors.length > 0 && (
-                        <div className="mt-2 text-game-coin">
-                          <p className="font-semibold">錯誤：</p>
+                        <div className="mt-2 text-gray-900">
+                          <p className="font-bold">錯誤：</p>
                           {restoreResult.errors.map((err, idx) => (
-                            <p key={idx}>• {err}</p>
+                            <p key={idx} className="font-medium">• {err}</p>
                           ))}
                         </div>
                       )}

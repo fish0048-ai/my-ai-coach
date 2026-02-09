@@ -15,9 +15,9 @@ export default function StrengthDeviationPanel({ deviationAnalysis, metrics, for
             <AlertCircle className="text-game-coin" /> 動作偏差檢測
           </h3>
           <span
-            className={`text-xs font-medium px-2 py-1 rounded-game border-2 ${
+            className={`text-xs font-bold px-2 py-1 rounded-game border-2 ${
               deviationAnalysis.overallSeverity === 'severe' ? 'bg-game-heart/20 text-game-heart border-game-heart/50' :
-              deviationAnalysis.overallSeverity === 'moderate' ? 'bg-game-coin/20 text-game-coin border-game-coin/50' :
+              deviationAnalysis.overallSeverity === 'moderate' ? 'bg-game-coin/20 text-gray-900 border-game-coin' :
               'bg-game-grass/20 text-game-grass border-game-grass/50'
             }`}
           >

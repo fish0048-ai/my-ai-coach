@@ -24,7 +24,7 @@ export default function BackupBanner({ reminder, onDismiss, onUpdate }) {
   return (
     <div className="bg-game-coin/20 border-[3px] border-game-coin text-gray-900 px-4 py-3 rounded-game flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div className="flex items-start gap-3">
-        <AlertCircle className="text-game-coin mt-0.5 flex-shrink-0" size={20} aria-hidden />
+        <AlertCircle className="text-gray-800 mt-0.5 flex-shrink-0" size={20} aria-hidden />
         <div>
           <p className="font-bold text-sm">建議定期下載備份，保護您的訓練資料。</p>
           <p className="text-xs font-medium text-gray-800 mt-1">

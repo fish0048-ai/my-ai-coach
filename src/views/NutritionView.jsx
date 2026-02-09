@@ -327,7 +327,7 @@ export default function NutritionView() {
                   {/* 營養缺口提醒 */}
                   {smartRecommendation.gaps && (
                       <div className="bg-game-coin/20 p-4 rounded-game border-[3px] border-game-coin">
-                          <p className="text-xs font-bold text-game-coin mb-1">⚠️ 營養缺口提醒</p>
+                          <p className="text-xs font-bold text-gray-900 mb-1">⚠️ 營養缺口提醒</p>
                           {smartRecommendation.gaps.protein && (
                               <p className="text-sm font-medium text-gray-900">{smartRecommendation.gaps.protein}</p>
                           )}

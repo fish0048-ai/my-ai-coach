@@ -368,7 +368,7 @@ export default function TrendAnalysisView() {
                    <button type="button" onClick={() => setTimeScale('daily')} aria-pressed={timeScale==='daily'} className={`flex-1 py-1 text-xs rounded-game transition-colors min-h-[44px] ${timeScale==='daily'?'bg-game-grass text-game-outline':'text-gray-700 hover:text-gray-900'}`}>日檢視</button>
                    <button type="button" onClick={() => setTimeScale('weekly')} aria-pressed={timeScale==='weekly'} className={`flex-1 py-1 text-xs rounded-game transition-colors min-h-[44px] ${timeScale==='weekly'?'bg-game-grass text-game-outline':'text-gray-700 hover:text-gray-900'}`}>週彙整</button>
                </div>
-               <button type="button" onClick={() => setShowTrendLine(!showTrendLine)} className={`w-full py-1.5 text-xs rounded-game border-[3px] transition-colors flex items-center justify-center gap-2 min-h-[44px] font-medium ${showTrendLine ? 'border-game-coin text-game-coin bg-game-coin/10' : 'border-game-outline text-gray-700'}`}>
+               <button type="button" onClick={() => setShowTrendLine(!showTrendLine)} className={`w-full py-1.5 text-xs rounded-game border-[3px] transition-colors flex items-center justify-center gap-2 min-h-[44px] font-bold ${showTrendLine ? 'border-game-coin bg-game-coin/15 text-gray-900' : 'border-game-outline text-gray-800'}`}>
                    {showTrendLine ? <Eye size={12} aria-hidden /> : <EyeOff size={12} aria-hidden />} 顯示平均趨勢線
                </button>
            </div>

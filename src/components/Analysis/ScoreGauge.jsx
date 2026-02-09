@@ -19,7 +19,7 @@ export default function ScoreGauge({ score, showBlue = false }) {
         <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className={`${color} transition-all duration-1000 ease-out`} />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className={`text-2xl font-bold ${color}`}>{score}</span>
+        <span className="text-2xl font-bold text-gray-900">{score}</span>
         <span className="text-[10px] font-bold text-gray-800">SCORE</span>
       </div>
     </div>

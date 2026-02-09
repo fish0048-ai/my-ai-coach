@@ -42,15 +42,15 @@ export default function WeeklyModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="card-base bg-surface-900 w-full max-w-3xl rounded-game shadow-2xl p-6 flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="card-base bg-[#fafaf8] w-full max-w-3xl rounded-game border-[3px] border-game-outline shadow-2xl p-6 flex flex-col max-h-[90vh] overflow-hidden">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <CalendarDays className="text-game-coin" aria-hidden /> 本週總教練排程 (多選模式)
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="關閉"><X size={24} aria-hidden /></button>
+          <button onClick={onClose} className="text-gray-700 hover:text-gray-900 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-game hover:bg-game-outline/20 font-bold" aria-label="關閉"><X size={24} aria-hidden /></button>
         </div>
         
-        <div className="bg-game-coin/20 p-4 rounded-game border-2 border-game-coin/40 mb-6 text-sm text-game-outline">
+        <div className="bg-game-coin/15 p-4 rounded-game border-[3px] border-game-coin mb-6 text-sm font-medium text-gray-900">
           <p>請設定本週剩餘日期的訓練重點。您可以為同一天選擇多個項目 (例如：重訓 + 輕鬆跑)，AI 將為您生成多筆課表。</p>
         </div>
 
@@ -62,13 +62,13 @@ export default function WeeklyModal({
             const currentPrefs = weeklyPrefs[date] || [];
             
             return (
-              <div key={date} className={`p-4 rounded-game border-2 ${hasCompleted ? 'bg-surface-800/60 border-game-outline/40' : 'bg-surface-800 border-game-outline/50'}`}>
+              <div key={date} className={`p-4 rounded-game border-[3px] ${hasCompleted ? 'bg-game-grass/10 border-game-outline' : 'bg-[#fafaf8] border-game-outline'}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-gray-300 font-mono text-sm font-medium">{date}</span>
-                  <span className="text-white font-bold">{dayName}</span>
+                  <span className="text-gray-700 font-mono text-sm font-bold">{date}</span>
+                  <span className="text-gray-900 font-bold">{dayName}</span>
                   {hasCompleted ?
-                    <span className="text-xs bg-game-grass/20 text-game-grass px-2 py-0.5 rounded-game border border-game-outline/50">已完成 (跳過)</span> :
-                    <span className="text-xs text-gray-300 font-medium">請選擇今日訓練 (可複選)</span>
+                    <span className="text-xs font-bold bg-game-grass/20 text-game-grass px-2 py-0.5 rounded-game border-2 border-game-grass">已完成 (跳過)</span> :
+                    <span className="text-xs text-gray-800 font-bold">請選擇今日訓練 (可複選)</span>
                   }
                 </div>
                 
@@ -80,10 +80,10 @@ export default function WeeklyModal({
                         <button
                           key={opt.key}
                           onClick={() => toggleWeeklyPref(date, opt.key)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                          className={`px-3 py-2 rounded-game text-xs font-bold transition-all border-[3px] min-h-[44px] ${
                             isSelected 
                               ? `${opt.color} text-white border-transparent shadow-lg scale-105` 
-                              : 'bg-gray-900 text-gray-400 border-gray-600 hover:border-gray-400'
+                              : 'bg-[#fafaf8] text-gray-800 border-game-outline hover:bg-game-outline/20'
                           }`}
                         >
                           {opt.label} {isSelected && <CheckCircle2 size={10} className="inline ml-1"/>}
@@ -97,7 +97,7 @@ export default function WeeklyModal({
           })}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-game-outline/50">
+        <div className="mt-4 pt-4 border-t-2 border-game-outline">
           <button type="button" onClick={onGenerate} disabled={loading} className="btn-primary w-full py-3 font-bold flex items-center justify-center gap-2 disabled:opacity-50">
             {loading ? <Loader className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
             生成本週複合課表

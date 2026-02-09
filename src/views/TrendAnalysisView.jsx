@@ -11,9 +11,9 @@ import { analyzeTrainingCycle, getPhaseName, getPhaseColor } from '../utils/cycl
 const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
   if (!data || data.length < 2) {
     return (
-      <div className="h-72 flex flex-col items-center justify-center text-gray-700 border-2 border-dashed border-game-outline/50 rounded-game bg-surface-800/40">
-        <Activity size={48} className="mb-4 text-gray-600" aria-hidden />
-        <p className="font-medium">資料不足，無法繪製趨勢 (至少需兩筆)</p>
+      <div className="h-72 flex flex-col items-center justify-center text-gray-800 border-[3px] border-dashed border-game-outline rounded-game bg-[#fafaf8]">
+        <Activity size={48} className="mb-4 text-game-grass" aria-hidden />
+        <p className="font-bold">資料不足，無法繪製趨勢 (至少需兩筆)</p>
       </div>
     );
   }
@@ -40,19 +40,19 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
   const areaPoints = `${getX(0)},${height-paddingY} ${points} ${getX(data.length-1)},${height-paddingY}`;
 
   return (
-    <div className="w-full overflow-x-auto rounded-game border-2 border-game-outline/50 bg-surface-800 shadow-card">
+    <div className="w-full overflow-x-auto rounded-game border-[3px] border-game-outline bg-[#fafaf8] shadow-card">
       <div className="min-w-[600px] relative p-4">
         <div className="flex justify-between items-center mb-4 px-4">
-            <h4 className="text-gray-300 text-sm font-bold flex items-center gap-2">
+            <h4 className="text-gray-900 text-sm font-bold flex items-center gap-2">
                 <Activity size={16} style={{color}}/> {label} ({unit})
             </h4>
-            <div className="flex gap-4 text-xs">
-                <span className="flex items-center gap-1 text-gray-400">
+            <div className="flex gap-4 text-xs font-medium">
+                <span className="flex items-center gap-1 text-gray-800">
                     <span className="w-3 h-1 rounded-full" style={{backgroundColor: color}}></span> 實際資料
                 </span>
                 {showTrend && (
-                    <span className="flex items-center gap-1 text-gray-400">
-                        <span className="w-3 h-1 rounded-full bg-gray-400 border border-gray-500 border-dashed"></span> 趨勢線 (平均)
+                    <span className="flex items-center gap-1 text-gray-700">
+                        <span className="w-3 h-1 rounded-full bg-gray-500 border border-gray-600 border-dashed"></span> 趨勢線 (平均)
                     </span>
                 )}
             </div>
@@ -71,8 +71,8 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
             const val = yMin + (ratio * (yMax - yMin));
             return (
               <g key={ratio}>
-                <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#374151" strokeDasharray="4" />
-                <text x={paddingX - 10} y={y + 4} fill="#9CA3AF" fontSize="10" textAnchor="end">{val.toFixed(1)}</text>
+                <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#6B7280" strokeDasharray="4" />
+                <text x={paddingX - 10} y={y + 4} fill="#374151" fontSize="11" fontWeight="600" textAnchor="end">{val.toFixed(1)}</text>
               </g>
             );
           })}
@@ -87,13 +87,13 @@ const AdvancedChart = ({ data, color, unit, label, showTrend }) => {
 
           {data.map((d, i) => (
             <g key={i} className="group">
-              <circle cx={getX(i)} cy={getY(d.value)} r="4" fill="#1F2937" stroke={color} strokeWidth="2" className="cursor-pointer transition-all group-hover:r-6" />
+              <circle cx={getX(i)} cy={getY(d.value)} r="4" fill="#fafaf8" stroke={color} strokeWidth="2" className="cursor-pointer transition-all group-hover:r-6" />
               <foreignObject x={getX(i) - 60} y={getY(d.value) - 70} width="120" height="60" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                  <div className="flex flex-col items-center justify-center">
-                    <div className="bg-gray-900 text-white text-xs py-1 px-2 rounded shadow-lg border border-gray-600 whitespace-nowrap text-center">
-                      <div className="font-mono text-gray-400 mb-0.5">{d.date}</div>
+                    <div className="bg-[#fafaf8] text-gray-900 text-xs py-2 px-3 rounded-game shadow-card border-[2px] border-game-outline whitespace-nowrap text-center font-medium">
+                      <div className="font-mono text-gray-600 mb-0.5">{d.date}</div>
                       <span className="font-bold text-sm" style={{color}}>{d.value.toFixed(2)} {unit}</span>
-                      {showTrend && <div className="text-[10px] text-gray-500">均: {d.trend.toFixed(2)}</div>}
+                      {showTrend && <div className="text-[10px] text-gray-700 font-medium">均: {d.trend.toFixed(2)}</div>}
                     </div>
                  </div>
               </foreignObject>

@@ -40,14 +40,14 @@ export default function CalendarHeader({
           isSyncing={isSyncing}
           fileLoading={fileLoading}
         />
-        <div className="flex items-center gap-2 bg-surface-800 rounded-game border-[3px] border-game-outline p-1">
-          <button onClick={() => changeMonth(-1)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-game-grass rounded-game text-white transition-colors" aria-label="上個月">
+        <div className="flex items-center gap-2 bg-[#fafaf8] rounded-game border-[3px] border-game-outline p-1 shadow-card">
+          <button onClick={() => changeMonth(-1)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-game-grass hover:text-game-outline rounded-game text-gray-800 font-bold transition-colors" aria-label="上個月">
             <ChevronLeft size={20} aria-hidden />
           </button>
-          <span className="text-sm md:text-base font-mono text-white min-w-[100px] text-center">
+          <span className="text-sm md:text-base font-mono font-bold text-gray-900 min-w-[100px] text-center">
             {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月
           </span>
-          <button onClick={() => changeMonth(1)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-game-grass rounded-game text-white transition-colors" aria-label="下個月">
+          <button onClick={() => changeMonth(1)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-game-grass hover:text-game-outline rounded-game text-gray-800 font-bold transition-colors" aria-label="下個月">
             <ChevronRight size={20} aria-hidden />
           </button>
         </div>

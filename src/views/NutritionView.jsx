@@ -257,7 +257,7 @@ export default function NutritionView() {
       </div>
 
       {/* 智能營養建議卡片 */}
-      <div className="card-base p-5 bg-game-grass/10 border-game-grass/40">
+      <div className="card-base p-5 bg-game-grass/10 border-[3px] border-game-grass">
           <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-900 flex gap-2 items-center">
                   <Sparkles className="text-game-grass" size={20} aria-hidden /> 智能營養建議
@@ -272,9 +272,9 @@ export default function NutritionView() {
               <div className="space-y-4">
                   {/* 訓練資訊 */}
                   {smartRecommendation.trainingInfo?.hasTraining && (
-                      <div className="bg-surface-800/50 p-3 rounded-game border-2 border-game-outline/40">
-                          <p className="text-xs text-gray-400 mb-1">今日訓練</p>
-                          <p className="text-sm text-white">
+                      <div className="bg-[#fafaf8] p-4 rounded-game border-[3px] border-game-outline">
+                          <p className="text-xs font-bold text-gray-700 mb-1">今日訓練</p>
+                          <p className="text-sm font-medium text-gray-900">
                               {smartRecommendation.trainingInfo.type} · 
                               強度{smartRecommendation.trainingInfo.intensity === 'high' ? '高' : smartRecommendation.trainingInfo.intensity === 'moderate' ? '中' : '低'} · 
                               {smartRecommendation.trainingInfo.duration}分鐘 · 
@@ -286,10 +286,10 @@ export default function NutritionView() {
                   {/* 營養建議 */}
                   {smartRecommendation.recommendations && smartRecommendation.recommendations.length > 0 && (
                       <div>
-                          <p className="text-xs text-gray-400 mb-2">建議事項</p>
+                          <p className="text-xs font-bold text-gray-800 mb-2">建議事項</p>
                           <ul className="space-y-1">
                               {smartRecommendation.recommendations.map((rec, idx) => (
-                                  <li key={idx} className="text-sm text-gray-300 flex items-start gap-2">
+                                  <li key={idx} className="text-sm font-medium text-gray-900 flex items-start gap-2">
                                       <span className="text-game-grass mt-1">•</span>
                                       <span>{rec}</span>
                                   </li>
@@ -301,16 +301,16 @@ export default function NutritionView() {
                   {/* 餐點建議 */}
                   {smartRecommendation.mealSuggestions && smartRecommendation.mealSuggestions.length > 0 && (
                       <div>
-                          <p className="text-xs text-gray-400 mb-2">推薦餐點</p>
+                          <p className="text-xs font-bold text-gray-800 mb-2">推薦餐點</p>
                           <div className="space-y-2">
                               {smartRecommendation.mealSuggestions.map((meal, idx) => (
-                                  <div key={idx} className="bg-surface-800/50 p-3 rounded-lg border border-gray-800">
+                                  <div key={idx} className="bg-[#fafaf8] p-4 rounded-game border-[3px] border-game-outline">
                                       <div className="flex justify-between items-start mb-1">
-                                          <p className="text-sm font-semibold text-white">{meal.name}</p>
-                                          <span className="text-xs text-game-coin">{meal.calories} kcal</span>
+                                          <p className="text-sm font-bold text-gray-900">{meal.name}</p>
+                                          <span className="text-xs font-bold text-game-coin">{meal.calories} kcal</span>
                                       </div>
-                                      <p className="text-xs text-gray-400 mb-2">{meal.description}</p>
-                                      <div className="flex gap-3 text-xs text-gray-500">
+                                      <p className="text-xs font-medium text-gray-700 mb-2">{meal.description}</p>
+                                      <div className="flex gap-3 text-xs font-medium text-gray-800">
                                           <span>蛋白質 {meal.protein}g</span>
                                           <span>碳水 {meal.carbs}g</span>
                                           <span>脂肪 {meal.fat}g</span>
@@ -323,13 +323,13 @@ export default function NutritionView() {
 
                   {/* 營養缺口提醒 */}
                   {smartRecommendation.gaps && (
-                      <div className="bg-game-coin/20 p-3 rounded-game border-2 border-game-coin/50">
-                          <p className="text-xs text-game-coin mb-1">⚠️ 營養缺口提醒</p>
+                      <div className="bg-game-coin/20 p-4 rounded-game border-[3px] border-game-coin">
+                          <p className="text-xs font-bold text-game-coin mb-1">⚠️ 營養缺口提醒</p>
                           {smartRecommendation.gaps.protein && (
-                              <p className="text-xs text-gray-300">{smartRecommendation.gaps.protein}</p>
+                              <p className="text-sm font-medium text-gray-900">{smartRecommendation.gaps.protein}</p>
                           )}
                           {smartRecommendation.gaps.calorie && (
-                              <p className="text-xs text-gray-300">{smartRecommendation.gaps.calorie}</p>
+                              <p className="text-sm font-medium text-gray-900">{smartRecommendation.gaps.calorie}</p>
                           )}
                       </div>
                   )}

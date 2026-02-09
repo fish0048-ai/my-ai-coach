@@ -71,25 +71,25 @@ export default function CalendarDayModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="card-base bg-surface-900 w-full max-w-4xl rounded-game shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-game-outline/50 flex justify-between items-center">
+      <div className="card-base bg-[#fafaf8] w-full max-w-4xl rounded-game border-[3px] border-game-outline shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b-2 border-game-outline flex justify-between items-center">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-xl font-bold text-gray-900">
                 {selectedDate.getMonth() + 1} 月 {selectedDate.getDate()} 日
               </h2>
-              {modalView === 'list' && <span className="text-xs font-medium text-gray-300 bg-surface-800 px-2 py-1 rounded-game border border-game-outline/50">當日清單</span>}
-              {modalView === 'form' && <span className="text-xs text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border border-game-outline/50">{currentDocId ? '編輯' : '新增'}</span>}
+              {modalView === 'list' && <span className="text-xs font-bold text-gray-800 bg-game-outline/10 px-2 py-1 rounded-game border-2 border-game-outline">當日清單</span>}
+              {modalView === 'form' && <span className="text-xs font-bold text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border-2 border-game-grass">{currentDocId ? '編輯' : '新增'}</span>}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="關閉"><X size={24} aria-hidden /></button>
+          <button onClick={onClose} className="text-gray-700 hover:text-gray-900 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-game hover:bg-game-outline/20 font-bold" aria-label="關閉"><X size={24} aria-hidden /></button>
         </div>
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-6 overflow-y-auto flex-1 bg-[#fafaf8]">
           {modalView === 'list' && (
             <div className="space-y-4">
               {dayWorkouts.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 border-2 border-dashed border-game-outline/50 rounded-game">
-                  <p className="font-medium">當日尚無紀錄</p>
+                <div className="text-center py-12 text-gray-800 border-[3px] border-dashed border-game-outline rounded-game bg-white/60 font-medium">
+                  <p className="font-bold">當日尚無紀錄</p>
                 </div>
               ) : (
                 dayWorkouts.map((workout) => (
@@ -105,7 +105,7 @@ export default function CalendarDayModal({
               <button
                 type="button"
                 onClick={onAddNew || (() => { setCurrentDocId(null); setModalView('form'); })}
-                className="w-full py-4 rounded-game border-2 border-dashed border-game-outline/50 text-gray-400 hover:text-white hover:border-game-grass/50"
+                className="w-full py-4 rounded-game border-[3px] border-dashed border-game-outline text-gray-800 hover:text-game-grass hover:border-game-grass font-bold min-h-[44px]"
               >
                 <Plus aria-hidden /> 新增運動
               </button>
@@ -122,7 +122,7 @@ export default function CalendarDayModal({
             />
           )}
         </div>
-        <div className="p-6 border-t border-game-outline/50 flex justify-between">
+        <div className="p-6 border-t-2 border-game-outline flex justify-between bg-[#fafaf8]">
           {modalView === 'form' && (
             <>
               {currentDocId && (

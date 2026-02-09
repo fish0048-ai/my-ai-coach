@@ -231,23 +231,23 @@ export default function GearView() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="card-base bg-surface-900 w-full max-w-md rounded-game shadow-2xl p-6">
-            <h3 className="text-xl font-bold text-white mb-6">
+          <div className="card-base bg-[#fafaf8] w-full max-w-md rounded-game border-[3px] border-game-outline shadow-2xl p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-6">
               {editingGear ? '編輯裝備' : '新增裝備'}
             </h3>
             
             <div className="space-y-4">
-              <div className="bg-surface-800/80 p-4 rounded-game border-[3px] border-game-outline">
-                  <h4 className="text-xs text-gray-300 mb-2 flex items-center gap-1 font-medium"><Calculator size={12} aria-hidden /> 里程計算預覽</h4>
-                  <div className="flex justify-between items-center text-sm mb-1">
+              <div className="bg-game-outline/10 p-4 rounded-game border-[3px] border-game-outline">
+                  <h4 className="text-xs text-gray-800 mb-2 flex items-center gap-1 font-bold"><Calculator size={12} aria-hidden /> 里程計算預覽</h4>
+                  <div className="flex justify-between items-center text-sm mb-1 font-medium text-gray-900">
                       <span>系統紀錄 (行事曆):</span>
-                      <span className="text-gray-300">{previewSystemDist.toFixed(1)} km</span>
+                      <span>{previewSystemDist.toFixed(1)} km</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm mb-1">
+                  <div className="flex justify-between items-center text-sm mb-1 font-medium text-gray-900">
                       <span>+ 手動增減 (校正):</span>
                       <span className="text-game-grass">{previewManualDist > 0 ? '+' : ''}{previewManualDist} km</span>
                   </div>
-                  <div className="border-t border-game-outline/50 my-1 pt-1 flex justify-between items-center font-bold">
+                  <div className="border-t-2 border-game-outline my-1 pt-1 flex justify-between items-center font-bold text-gray-900">
                       <span>= 目前總里程:</span>
                       <span className="text-game-coin">{previewTotal} km</span>
                   </div>
@@ -255,33 +255,33 @@ export default function GearView() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-300 block mb-1 font-medium">品牌</label>
+                  <label className="text-xs text-gray-800 block mb-1 font-bold">品牌</label>
                   <input value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} placeholder="Nike" className="input-base w-full" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-300 block mb-1 font-medium">型號</label>
+                  <label className="text-xs text-gray-800 block mb-1 font-bold">型號</label>
                   <input value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Pegasus 40" className="input-base w-full" />
                 </div>
               </div>
 
               <div>
-                  <label className="text-xs text-gray-300 block mb-1 font-medium">啟用日期 (從這天開始計算系統里程)</label>
+                  <label className="text-xs text-gray-800 block mb-1 font-bold">啟用日期 (從這天開始計算系統里程)</label>
                   <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="input-base w-full" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                   <div>
-                      <label className="text-xs text-gray-300 block mb-1 font-medium flex items-center gap-1"><Gauge size={10} aria-hidden /> 預期壽命 (km)</label>
+                      <label className="text-xs text-gray-800 block mb-1 font-bold flex items-center gap-1"><Gauge size={10} aria-hidden /> 預期壽命 (km)</label>
                       <input type="number" value={formData.maxDistance} onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})} className="input-base w-full" />
                   </div>
                   <div>
-                      <label className="text-xs text-gray-500 block mb-1 text-game-grass flex items-center gap-1"><Plus size={10} aria-hidden /> 手動增減 (km)</label>
+                      <label className="text-xs text-gray-800 block mb-1 font-bold text-game-grass flex items-center gap-1"><Plus size={10} aria-hidden /> 手動增減 (km)</label>
                       <input type="number" value={formData.initialDistance} onChange={e => setFormData({...formData, initialDistance: e.target.value})} className="input-base w-full" placeholder="例如: 50 或 -10" />
                   </div>
               </div>
 
               <div>
-                  <label className="text-xs text-gray-300 block mb-1 font-medium">狀態</label>
+                  <label className="text-xs text-gray-800 block mb-1 font-bold">狀態</label>
                   <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="input-base w-full">
                     <option value="active">服役中 (Active)</option>
                     <option value="retired">已退役 (Retired)</option>

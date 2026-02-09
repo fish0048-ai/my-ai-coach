@@ -51,7 +51,7 @@ export default function WeatherWidget() {
     if (code === 0) return { icon: Sun, text: "晴朗", color: "text-yellow-400" };
     if (code >= 1 && code <= 3) return { icon: Cloud, text: "多雲", color: "text-gray-400" };
     if (code >= 51 && code <= 67) return { icon: CloudRain, text: "下雨", color: "text-blue-400" };
-    if (code >= 71 && code <= 77) return { icon: CloudSnow, text: "下雪", color: "text-white" };
+    if (code >= 71 && code <= 77) return { icon: CloudSnow, text: "下雪", color: "text-gray-600" };
     if (code >= 95) return { icon: Wind, text: "雷雨", color: "text-purple-400" };
     return { icon: Cloud, text: "陰天", color: "text-gray-400" };
   };
@@ -91,22 +91,22 @@ export default function WeatherWidget() {
   const advice = getAdvice(temperature, weathercode);
 
   return (
-    <div className="card-base bg-gradient-to-r from-surface-800 to-surface-900 rounded-game p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
+    <div className="card-base rounded-game border-[3px] border-game-outline p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
       
       {/* 左側：溫度與狀態 */}
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-full bg-surface-800 border-2 border-game-outline shadow-lg ${color}`}>
+        <div className={`p-3 rounded-full bg-game-outline/10 border-[3px] border-game-outline shadow-card ${color}`}>
           <WeatherIcon size={32} aria-hidden />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-3xl font-bold text-white font-mono">{temperature}°C</h2>
-            <span className="text-sm text-gray-400 bg-surface-800 px-2 py-0.5 rounded-game border-2 border-game-outline/50 flex items-center gap-1">
+            <h2 className="text-3xl font-bold text-gray-900 font-mono">{temperature}°C</h2>
+            <span className="text-sm font-medium text-gray-800 bg-game-outline/10 px-2 py-1 rounded-game border-2 border-game-outline/50 flex items-center gap-1">
               {weather.isDefault && <MapPin size={10} aria-hidden />}
               {text}
             </span>
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+          <div className="flex items-center gap-1 text-xs font-medium text-gray-600 mt-1">
             <MapPin size={12} aria-hidden />
             {weather.isDefault ? "預設地區 (台北)" : "目前位置"}
           </div>
@@ -114,12 +114,12 @@ export default function WeatherWidget() {
       </div>
 
       {/* 右側：AI 建議 */}
-      <div className="flex-1 bg-surface-800/60 rounded-game p-3 border-2 border-game-outline/50">
+      <div className="flex-1 bg-game-grass/10 rounded-game p-4 border-[3px] border-game-outline">
         <div className="flex items-start gap-2">
           <Droplets className="text-game-grass mt-0.5 flex-shrink-0" size={16} aria-hidden />
           <div>
             <h4 className="text-game-grass font-bold text-xs uppercase mb-1">今日運動提醒</h4>
-            <p className="text-gray-300 text-sm leading-relaxed">
+            <p className="text-gray-800 text-sm leading-relaxed font-medium">
               {advice}
             </p>
           </div>

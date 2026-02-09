@@ -20,7 +20,7 @@ export const Skeleton = ({ className = '', height, width = '100%' }) => {
 
   return (
     <div 
-      className={`bg-gray-700/70 animate-pulse rounded ${className}`}
+      className={`bg-game-outline/20 animate-pulse rounded-game ${className}`}
       style={style}
     />
   );
@@ -30,7 +30,7 @@ export const Skeleton = ({ className = '', height, width = '100%' }) => {
  * 卡片骨架屏
  */
 export const CardSkeleton = () => (
-  <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 space-y-4 shadow-inner shadow-black/40">
+  <div className="card-base rounded-game border-[3px] border-game-outline p-6 space-y-4">
     <Skeleton height="1.5rem" width="60%" />
     <Skeleton height="1rem" />
     <Skeleton height="1rem" width="80%" />
@@ -63,7 +63,7 @@ export const ListSkeleton = ({ rows = 3 }) => (
 export const TableSkeleton = ({ rows = 5, cols = 4 }) => (
   <div className="space-y-2">
     {/* 表頭 */}
-    <div className="flex gap-4 pb-2 border-b border-gray-700">
+    <div className="flex gap-4 pb-2 border-b-2 border-game-outline">
       {Array.from({ length: cols }).map((_, i) => (
         <Skeleton key={i} height="1rem" className="flex-1" />
       ))}
@@ -97,7 +97,7 @@ export const StatCardSkeleton = () => (
  * @param {number} height - 高度（預設 300px）
  */
 export const ChartSkeleton = ({ height = 300 }) => (
-  <div className="bg-surface-800 rounded-xl border border-gray-800 p-6 shadow-lg shadow-black/40">
+  <div className="card-base rounded-game border-[3px] border-game-outline p-6">
     <Skeleton height="1.5rem" width="40%" className="mb-4" />
     <div style={{ height: `${height}px` }} className="space-y-2 flex items-end justify-between">
       {Array.from({ length: 7 }).map((_, i) => (
@@ -105,7 +105,7 @@ export const ChartSkeleton = ({ height = 300 }) => (
           key={i} 
           height={`${30 + Math.random() * 70}%`}
           width="12%"
-          className="rounded-t"
+          className="rounded-t-lg"
         />
       ))}
     </div>

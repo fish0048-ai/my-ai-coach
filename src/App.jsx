@@ -47,16 +47,18 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-game-heart p-8 bg-surface-900">
-          <AlertTriangle size={48} className="mb-4" aria-hidden />
-          <h2 className="text-xl font-bold mb-2">此頁面發生錯誤</h2>
-          <div className="card-base p-4 text-left max-w-lg w-full overflow-auto">
-            <p className="font-mono text-xs text-gray-200 whitespace-pre-wrap">{this.state.error?.toString()}</p>
-            <p className="text-xs text-gray-500 mt-2">請檢查 Console (F12) 獲取詳細資訊</p>
+        <div className="flex flex-col items-center justify-center h-full text-game-heart p-8 app-background">
+          <div className="card-base rounded-game border-[3px] border-game-heart p-8 max-w-lg w-full text-center">
+            <AlertTriangle size={48} className="mb-4 mx-auto" aria-hidden />
+            <h2 className="text-xl font-bold mb-2 text-gray-900">此頁面發生錯誤</h2>
+            <div className="bg-game-heart/10 p-4 rounded-game border-2 border-game-heart/50 text-left overflow-auto mb-4">
+              <p className="font-mono text-xs text-gray-800 whitespace-pre-wrap font-medium">{this.state.error?.toString()}</p>
+              <p className="text-xs text-gray-700 mt-2 font-medium">請檢查 Console (F12) 獲取詳細資訊</p>
+            </div>
+            <button onClick={() => window.location.reload()} className="btn-primary px-6 py-2 min-h-[44px]">
+              重新整理網頁
+            </button>
           </div>
-          <button onClick={() => window.location.reload()} className="mt-6 btn-primary px-6 py-2 min-h-[44px]">
-            重新整理網頁
-          </button>
         </div>
       );
     }
@@ -132,10 +134,10 @@ export default function App() {
       <ErrorBoundary>
         <Suspense
           fallback={
-            <div className="flex items-center justify-center h-full bg-game-sky/80">
-              <div className="text-center">
-                <Loader className="animate-spin text-game-grass mx-auto mb-4" size={32} aria-hidden />
-                <p className="text-gray-800">載入中...</p>
+            <div className="flex items-center justify-center h-full">
+              <div className="card-base rounded-game border-[3px] border-game-outline p-8 flex flex-col items-center gap-4 shadow-card">
+                <Loader className="animate-spin text-game-grass" size={40} aria-hidden />
+                <p className="text-gray-900 font-bold">載入中...</p>
               </div>
             </div>
           }
@@ -178,8 +180,11 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="h-screen w-full bg-gray-900 flex items-center justify-center">
-        <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+      <div className="h-screen w-full flex items-center justify-center app-background">
+        <div className="card-base rounded-game border-[3px] border-game-outline p-8 flex flex-col items-center gap-4 shadow-card">
+          <Loader className="w-10 h-10 text-game-grass animate-spin" aria-hidden />
+          <p className="text-gray-900 font-bold">載入中...</p>
+        </div>
       </div>
     );
   }
@@ -203,10 +208,10 @@ export default function App() {
       {/* 只有在開啟時才載入並渲染 Chat 元件 */}
       {isChatOpen && (
         <Suspense fallback={
-            <div className="fixed bottom-6 right-6 w-80 h-96 bg-gray-900 border border-gray-700 rounded-2xl flex items-center justify-center shadow-2xl z-50">
-               <div className="flex flex-col items-center text-gray-500">
-                  <Loader className="animate-spin mb-2" />
-                  <span className="text-xs">喚醒教練中...</span>
+            <div className="fixed bottom-6 right-6 w-80 h-96 card-base rounded-game border-[3px] border-game-outline flex items-center justify-center shadow-card z-50">
+               <div className="flex flex-col items-center gap-3">
+                  <Loader className="animate-spin text-game-grass" size={28} aria-hidden />
+                  <span className="text-sm font-bold text-gray-900">喚醒教練中...</span>
                </div>
             </div>
         }>

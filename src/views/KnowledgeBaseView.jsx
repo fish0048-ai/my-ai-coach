@@ -233,9 +233,11 @@ export default function KnowledgeBaseView() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-gray-700 text-sm font-medium">
-            <Loader size={18} className="animate-spin mr-2" />
-            載入中...
+          <div className="flex items-center justify-center py-10">
+            <div className="card-base rounded-game border-[3px] border-game-outline px-6 py-4 flex items-center gap-3 shadow-card">
+              <Loader size={20} className="animate-spin text-game-grass" aria-hidden />
+              <span className="text-gray-900 font-bold">載入中...</span>
+            </div>
           </div>
         ) : records.length === 0 ? (
           <div className="py-10 text-center text-sm font-medium text-gray-700">

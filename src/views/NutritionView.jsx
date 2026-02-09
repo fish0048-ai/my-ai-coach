@@ -207,7 +207,10 @@ export default function NutritionView() {
   if (loading) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
-        <Loader className="w-8 h-8 text-game-grass animate-spin" aria-hidden />
+        <div className="card-base rounded-game border-[3px] border-game-outline p-8 flex flex-col items-center gap-4 shadow-card">
+          <Loader className="w-10 h-10 text-game-grass animate-spin" aria-hidden />
+          <p className="text-gray-900 font-bold">載入營養資料中...</p>
+        </div>
       </div>
     );
   }

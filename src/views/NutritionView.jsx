@@ -343,8 +343,8 @@ export default function NutritionView() {
 
       {/* 原有簡單建議 */}
       <div className="card-base p-5 bg-game-grass/10 border-game-grass/40">
-          <h3 className="font-bold text-white mb-2 flex gap-2"><ChefHat size={20} aria-hidden /> 快速飲食建議</h3>
-          {suggestion ? <p className="text-sm text-gray-300 whitespace-pre-wrap">{suggestion}</p> : <p className="text-sm text-gray-500">點擊下方按鈕取得建議</p>}
+          <h3 className="font-bold text-gray-900 mb-2 flex gap-2"><ChefHat size={20} aria-hidden /> 快速飲食建議</h3>
+          {suggestion ? <p className="text-sm text-gray-700 whitespace-pre-wrap font-medium">{suggestion}</p> : <p className="text-sm text-gray-700 font-medium">點擊下方按鈕取得建議</p>}
           <button onClick={getSuggestion} disabled={suggesting} className="btn-secondary mt-3 text-xs px-4 py-2 flex gap-2 items-center w-fit disabled:opacity-50">
               {suggesting ? <Loader size={14} className="animate-spin" aria-hidden /> : <Sparkles size={14} aria-hidden />}
               {suggesting ? '思考中...' : '生成建議'}
@@ -357,8 +357,8 @@ export default function NutritionView() {
             <div className="flex items-center gap-2">
               <ChefHat className="text-game-coin" size={20} aria-hidden />
               <div>
-                <p className="text-sm font-semibold text-white">鑑定結果登記簿</p>
-                <p className="text-[11px] text-gray-400">確認數值後，將此份食材寫入今日卷宗</p>
+                <p className="text-sm font-semibold text-gray-900">鑑定結果登記簿</p>
+                <p className="text-xs text-gray-700 font-medium">確認數值後，將此份食材寫入今日卷宗</p>
               </div>
             </div>
           </div>
@@ -408,10 +408,10 @@ export default function NutritionView() {
           {logs.map(log => (
               <div key={log.id} className="card-base p-4 flex justify-between items-center">
                   <div>
-                      <h4 className="font-bold text-white">{log.name}</h4>
-                      <span className="text-xs text-game-grass">{log.calories} kcal</span>
+                      <h4 className="font-bold text-gray-900">{log.name}</h4>
+                      <span className="text-xs font-medium text-game-grass">{log.calories} kcal</span>
                   </div>
-                  <button onClick={() => handleDelete(log.id)} className="text-gray-500 hover:text-game-heart" aria-label="刪除此筆紀錄"><Trash2 size={18} aria-hidden /></button>
+                  <button onClick={() => handleDelete(log.id)} className="text-gray-700 hover:text-game-heart font-medium" aria-label="刪除此筆紀錄"><Trash2 size={18} aria-hidden /></button>
               </div>
           ))}
       </div>

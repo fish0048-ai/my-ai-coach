@@ -153,13 +153,13 @@ export default function FeatureViews({ view }) {
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   if (view === 'training') {
-    return <div className="text-white p-8">訓練功能已移至儀表板，請點擊左側「總覽 Dashboard」或「訓練儀表板」。</div>;
+    return <div className="text-gray-900 font-medium p-8">訓練功能已移至儀表板，請點擊左側「總覽 Dashboard」或「訓練儀表板」。</div>;
   }
 
   if (view === 'profile') {
     return (
       <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <User className="text-purple-500" />
           個人檔案與資料
         </h1>
@@ -213,7 +213,7 @@ export default function FeatureViews({ view }) {
 
             {/* 資料備份與恢復 */}
             <div className="card-base p-6">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <Database className="text-game-grass" aria-hidden />
                 資料備份與恢復
               </h3>
@@ -221,7 +221,7 @@ export default function FeatureViews({ view }) {
               <div className="space-y-4">
                 {/* 備份功能 */}
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">備份所有資料到本地檔案</p>
+                  <p className="text-sm text-gray-700 font-medium mb-2">備份所有資料到本地檔案</p>
                   <button
                     onClick={async () => {
                       setBackingUp(true);
@@ -253,7 +253,7 @@ export default function FeatureViews({ view }) {
 
                 {/* 恢復功能 */}
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">從備份檔案恢復資料</p>
+                  <p className="text-sm text-gray-700 font-medium mb-2">從備份檔案恢復資料</p>
                   <input
                     type="file"
                     ref={backupFileInputRef}
@@ -326,11 +326,11 @@ export default function FeatureViews({ view }) {
                       ) : (
                         <AlertCircle className="text-game-coin" size={18} aria-hidden />
                       )}
-                      <span className="text-sm font-semibold text-white">
+                      <span className="text-sm font-semibold text-gray-900">
                         {restoreResult.success ? '恢復完成' : '恢復部分完成'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-300 space-y-1">
+                    <div className="text-xs text-gray-700 space-y-1 font-medium">
                       {restoreResult.restored.profile && <p>✓ 用戶資料：已恢復</p>}
                       {restoreResult.restored.calendar && <p>✓ 訓練記錄：{restoreResult.restored.calendar} 筆</p>}
                       {restoreResult.restored.bodyLogs && <p>✓ 身體數據：{restoreResult.restored.bodyLogs} 筆</p>}
@@ -349,7 +349,7 @@ export default function FeatureViews({ view }) {
                   </div>
                 )}
 
-                <div className="text-xs text-gray-500 pt-2 border-t border-game-outline/40">
+                <div className="text-xs text-gray-700 pt-2 border-t border-game-outline/40 font-medium">
                   <p>💡 建議定期備份資料，保護您的訓練記錄</p>
                 </div>
               </div>

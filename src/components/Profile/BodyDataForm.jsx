@@ -9,7 +9,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
   return (
     <div className="card-base p-6">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-white flex items-center gap-2">
+        <h3 className="font-bold text-gray-900 flex items-center gap-2">
           <Calculator size={18} className="text-game-coin" aria-hidden />
           身體資料與 TDEE 分析
         </h3>
@@ -27,25 +27,25 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold">身高 (cm)</label>
+          <label className="text-xs text-gray-700 uppercase font-semibold">身高 (cm)</label>
           <input type="number" value={profile.height} disabled={!isEditing} onChange={(e) => onProfileChange({...profile, height: e.target.value})} className="input-base w-full disabled:opacity-50" />
         </div>
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold">體重 (kg)</label>
+          <label className="text-xs text-gray-700 uppercase font-semibold">體重 (kg)</label>
           <input type="number" value={profile.weight} disabled={!isEditing} onChange={(e) => onProfileChange({...profile, weight: e.target.value})} className="input-base w-full disabled:opacity-50" />
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+          <label className="text-xs text-gray-700 uppercase font-semibold flex items-center justify-between">
             體脂率 (Body Fat)
-            <span className="text-[10px] text-gray-400 lowercase">%</span>
+            <span className="text-xs text-gray-600 lowercase">%</span>
           </label>
           <input type="number" step="0.1" value={profile.bodyFat} disabled={!isEditing} onChange={(e) => onProfileChange({...profile, bodyFat: e.target.value})} className="input-base w-full disabled:opacity-50" placeholder="例如: 18.5" />
         </div>
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+          <label className="text-xs text-gray-700 uppercase font-semibold flex items-center justify-between">
             肌肉率 (Muscle Mass)
-            <span className="text-[10px] text-gray-400 lowercase">%</span>
+            <span className="text-xs text-gray-600 lowercase">%</span>
           </label>
           <input 
             type="number" 
@@ -59,9 +59,9 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
         </div>
 
         <div className="col-span-1 sm:col-span-2 space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+          <label className="text-xs text-gray-700 uppercase font-semibold flex items-center justify-between">
             基礎代謝 (BMR) 
-            <span className="text-[10px] text-gray-400 lowercase">kcal/day</span>
+            <span className="text-xs text-gray-600 lowercase">kcal/day</span>
           </label>
           <input 
             type="number" 
@@ -75,9 +75,9 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
 
         {/* 最大心率 (手動輸入) */}
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold flex items-center justify-between">
+          <label className="text-xs text-gray-700 uppercase font-semibold flex items-center justify-between">
             最大心率 (Max HR)
-            <span className="text-[10px] text-gray-400 lowercase">bpm</span>
+            <span className="text-xs text-gray-600 lowercase">bpm</span>
           </label>
           <input 
             type="number" 
@@ -90,7 +90,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold">年齡</label>
+          <label className="text-xs text-gray-700 uppercase font-semibold">年齡</label>
           <input 
             type="number" 
             value={profile.age}
@@ -101,7 +101,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
           />
         </div>
         <div className="space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold">性別</label>
+          <label className="text-xs text-gray-700 uppercase font-semibold">性別</label>
           <select 
             value={profile.gender}
             disabled={!isEditing}
@@ -114,7 +114,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
         </div>
 
         <div className="col-span-1 sm:col-span-2 space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold">日常活動量</label>
+          <label className="text-xs text-gray-700 uppercase font-semibold">日常活動量</label>
           <select 
             value={profile.activity}
             disabled={!isEditing}
@@ -130,7 +130,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
         </div>
 
         <div className="col-span-1 sm:col-span-2 space-y-2">
-          <label className="text-xs text-gray-500 uppercase font-semibold">訓練目標</label>
+          <label className="text-xs text-gray-700 uppercase font-semibold">訓練目標</label>
           <select 
             disabled={!isEditing}
             value={profile.goal}

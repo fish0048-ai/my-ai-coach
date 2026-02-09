@@ -152,18 +152,18 @@ export default function TrainingPlanView() {
       {/* 头部 */}
       <div className="flex items-center gap-4 mb-6">
         <button type="button" onClick={() => setCurrentView('dashboard')} className="btn-secondary p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="返回">
-          <ArrowLeft className="text-gray-400" size={20} aria-hidden />
+          <ArrowLeft className="text-gray-700" size={20} aria-hidden />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-white">訓練計劃推薦</h1>
-          <p className="text-gray-400 text-sm">選擇適合你的訓練計劃，AI 將為你生成個人化方案</p>
+          <h1 className="text-2xl font-bold text-gray-900">訓練計劃推薦</h1>
+          <p className="text-gray-700 text-sm font-medium">選擇適合你的訓練計劃，AI 將為你生成個人化方案</p>
         </div>
       </div>
 
       {/* 計劃類型選擇 */}
       {!generatedPlan && (
         <div className="card-base p-6 space-y-6">
-          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Sparkles className="text-game-coin" size={20} aria-hidden />
             選擇訓練計劃類型
           </h2>
@@ -192,10 +192,10 @@ export default function TrainingPlanView() {
                   ) : (
                     <Dumbbell className="text-game-grass" size={20} aria-hidden />
                   )}
-                  <h3 className="font-bold text-white">{plan.name}</h3>
+                  <h3 className="font-bold text-gray-900">{plan.name}</h3>
                 </div>
-                <p className="text-sm text-gray-400 mb-2">{plan.description}</p>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
+                <p className="text-sm text-gray-700 mb-2 font-medium">{plan.description}</p>
+                <div className="flex items-center gap-4 text-xs font-medium text-gray-700">
                   <span className="flex items-center gap-1">
                     <Clock size={12} />
                     {plan.duration}
@@ -211,7 +211,7 @@ export default function TrainingPlanView() {
 
           {/* 週數選擇 */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-300 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               計劃週數
             </label>
             <select
@@ -230,7 +230,7 @@ export default function TrainingPlanView() {
           {isPBPlan && (
             <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   目標 PB（例如：1:45:00 或 3:30:00）
                 </label>
                 <input
@@ -242,7 +242,7 @@ export default function TrainingPlanView() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   目標賽事日期（可選）
                 </label>
                 <input
@@ -282,14 +282,14 @@ export default function TrainingPlanView() {
         <div className="card-base p-6">
           <div className="flex items-center gap-2 mb-4">
             <Map className="text-game-grass" size={20} aria-hidden />
-            <h2 className="text-lg font-bold text-white">比賽配速策略（半馬）</h2>
+            <h2 className="text-lg font-bold text-gray-900">比賽配速策略（半馬）</h2>
           </div>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm text-gray-700 font-medium mb-4">
             根據目標完賽時間與賽道類型，產生 Negative Split 配速與補給建議。
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 目標完賽時間（例如：1:59:00）
               </label>
               <input
@@ -301,7 +301,7 @@ export default function TrainingPlanView() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-300 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 賽道類型
               </label>
               <div className="flex gap-3">
@@ -335,7 +335,7 @@ export default function TrainingPlanView() {
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium text-gray-700">
             <span>比賽距離：</span>
             <div className="flex gap-2">
               <button

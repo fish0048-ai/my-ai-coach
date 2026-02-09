@@ -221,10 +221,10 @@ export default function GearView() {
                 onKeyDown={(e) => e.key === 'Enter' && (setEditingGear(null), resetForm(), setShowModal(true))}
                 className="bg-surface-800/50 rounded-game border-2 border-dashed border-game-outline flex flex-col items-center justify-center p-8 cursor-pointer hover:border-game-grass hover:bg-surface-800 transition-all group min-h-[200px]"
              >
-                <div className="w-12 h-12 bg-surface-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-game-grass text-gray-400 group-hover:text-game-outline transition-colors">
+                <div className="w-12 h-12 bg-surface-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-game-grass text-gray-300 group-hover:text-game-outline transition-colors">
                    <Plus size={24} aria-hidden />
                 </div>
-                <p className="text-gray-400 font-medium">新增第一雙跑鞋</p>
+                <p className="text-gray-300 font-medium">新增第一雙跑鞋</p>
              </div>
         )}
       </div>
@@ -238,7 +238,7 @@ export default function GearView() {
             
             <div className="space-y-4">
               <div className="bg-surface-800/60 p-3 rounded-game border-2 border-game-outline/50">
-                  <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-1"><Calculator size={12} aria-hidden /> 里程計算預覽</h4>
+                  <h4 className="text-xs text-gray-300 mb-2 flex items-center gap-1 font-medium"><Calculator size={12} aria-hidden /> 里程計算預覽</h4>
                   <div className="flex justify-between items-center text-sm mb-1">
                       <span>系統紀錄 (行事曆):</span>
                       <span className="text-gray-300">{previewSystemDist.toFixed(1)} km</span>
@@ -255,23 +255,23 @@ export default function GearView() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">品牌</label>
+                  <label className="text-xs text-gray-300 block mb-1 font-medium">品牌</label>
                   <input value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} placeholder="Nike" className="input-base w-full" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">型號</label>
+                  <label className="text-xs text-gray-300 block mb-1 font-medium">型號</label>
                   <input value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Pegasus 40" className="input-base w-full" />
                 </div>
               </div>
 
               <div>
-                  <label className="text-xs text-gray-500 block mb-1">啟用日期 (從這天開始計算系統里程)</label>
+                  <label className="text-xs text-gray-300 block mb-1 font-medium">啟用日期 (從這天開始計算系統里程)</label>
                   <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="input-base w-full" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                   <div>
-                      <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1"><Gauge size={10} aria-hidden /> 預期壽命 (km)</label>
+                      <label className="text-xs text-gray-300 block mb-1 font-medium flex items-center gap-1"><Gauge size={10} aria-hidden /> 預期壽命 (km)</label>
                       <input type="number" value={formData.maxDistance} onChange={e => setFormData({...formData, maxDistance: Number(e.target.value)})} className="input-base w-full" />
                   </div>
                   <div>
@@ -281,7 +281,7 @@ export default function GearView() {
               </div>
 
               <div>
-                  <label className="text-xs text-gray-500 block mb-1">狀態</label>
+                  <label className="text-xs text-gray-300 block mb-1 font-medium">狀態</label>
                   <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="input-base w-full">
                     <option value="active">服役中 (Active)</option>
                     <option value="retired">已退役 (Retired)</option>

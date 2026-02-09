@@ -64,11 +64,11 @@ export default function WeeklyModal({
             return (
               <div key={date} className={`p-4 rounded-game border-2 ${hasCompleted ? 'bg-surface-800/60 border-game-outline/40' : 'bg-surface-800 border-game-outline/50'}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-gray-400 font-mono text-sm">{date}</span>
+                  <span className="text-gray-300 font-mono text-sm font-medium">{date}</span>
                   <span className="text-white font-bold">{dayName}</span>
                   {hasCompleted ?
                     <span className="text-xs bg-game-grass/20 text-game-grass px-2 py-0.5 rounded-game border border-game-outline/50">已完成 (跳過)</span> :
-                    <span className="text-xs text-gray-500">請選擇今日訓練 (可複選)</span>
+                    <span className="text-xs text-gray-300 font-medium">請選擇今日訓練 (可複選)</span>
                   }
                 </div>
                 

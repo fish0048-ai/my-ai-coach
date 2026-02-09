@@ -180,7 +180,7 @@ export default function KnowledgeBaseView() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs text-gray-400 mb-1">內容</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">內容</label>
             <textarea
               value={newText}
               onChange={(e) => setNewText(e.target.value)}
@@ -206,8 +206,8 @@ export default function KnowledgeBaseView() {
 
       {/* 篩選 & 列表 */}
       <div className="card-base p-5">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-300">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <Filter size={14} className="text-game-grass" aria-hidden />
             <span>篩選類型：</span>
             <div className="flex flex-wrap gap-2">
@@ -219,7 +219,7 @@ export default function KnowledgeBaseView() {
                   className={`px-3 py-1 rounded-game text-xs border-2 ${
                     filterType === opt.value
                       ? 'bg-game-grass border-game-grass text-game-outline'
-                      : 'bg-surface-900 border-game-outline/50 text-gray-300 hover:border-game-outline'
+                      : 'bg-surface-900 border-game-outline/50 text-gray-700 hover:border-game-outline'
                   }`}
                 >
                   {opt.label}
@@ -227,18 +227,18 @@ export default function KnowledgeBaseView() {
               ))}
             </div>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs font-medium text-gray-700">
             共 {records.length} 筆紀錄（僅顯示最近 100 筆）
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-gray-400 text-sm">
+          <div className="flex items-center justify-center py-10 text-gray-700 text-sm font-medium">
             <Loader size={18} className="animate-spin mr-2" />
             載入中...
           </div>
         ) : records.length === 0 ? (
-          <div className="py-10 text-center text-sm text-gray-500">
+          <div className="py-10 text-center text-sm font-medium text-gray-700">
             目前尚無紀錄。可以從上方新增，或之後從 Calendar / Profile 自動寫入重要事件。
           </div>
         ) : (
@@ -273,7 +273,7 @@ export default function KnowledgeBaseView() {
                   <button
                     type="button"
                     onClick={() => handleDelete(rec.id)}
-                    className="text-gray-500 hover:text-game-heart flex-shrink-0 p-1 rounded-game hover:bg-surface-800 min-h-[44px]"
+                    className="text-gray-700 hover:text-game-heart flex-shrink-0 p-1 rounded-game hover:bg-surface-800 min-h-[44px] font-medium"
                     title="刪除紀錄"
                     aria-label="刪除此筆紀錄"
                   >

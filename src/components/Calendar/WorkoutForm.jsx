@@ -28,7 +28,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                 type="button"
                 onClick={() => setEditForm(prev => ({ ...prev, type: 'strength' }))}
                 aria-pressed={editForm.type === 'strength'}
-                className={`flex-1 py-2 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'strength' ? 'bg-game-grass text-game-outline' : 'text-gray-400 hover:text-white'}`}
+                className={`flex-1 py-2 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'strength' ? 'bg-game-grass text-game-outline' : 'text-gray-700 hover:text-gray-900'}`}
             >
                 <Dumbbell size={16} aria-hidden /> 重量訓練
             </button>
@@ -36,7 +36,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                 type="button"
                 onClick={() => setEditForm(prev => ({ ...prev, type: 'run' }))}
                 aria-pressed={editForm.type === 'run'}
-                className={`flex-1 py-2 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'run' ? 'bg-game-coin text-game-outline' : 'text-gray-400 hover:text-white'}`}
+                className={`flex-1 py-2 rounded-game text-sm font-bold flex items-center justify-center gap-2 transition-all ${editForm.type === 'run' ? 'bg-game-coin text-game-outline' : 'text-gray-700 hover:text-gray-900'}`}
             >
                 <Activity size={16} aria-hidden /> 跑步有氧
             </button>
@@ -55,7 +55,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
             {/* 跑步類型選擇（僅在跑步模式下顯示） */}
             {editForm.type === 'run' && (
                 <div className="space-y-2">
-                    <label className="text-xs text-gray-400 flex items-center gap-1">選擇跑步類型（AI 將依此生成課表）</label>
+                    <label className="text-xs font-medium text-gray-700 flex items-center gap-1">選擇跑步類型（AI 將依此生成課表）</label>
                     <div className="grid grid-cols-5 gap-2">
                             {[
                                 { value: 'Easy', label: '👟 輕鬆', color: 'bg-green-600', selected: editForm.runType === 'Easy' },
@@ -85,7 +85,7 @@ export default function WorkoutForm({ editForm, setEditForm, gears, handleHeadCo
                                 </button>
                             ))}
                     </div>
-                    <div className="text-xs text-gray-500 bg-surface-800/60 p-2 rounded-game border-2 border-game-outline/40">
+                    <div className="text-xs font-medium text-gray-700 bg-surface-800/60 p-2 rounded-game border-2 border-game-outline/40">
                         {editForm.runType 
                             ? `已選擇：${
                                 editForm.runType === 'Easy' ? '輕鬆跑' : 

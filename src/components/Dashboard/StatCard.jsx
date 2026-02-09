@@ -11,8 +11,8 @@ export default function StatCard({ icon: Icon, label, value, color }) {
         <Icon className={color.replace('bg-', 'text-')} size={24} aria-hidden />
       </div>
       <div>
-        <p className="text-gray-400 text-sm">{label}</p>
-        <h3 className="text-2xl font-bold text-white">{value}</h3>
+        <p className="text-gray-700 text-sm font-medium">{label}</p>
+        <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
       </div>
     </div>
   );

@@ -103,12 +103,12 @@
   }
 
   .input-base::placeholder {
-    @apply text-gray-500;
+    @apply text-gray-600 font-medium;
   }
 
   /* 統一：提示條（亮色 HUD，Kenney 木紋底） */
   .hint-bar {
-    @apply px-4 py-2 rounded-game border-[3px] border-game-outline text-gray-700 text-xs flex items-center justify-center gap-4;
+    @apply px-4 py-2 rounded-game border-[3px] border-game-outline text-gray-900 text-xs font-bold flex items-center justify-center gap-4;
     background-color: rgba(250, 250, 248, 0.95);
     background-image: url('/kenney-platformer/tiles/block_plank.png');
     background-size: 48px 48px;

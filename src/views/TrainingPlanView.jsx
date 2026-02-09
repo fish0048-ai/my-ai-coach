@@ -180,10 +180,10 @@ export default function TrainingPlanView() {
                     setTargetRaceDate('');
                   }
                 }}
-                className={`p-4 rounded-game border-2 transition-all text-left ${
+                className={`p-4 rounded-game border-[3px] transition-all text-left ${
                   selectedPlanType === key
                     ? 'border-game-grass bg-game-grass/20'
-                    : 'border-game-outline/50 bg-surface-900/50 hover:border-game-outline'
+                    : 'border-game-outline bg-[#fafaf8] hover:bg-game-outline/10'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -308,14 +308,14 @@ export default function TrainingPlanView() {
                 <button
                   type="button"
                   onClick={() => setRaceCourseType('flat')}
-                  className={`px-4 py-2 rounded-game text-sm font-medium border-2 ${raceCourseType === 'flat' ? 'bg-game-grass border-game-grass text-game-outline' : 'bg-surface-900 border-game-outline/50 text-gray-300 hover:border-game-outline'}`}
+                  className={`px-4 py-2 rounded-game text-sm font-bold border-[3px] min-h-[44px] ${raceCourseType === 'flat' ? 'bg-game-grass border-game-grass text-game-outline' : 'bg-[#fafaf8] border-game-outline text-gray-900 hover:bg-game-grass/10'}`}
                 >
                   平路
                 </button>
                 <button
                   type="button"
                   onClick={() => setRaceCourseType('hilly')}
-                  className={`px-4 py-2 rounded-game text-sm font-medium border-2 ${raceCourseType === 'hilly' ? 'bg-game-coin border-game-coin text-game-outline' : 'bg-surface-900 border-game-outline/50 text-gray-300 hover:border-game-outline'}`}
+                  className={`px-4 py-2 rounded-game text-sm font-bold border-[3px] min-h-[44px] ${raceCourseType === 'hilly' ? 'bg-game-coin border-game-coin text-game-outline' : 'bg-[#fafaf8] border-game-outline text-gray-900 hover:bg-game-coin/10'}`}
                 >
                   起伏 / 坡道
                 </button>
@@ -341,10 +341,10 @@ export default function TrainingPlanView() {
               <button
                 type="button"
                 onClick={() => setRaceDistance('10k')}
-                className={`px-3 py-1 rounded-full border ${
+                className={`px-3 py-2 rounded-game border-[3px] font-bold ${
                   raceDistance === '10k'
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                    ? 'bg-game-grass border-game-grass text-game-outline'
+                    : 'bg-[#fafaf8] border-game-outline text-gray-900 hover:bg-game-grass/10'
                 }`}
               >
                 10K
@@ -352,10 +352,10 @@ export default function TrainingPlanView() {
               <button
                 type="button"
                 onClick={() => setRaceDistance('half')}
-                className={`px-3 py-1 rounded-full border ${
+                className={`px-3 py-2 rounded-game border-[3px] font-bold ${
                   raceDistance === 'half'
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                    ? 'bg-game-grass border-game-grass text-game-outline'
+                    : 'bg-[#fafaf8] border-game-outline text-gray-900 hover:bg-game-grass/10'
                 }`}
               >
                 半馬 21.1K
@@ -363,10 +363,10 @@ export default function TrainingPlanView() {
               <button
                 type="button"
                 onClick={() => setRaceDistance('full')}
-                className={`px-3 py-1 rounded-full border ${
+                className={`px-3 py-2 rounded-game border-[3px] font-bold ${
                   raceDistance === 'full'
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500'
+                    ? 'bg-game-grass border-game-grass text-game-outline'
+                    : 'bg-[#fafaf8] border-game-outline text-gray-900 hover:bg-game-grass/10'
                 }`}
               >
                 全馬 42.2K
@@ -376,32 +376,32 @@ export default function TrainingPlanView() {
 
           {raceStrategy && (
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-white mb-3">配速分段</h3>
-                <p className="text-xs text-gray-400 mb-2">
-                  目標時間：<span className="font-mono text-blue-300">{raceStrategy.targetTime}</span>，
-                  平均配速：約 <span className="font-mono text-blue-300">{raceStrategy.averagePacePerKm}/km</span>
+              <div className="card-base rounded-game border-[3px] border-game-outline p-4">
+                <h3 className="text-sm font-bold text-gray-900 mb-3">配速分段</h3>
+                <p className="text-xs font-medium text-gray-800 mb-2">
+                  目標時間：<span className="font-mono font-bold text-game-grass">{raceStrategy.targetTime}</span>，
+                  平均配速：約 <span className="font-mono font-bold text-game-grass">{raceStrategy.averagePacePerKm}/km</span>
                 </p>
                 <div className="space-y-3">
                   {raceStrategy.segments.map((seg, idx) => (
-                    <div key={idx} className="bg-gray-900 rounded-md border border-gray-700 px-3 py-2 text-xs text-gray-300">
-                      <div className="flex justify-between mb-1">
-                        <span className="font-semibold text-white">{seg.label}</span>
+                    <div key={idx} className="bg-game-outline/10 rounded-game border-2 border-game-outline/50 px-3 py-2 text-xs">
+                      <div className="flex justify-between mb-1 font-bold text-gray-900">
+                        <span>{seg.label}</span>
                         <span>{seg.startKm}–{seg.endKm} km</span>
                       </div>
-                      <div className="flex justify-between text-[11px] text-gray-400">
+                      <div className="flex justify-between text-[11px] font-medium text-gray-800">
                         <span>配速：{seg.pacePerKm}/km</span>
                         <span>區間時間：約 {seg.segmentTime}</span>
                       </div>
-                      <p className="mt-1 text-[11px] text-gray-400">{seg.description}</p>
+                      <p className="mt-1 text-[11px] font-medium text-gray-700">{seg.description}</p>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-white mb-3">補給建議（能量膠）</h3>
+              <div className="card-base rounded-game border-[3px] border-game-outline p-4">
+                <h3 className="text-sm font-bold text-gray-900 mb-3">補給建議（能量膠）</h3>
                 {raceStrategy.gels.length > 0 ? (
-                  <ul className="space-y-1 text-xs text-gray-300">
+                  <ul className="space-y-1 text-xs font-medium text-gray-800">
                     {raceStrategy.gels.map((gel, idx) => (
                       <li key={idx} className="flex justify-between">
                         <span>時間：{gel.time}</span>
@@ -410,11 +410,11 @@ export default function TrainingPlanView() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs font-medium text-gray-800">
                     比賽時間較短（少於 45 分鐘），可視情況選擇是否補給。
                   </p>
                 )}
-                <p className="mt-3 text-[11px] text-gray-500">
+                <p className="mt-3 text-[11px] font-medium text-gray-700">
                   建議搭配你在「營養模組」設定的比賽日補給策略，一併規劃水站與能量膠品牌。
                 </p>
               </div>
@@ -427,27 +427,27 @@ export default function TrainingPlanView() {
       {generatedPlan && (
         <div className="space-y-6">
           {/* 計劃概覽 */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          <div className="card-base rounded-game border-[3px] border-game-outline p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-xl font-bold text-white mb-2">{generatedPlan.name}</h2>
-                <p className="text-gray-400">{generatedPlan.description}</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{generatedPlan.name}</h2>
+                <p className="text-gray-800 font-medium">{generatedPlan.description}</p>
               </div>
               <button
                 onClick={() => setGeneratedPlan(null)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-800 hover:text-gray-900 font-bold transition-colors"
               >
                 重新選擇
               </button>
             </div>
 
             {generatedPlan.tips && generatedPlan.tips.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-                <h3 className="text-sm font-semibold text-blue-400 mb-2">訓練建議</h3>
+              <div className="mt-4 p-4 bg-game-grass/10 rounded-game border-[3px] border-game-grass">
+                <h3 className="text-sm font-bold text-game-grass mb-2">訓練建議</h3>
                 <ul className="space-y-1">
                   {generatedPlan.tips.map((tip, idx) => (
-                    <li key={idx} className="text-sm text-gray-300 flex items-start gap-2">
-                      <CheckCircle2 className="text-blue-400 mt-0.5 flex-shrink-0" size={14} />
+                    <li key={idx} className="text-sm font-medium text-gray-900 flex items-start gap-2">
+                      <CheckCircle2 className="text-game-grass mt-0.5 flex-shrink-0" size={14} />
                       <span>{tip}</span>
                     </li>
                   ))}
@@ -458,21 +458,21 @@ export default function TrainingPlanView() {
 
           {/* 訓練安排 */}
           {generatedPlan.workouts && generatedPlan.workouts.length > 0 && (
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-              <h3 className="text-lg font-bold text-white mb-4">訓練安排</h3>
+            <div className="card-base rounded-game border-[3px] border-game-outline p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">訓練安排</h3>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {generatedPlan.workouts.map((workout, idx) => (
-                  <div key={idx} className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                  <div key={idx} className="p-4 bg-game-outline/10 rounded-game border-2 border-game-outline/50">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-semibold text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                      <span className="text-xs font-bold text-gray-800 bg-game-outline/20 px-2 py-1 rounded-game border border-game-outline/50">
                         第 {workout.week} 週 · 第 {workout.day} 天
                       </span>
-                      <span className="text-sm font-bold text-white">{workout.title}</span>
+                      <span className="text-sm font-bold text-gray-900">{workout.title}</span>
                     </div>
                     {workout.exercises && workout.exercises.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {workout.exercises.map((ex, exIdx) => (
-                          <div key={exIdx} className="text-sm text-gray-300">
+                          <div key={exIdx} className="text-sm font-medium text-gray-800">
                             {ex.name} - {ex.sets}組 × {ex.reps}次
                             {ex.weight && ` (${ex.weight})`}
                             {ex.rest && ` · 休息 ${ex.rest}`}
@@ -481,7 +481,7 @@ export default function TrainingPlanView() {
                       </div>
                     )}
                     {workout.type === 'run' && (
-                      <div className="mt-2 space-y-1 text-sm text-gray-300">
+                      <div className="mt-2 space-y-1 text-sm font-medium text-gray-800">
                         {workout.runDistance && <div>距離: {workout.runDistance} km</div>}
                         {workout.runDuration && <div>時間: {workout.runDuration} 分鐘</div>}
                         {workout.runPace && <div>配速: {workout.runPace}</div>}
@@ -489,7 +489,7 @@ export default function TrainingPlanView() {
                       </div>
                     )}
                     {workout.notes && (
-                      <p className="text-xs text-gray-400 mt-2 italic">{workout.notes}</p>
+                      <p className="text-xs font-medium text-gray-700 mt-2 italic">{workout.notes}</p>
                     )}
                   </div>
                 ))}
@@ -497,11 +497,11 @@ export default function TrainingPlanView() {
             </div>
           )}
 
-          {/* 应用到日历按钮 */}
+          {/* 應用到行事曆按鈕 */}
           <button
             onClick={handleApplyToCalendar}
             disabled={loading}
-            className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="btn-primary w-full px-6 py-3 font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

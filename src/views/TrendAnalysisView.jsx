@@ -357,7 +357,7 @@ export default function TrendAnalysisView() {
               {Object.entries(configs[category]).map(([key, conf]) => (
                   <button key={key} type="button" onClick={() => setMetricType(key)} className={`w-full text-left px-4 py-3 rounded-game text-sm font-bold transition-all flex justify-between items-center border-[3px] min-h-[44px] ${metricType === key ? 'bg-game-grass/20 text-game-grass border-game-outline' : 'text-gray-700 hover:bg-game-grass/10 border-game-outline/60'}`}>
                     <span>{conf.label}</span>
-                    <span className="text-xs font-medium text-gray-600 bg-game-outline/10 px-2 py-0.5 rounded-game border border-game-outline/50">{conf.unit}</span>
+                    <span className="text-xs font-bold text-gray-800 bg-game-outline/10 px-2 py-0.5 rounded-game border-2 border-game-outline/50">{conf.unit}</span>
                   </button>
               ))}
            </div>

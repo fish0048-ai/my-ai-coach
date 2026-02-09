@@ -38,7 +38,7 @@ const getCategoryColor = (category) => {
     case 'special':
       return 'bg-game-coin/20 border-game-coin text-game-coin';
     default:
-      return 'bg-surface-700/60 border-game-outline/60 text-gray-300';
+      return 'bg-game-outline/10 border-game-outline text-gray-900';
   }
 };
 
@@ -59,10 +59,10 @@ export default function AchievementBadge({ achievement, size = 'md' }) {
       <div className="flex items-center gap-2">
         <div className="text-2xl">{achievement.icon || '🏆'}</div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold truncate">{achievement.name}</div>
-          <div className="text-xs opacity-80 truncate">{achievement.description}</div>
+          <div className="font-bold truncate text-gray-900">{achievement.name}</div>
+          <div className="text-xs font-medium text-gray-800 truncate">{achievement.description}</div>
           {achievement.unlockedDate && (
-            <div className="text-[10px] opacity-60 mt-1">
+            <div className="text-[10px] font-medium text-gray-700 mt-1">
               {new Date(achievement.unlockedDate).toLocaleDateString('zh-TW', { 
                 year: 'numeric', 
                 month: 'short', 

@@ -20,7 +20,7 @@ export default function ScoreGauge({ score, showBlue = false }) {
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className={`text-2xl font-bold ${color}`}>{score}</span>
-        <span className="text-[10px] text-gray-400">SCORE</span>
+        <span className="text-[10px] font-bold text-gray-800">SCORE</span>
       </div>
     </div>
   );

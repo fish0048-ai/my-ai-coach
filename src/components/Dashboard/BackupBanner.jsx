@@ -22,12 +22,12 @@ export default function BackupBanner({ reminder, onDismiss, onUpdate }) {
   };
 
   return (
-    <div className="bg-game-coin/20 border-[3px] border-game-coin/60 text-game-outline px-4 py-3 rounded-game flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div className="bg-game-coin/20 border-[3px] border-game-coin text-gray-900 px-4 py-3 rounded-game flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div className="flex items-start gap-3">
         <AlertCircle className="text-game-coin mt-0.5 flex-shrink-0" size={20} aria-hidden />
         <div>
-          <p className="font-semibold text-sm">建議定期下載備份，保護您的訓練資料。</p>
-          <p className="text-xs text-game-outline/90 mt-1">
+          <p className="font-bold text-sm">建議定期下載備份，保護您的訓練資料。</p>
+          <p className="text-xs font-medium text-gray-800 mt-1">
             {reminder.lastDate
               ? `上次備份日期：${reminder.lastDate}（約 ${reminder.daysSince} 天前）`
               : '尚未偵測到備份紀錄，建議先建立第一份備份檔案。'}
@@ -35,10 +35,10 @@ export default function BackupBanner({ reminder, onDismiss, onUpdate }) {
         </div>
       </div>
       <div className="flex items-center gap-2 justify-end">
-        <button type="button" onClick={handleBackup} className="btn-primary px-3 py-1.5 text-xs font-semibold min-h-[36px]">
+        <button type="button" onClick={handleBackup} className="btn-primary px-3 py-1.5 text-xs font-bold min-h-[36px]">
           立即備份
         </button>
-        <button type="button" onClick={onDismiss} className="text-xs text-game-outline/90 hover:text-game-outline underline-offset-2 hover:underline">
+        <button type="button" onClick={onDismiss} className="text-xs font-bold text-gray-800 hover:text-gray-900 underline-offset-2 hover:underline">
           稍後再提醒
         </button>
       </div>

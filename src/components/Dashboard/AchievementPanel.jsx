@@ -53,7 +53,7 @@ export default function AchievementPanel() {
           <Trophy className="text-game-coin" size={24} aria-hidden />
           <h3 className="text-xl font-bold text-gray-900">訓練成就</h3>
         </div>
-        <p className="text-gray-600 text-sm">載入中...</p>
+        <p className="text-gray-800 text-sm font-bold">載入中...</p>
       </div>
     );
   }
@@ -65,7 +65,7 @@ export default function AchievementPanel() {
           <Trophy className="text-game-coin" size={24} aria-hidden />
           <h3 className="text-xl font-bold text-gray-900">訓練成就</h3>
         </div>
-        <p className="text-gray-600 text-sm mb-4">
+        <p className="text-gray-800 text-sm font-medium mb-4">
           還沒有解鎖任何成就。完成訓練後，系統會自動識別並解鎖成就！
         </p>
         <button

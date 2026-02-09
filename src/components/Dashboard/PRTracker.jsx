@@ -114,7 +114,7 @@ export default function PRTracker() {
           <Trophy className="text-game-coin" size={24} aria-hidden />
           <h3 className="text-xl font-bold text-gray-900">PR 追蹤</h3>
         </div>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-800 text-sm font-medium">
           還沒有記錄任何 PR。完成訓練後，系統會自動識別並記錄你的最佳表現！
         </p>
       </div>
@@ -128,7 +128,7 @@ export default function PRTracker() {
           <Trophy className="text-game-coin" size={24} aria-hidden />
           <div>
             <h3 className="text-xl font-bold text-gray-900">PR 追蹤</h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-700 font-medium">
               {strengthPRCount > 0 && `${strengthPRCount} 個動作`}
               {strengthPRCount > 0 && hasRunPR && ' · '}
               {hasRunPR && '跑步記錄'}

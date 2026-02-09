@@ -302,9 +302,9 @@ export default function RunAnalysisView() {
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*, .fit" className="hidden" />
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Activity className="text-game-grass" aria-hidden /> 跑姿 AI 分析
-          <span className="text-xs text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border-2 border-game-outline/50">動力學/送髖</span>
+          <span className="text-xs font-medium text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border-2 border-game-outline">動力學/送髖</span>
         </h1>
         <div className="flex gap-2">
             {(videoFile || isFitMode) && (
@@ -323,7 +323,7 @@ export default function RunAnalysisView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div
-            className={`relative aspect-video bg-surface-900 rounded-game border-2 border-dashed border-game-outline flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode && 'cursor-pointer hover:border-game-grass hover:bg-surface-800'}`}
+            className={`relative aspect-video rounded-game border-[3px] border-dashed border-game-outline flex flex-col items-center justify-center overflow-hidden group ${!videoFile && !isFitMode ? 'bg-game-outline/10 cursor-pointer hover:border-game-grass hover:bg-game-grass/10' : 'bg-surface-900'}`}
             onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current.click() : undefined}
           >
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
@@ -331,7 +331,7 @@ export default function RunAnalysisView() {
               <div className="absolute inset-0 bg-surface-900/90 z-30 flex flex-col items-center justify-center text-game-grass">
                   <Cpu className="animate-pulse mb-2" size={32} aria-hidden />
                   <p className="mb-2">全影片掃描中 ({scanProgress}%)</p>
-                  <div className="w-64 h-1 bg-surface-700 rounded overflow-hidden">
+                  <div className="w-64 h-1.5 bg-game-outline/30 rounded overflow-hidden border border-game-outline/50">
                       <div className="h-full bg-game-grass transition-all duration-100" style={{width: `${scanProgress}%`}} />
                   </div>
               </div>
@@ -340,16 +340,16 @@ export default function RunAnalysisView() {
             {videoError && (
                 <div className="absolute inset-0 z-40 bg-surface-900 flex flex-col items-center justify-center text-game-heart p-4 text-center">
                     <AlertTriangle size={48} className="mb-2" aria-hidden />
-                    <p className="font-bold">影片無法播放</p>
-                    <p className="text-sm text-gray-400">{videoError}</p>
+                    <p className="font-bold text-white">影片無法播放</p>
+                    <p className="text-sm text-gray-300">{videoError}</p>
                     <button type="button" onClick={clearAll} className="btn-primary mt-4 px-4 py-2">重試</button>
                 </div>
             )}
             {!videoFile && !isFitMode && !videoError && (
               <div className="text-center p-6 cursor-pointer">
-                <Upload size={32} className="mx-auto mb-2 text-gray-400" />
-                <h3 className="text-white font-bold">上傳跑步影片</h3>
-                <p className="text-gray-500 text-sm">支援 .mp4 (分析送髖、步頻)</p>
+                <Upload size={32} className="mx-auto mb-2 text-gray-600" />
+                <h3 className="text-gray-900 font-bold">上傳跑步影片</h3>
+                <p className="text-gray-700 text-sm font-medium">支援 .mp4 (分析送髖、步頻)</p>
               </div>
             )}
             {videoFile && (
@@ -393,8 +393,8 @@ export default function RunAnalysisView() {
            {metrics && (
               <div className="card-base p-4 flex items-center justify-between">
                   <div>
-                      <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-game-coin" aria-hidden /> 跑姿評分</h3>
-                      <p className="text-xs text-gray-400">基於動力學指標計算</p>
+                      <h3 className="text-gray-900 font-bold flex items-center gap-2"><Trophy className="text-game-coin" aria-hidden /> 跑姿評分</h3>
+                      <p className="text-xs text-gray-700 font-medium">基於動力學指標計算</p>
                   </div>
                   <ScoreGauge score={score} showBlue />
               </div>
@@ -402,8 +402,8 @@ export default function RunAnalysisView() {
 
            {videoFile && !metrics && analysisStep !== 'scanning' && (
              <div className="card-base p-6 text-center">
-                 <div className="text-4xl font-bold text-white font-mono">{realtimeAngle}°</div>
-                 <div className="text-sm text-gray-400">即時膝蓋角度</div>
+                 <div className="text-4xl font-bold text-gray-900 font-mono">{realtimeAngle}°</div>
+                 <div className="text-sm text-gray-700 font-medium">即時膝蓋角度</div>
                  {hipExtensionAngle > 0 && <div className="text-game-grass mt-2 text-sm font-bold">送髖(前擺): {hipExtensionAngle}°</div>}
              </div>
            )}
@@ -411,16 +411,16 @@ export default function RunAnalysisView() {
            {metrics && (
              <>
                 <MetricsPanel metrics={metrics} title="動態資料" onUpdateMetric={updateMetric} />
-                <div className="card-base p-5 bg-game-grass/10 border-game-grass/40 text-gray-300 text-sm space-y-3">
+                <div className="card-base p-5 bg-game-grass/10 border-[3px] border-game-grass text-gray-800 text-sm space-y-3 font-medium">
                     <h3 className="text-game-grass font-bold flex items-center gap-2"><BookOpen size={16} aria-hidden /> 什麼是送髖 (Hip Drive)?</h3>
                     <p><strong>定義：</strong> 跑步時利用骨盆前傾，主動帶動大腿<strong>向前抬起</strong>。</p>
                 </div>
              </>
            )}
            {aiFeedback && (
-               <div className="card-base p-5 bg-game-coin/10 border-game-coin/40 text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
+               <div className="card-base p-5 bg-game-coin/10 border-[3px] border-game-coin">
                    <h3 className="text-game-coin font-bold mb-2 flex items-center gap-2"><Sparkles size={16} aria-hidden /> 跑姿診斷</h3>
-                   {aiFeedback}
+                   <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap font-medium">{aiFeedback}</p>
                </div>
            )}
         </div>

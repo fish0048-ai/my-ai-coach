@@ -315,10 +315,10 @@ export default function FeatureViews({ view }) {
 
                 {/* 恢復結果 */}
                 {restoreResult && (
-                  <div className={`p-4 rounded-game border-2 ${
+                  <div className={`p-4 rounded-game border-[3px] ${
                     restoreResult.success 
-                      ? 'bg-game-grass/20 border-game-grass/50' 
-                      : 'bg-game-coin/20 border-game-coin/50'
+                      ? 'bg-game-grass/20 border-game-grass' 
+                      : 'bg-game-coin/20 border-game-coin'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
                       {restoreResult.success ? (

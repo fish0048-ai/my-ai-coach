@@ -298,9 +298,9 @@ export default function StrengthAnalysisView() {
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*, .fit" className="hidden" />
       
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Dumbbell className="text-game-grass" aria-hidden /> 重訓 AI 分析
-          <span className="text-xs text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border-2 border-game-outline/50">臥推/深蹲模式</span>
+          <span className="text-xs font-medium text-game-grass bg-game-grass/20 px-2 py-1 rounded-game border-2 border-game-outline">臥推/深蹲模式</span>
         </h1>
         <div className="flex gap-2">
             {(videoFile || isFitMode) && (
@@ -313,13 +313,13 @@ export default function StrengthAnalysisView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <div className="relative aspect-video bg-surface-900 rounded-game border-2 border-dashed border-game-outline flex flex-col items-center justify-center overflow-hidden group" onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current?.click() : undefined}>
+          <div className="relative aspect-video bg-game-outline/10 rounded-game border-[3px] border-dashed border-game-outline flex flex-col items-center justify-center overflow-hidden group" onClick={(!videoFile && !isFitMode) ? () => fileInputRef.current?.click() : undefined}>
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" width={640} height={360}/>
             {!videoFile && !isFitMode && (
               <div className="text-center p-6 cursor-pointer">
-                <Upload size={32} className="mx-auto mb-2 text-gray-400" />
-                <h3 className="text-white font-bold">上傳重訓影片</h3>
-                <p className="text-gray-500 text-sm">支援 .mp4 (分析關節角度與軌跡)</p>
+                <Upload size={32} className="mx-auto mb-2 text-gray-600" />
+                <h3 className="text-gray-900 font-bold">上傳重訓影片</h3>
+                <p className="text-gray-700 text-sm font-medium">支援 .mp4 (分析關節角度與軌跡)</p>
               </div>
             )}
             {videoFile && <video ref={videoRef} src={videoFile} className="absolute inset-0 w-full h-full object-contain bg-black z-10" controls loop muted playsInline crossOrigin="anonymous" onPlay={onVideoPlay} />}
@@ -328,13 +328,13 @@ export default function StrengthAnalysisView() {
           </div>
 
           {/* 隱私保護宣告 */}
-          <div className="bg-game-grass/10 border-2 border-game-outline/50 rounded-game p-3 text-sm text-gray-200">
+          <div className="card-base rounded-game p-4 border-[3px] border-game-outline">
             <div className="flex items-start gap-2">
               <ShieldCheck size={16} className="mt-0.5 flex-shrink-0 text-game-grass" aria-hidden />
               <div>
-                <p className="font-semibold mb-1">隱私保護</p>
-                <p>您的動作分析影片僅在本地運算，不會儲存於雲端。MediaPipe 分析在您的裝置上完成，影片不會上傳至任何伺服器。</p>
-                <p className="mt-2 text-xs text-game-grass/90">僅當使用 AI 深度分析時，會上傳截圖至 Gemini API（可選功能）。</p>
+                <p className="font-semibold mb-1 text-gray-900">隱私保護</p>
+                <p className="text-gray-700 font-medium">您的動作分析影片僅在本地運算，不會儲存於雲端。MediaPipe 分析在您的裝置上完成，影片不會上傳至任何伺服器。</p>
+                <p className="mt-2 text-xs text-game-grass font-medium">僅當使用 AI 深度分析時，會上傳截圖至 Gemini API（可選功能）。</p>
               </div>
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function StrengthAnalysisView() {
            {metrics && (
              <div className="card-base p-4 flex items-center justify-between">
                   <div>
-                      <h3 className="text-white font-bold flex items-center gap-2"><Trophy className="text-game-coin" aria-hidden /> 動作評分</h3>
+                      <h3 className="text-gray-900 font-bold flex items-center gap-2"><Trophy className="text-game-coin" aria-hidden /> 動作評分</h3>
                   </div>
                   <ScoreGauge score={score} />
               </div>
@@ -368,8 +368,8 @@ export default function StrengthAnalysisView() {
 
            {videoFile && !metrics && (
              <div className="card-base p-6 text-center">
-                 <div className="text-4xl font-bold text-white font-mono">{realtimeAngle}°</div>
-                 <div className="text-sm text-gray-400">即時關節角度</div>
+                 <div className="text-4xl font-bold text-gray-900 font-mono">{realtimeAngle}°</div>
+                 <div className="text-sm text-gray-700 font-medium">即時關節角度</div>
              </div>
            )}
 
@@ -377,9 +377,9 @@ export default function StrengthAnalysisView() {
              <MetricsPanel metrics={metrics} title="動作資料" onUpdateMetric={updateMetric} />
            )}
            {aiFeedback && (
-               <div className="card-base p-5 bg-game-coin/10 border-game-coin/40 text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
+               <div className="card-base p-5 bg-game-coin/10 border-[3px] border-game-coin/50">
                    <h3 className="text-game-coin font-bold mb-2 flex items-center gap-2"><Sparkles size={16} aria-hidden /> 教練建議</h3>
-                   {aiFeedback}
+                   <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap font-medium">{aiFeedback}</p>
                </div>
            )}
 

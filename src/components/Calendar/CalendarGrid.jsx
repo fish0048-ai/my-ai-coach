@@ -36,13 +36,13 @@ export default function CalendarGrid({
           const isToday = todayStr === dateStr;
           const isDragOver = dragOverDate === dateStr;
 
-          let bgClass = 'bg-surface-900 border-2 border-game-outline/50';
-          let textClass = 'text-gray-300';
+          let bgClass = 'bg-[#fafaf8] border-[3px] border-game-outline';
+          let textClass = 'text-gray-900';
           if (isDragOver) {
-            bgClass = 'bg-game-grass/30 border-game-grass border-2 border-dashed scale-105 shadow-xl';
+            bgClass = 'bg-game-grass/30 border-[3px] border-game-grass border-dashed scale-105 shadow-card';
             textClass = 'text-game-grass';
           } else if (isSelected) {
-            bgClass = 'bg-game-grass/20 border-2 border-game-grass';
+            bgClass = 'bg-game-grass/20 border-[3px] border-game-grass';
             textClass = 'text-game-grass';
           }
 
@@ -55,8 +55,8 @@ export default function CalendarGrid({
               }}
               onDrop={(e) => onDrop(e, dateStr)}
               onClick={() => onDateClick(cellDate)}
-              className={`relative p-2 rounded-card border transition-all cursor-pointer flex flex-col hover:bg-surface-700 aspect-square overflow-hidden ${bgClass} ${
-                isToday ? 'ring-2 ring-game-grass ring-offset-2 ring-offset-surface-900' : ''
+              className={`relative p-2 rounded-game border-[3px] transition-all cursor-pointer flex flex-col hover:opacity-90 aspect-square overflow-hidden ${bgClass} ${
+                isToday ? 'ring-2 ring-game-grass ring-offset-2 ring-offset-[#fafaf8]' : ''
               }`}
             >
               <span className={`text-sm font-bold ${textClass}`}>{day}</span>

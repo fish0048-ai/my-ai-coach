@@ -302,27 +302,27 @@ export default function TrendAnalysisView() {
 
       {/* 訓練周期分析卡片 */}
       {cycleAnalysis && (
-        <div className={`card-base bg-gradient-to-br from-surface-800 to-surface-900 rounded-game p-6 border-2 ${getPhaseColor(cycleAnalysis.currentPhase)}`}>
+        <div className={`card-base rounded-game p-6 border-[3px] bg-[#fafaf8] ${getPhaseColor(cycleAnalysis.currentPhase)}`}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <Target className="text-game-coin" size={24} aria-hidden />
               <div>
-                <h3 className="text-xl font-bold text-white">訓練周期分析</h3>
-                <p className="text-sm text-gray-400 mt-1">基於最近 12 週的訓練資料</p>
+                <h3 className="text-xl font-bold text-gray-900">訓練周期分析</h3>
+                <p className="text-sm text-gray-700 font-medium mt-1">基於最近 12 週的訓練資料</p>
               </div>
             </div>
-            <div className={`px-4 py-2 rounded-lg border ${getPhaseColor(cycleAnalysis.currentPhase)}`}>
-              <span className="text-sm font-bold">{getPhaseName(cycleAnalysis.currentPhase)}</span>
+            <div className={`px-4 py-2 rounded-game border-[3px] border-game-outline font-medium ${getPhaseColor(cycleAnalysis.currentPhase)}`}>
+              <span className="text-sm font-bold text-gray-900">{getPhaseName(cycleAnalysis.currentPhase)}</span>
             </div>
           </div>
           
-          <p className="text-gray-300 mb-4">{cycleAnalysis.recommendation.message}</p>
+          <p className="text-gray-700 mb-4 font-medium">{cycleAnalysis.recommendation.message}</p>
           
           <div className="space-y-2">
-            <p className="text-xs text-gray-400 uppercase font-bold">建議行動</p>
+            <p className="text-xs text-gray-800 uppercase font-bold">建議行動</p>
             <ul className="space-y-2">
               {cycleAnalysis.recommendation.actions.map((action, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                <li key={idx} className="flex items-start gap-2 text-sm text-gray-700 font-medium">
                   <span className="text-game-coin mt-1">•</span>
                   <span>{action}</span>
                 </li>
@@ -330,22 +330,22 @@ export default function TrendAnalysisView() {
             </ul>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-game-outline/50 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            <div>
-              <p className="text-gray-400 mb-1">訓練頻率</p>
-              <p className="text-white font-bold">{cycleAnalysis.trend?.frequency?.perWeek?.toFixed(1) || '0.0'} 次/週</p>
+          <div className="mt-4 pt-4 border-t-2 border-game-outline/50 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+            <div className="p-2 rounded-game border-2 border-game-outline/50 bg-white/60">
+              <p className="text-gray-700 font-medium mb-1">訓練頻率</p>
+              <p className="text-gray-900 font-bold">{cycleAnalysis.trend?.frequency?.perWeek?.toFixed(1) || '0.0'} 次/週</p>
             </div>
-            <div>
-              <p className="text-gray-400 mb-1">體重趨勢</p>
-              <p className="text-white font-bold capitalize">{cycleAnalysis.trend?.weight?.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend?.weight?.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
+            <div className="p-2 rounded-game border-2 border-game-outline/50 bg-white/60">
+              <p className="text-gray-700 font-medium mb-1">體重趨勢</p>
+              <p className="text-gray-900 font-bold capitalize">{cycleAnalysis.trend?.weight?.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend?.weight?.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
             </div>
-            <div>
-              <p className="text-gray-400 mb-1">體脂趨勢</p>
-              <p className="text-white font-bold capitalize">{cycleAnalysis.trend?.bodyFat?.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend?.bodyFat?.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
+            <div className="p-2 rounded-game border-2 border-game-outline/50 bg-white/60">
+              <p className="text-gray-700 font-medium mb-1">體脂趨勢</p>
+              <p className="text-gray-900 font-bold capitalize">{cycleAnalysis.trend?.bodyFat?.direction === 'increasing' ? '↑ 上升' : cycleAnalysis.trend?.bodyFat?.direction === 'decreasing' ? '↓ 下降' : '→ 穩定'}</p>
             </div>
-            <div>
-              <p className="text-gray-400 mb-1">訓練強度</p>
-              <p className="text-white font-bold">{cycleAnalysis.trend?.intensity?.avgIntensity === 'high' ? '高' : cycleAnalysis.trend?.intensity?.avgIntensity === 'moderate' ? '中' : '低'}</p>
+            <div className="p-2 rounded-game border-2 border-game-outline/50 bg-white/60">
+              <p className="text-gray-700 font-medium mb-1">訓練強度</p>
+              <p className="text-gray-900 font-bold">{cycleAnalysis.trend?.intensity?.avgIntensity === 'high' ? '高' : cycleAnalysis.trend?.intensity?.avgIntensity === 'moderate' ? '中' : '低'}</p>
             </div>
           </div>
         </div>
@@ -355,38 +355,38 @@ export default function TrendAnalysisView() {
           <div className="lg:col-span-1 space-y-4">
            <div className="card-base p-2 flex flex-col gap-1">
               {Object.entries(configs[category]).map(([key, conf]) => (
-                  <button key={key} type="button" onClick={() => setMetricType(key)} className={`w-full text-left px-4 py-3 rounded-game text-sm font-bold transition-all flex justify-between items-center ${metricType === key ? 'bg-game-grass/20 text-game-grass border-2 border-game-outline' : 'text-gray-500 hover:bg-surface-700/50 border-2 border-transparent'}`}>
+                  <button key={key} type="button" onClick={() => setMetricType(key)} className={`w-full text-left px-4 py-3 rounded-game text-sm font-bold transition-all flex justify-between items-center border-[3px] min-h-[44px] ${metricType === key ? 'bg-game-grass/20 text-game-grass border-game-outline' : 'text-gray-700 hover:bg-game-grass/10 border-game-outline/60'}`}>
                     <span>{conf.label}</span>
-                    <span className="text-xs opacity-60 bg-surface-900 px-2 py-0.5 rounded-game">{conf.unit}</span>
+                    <span className="text-xs font-medium text-gray-600 bg-game-outline/10 px-2 py-0.5 rounded-game border border-game-outline/50">{conf.unit}</span>
                   </button>
               ))}
            </div>
 
            <div className="card-base p-4 space-y-3">
-               <h4 className="text-xs text-gray-500 uppercase font-bold flex items-center gap-1"><Layers size={12} aria-hidden /> 檢視設定</h4>
+               <h4 className="text-xs text-gray-800 uppercase font-bold flex items-center gap-1"><Layers size={12} aria-hidden /> 檢視設定</h4>
                <div className="toggle-group flex p-1">
-                   <button type="button" onClick={() => setTimeScale('daily')} aria-pressed={timeScale==='daily'} className={`flex-1 py-1 text-xs rounded-game transition-colors ${timeScale==='daily'?'bg-game-grass text-game-outline':'text-gray-500'}`}>日檢視</button>
-                   <button type="button" onClick={() => setTimeScale('weekly')} aria-pressed={timeScale==='weekly'} className={`flex-1 py-1 text-xs rounded-game transition-colors ${timeScale==='weekly'?'bg-game-grass text-game-outline':'text-gray-500'}`}>週彙整</button>
+                   <button type="button" onClick={() => setTimeScale('daily')} aria-pressed={timeScale==='daily'} className={`flex-1 py-1 text-xs rounded-game transition-colors min-h-[44px] ${timeScale==='daily'?'bg-game-grass text-game-outline':'text-gray-700 hover:text-gray-900'}`}>日檢視</button>
+                   <button type="button" onClick={() => setTimeScale('weekly')} aria-pressed={timeScale==='weekly'} className={`flex-1 py-1 text-xs rounded-game transition-colors min-h-[44px] ${timeScale==='weekly'?'bg-game-grass text-game-outline':'text-gray-700 hover:text-gray-900'}`}>週彙整</button>
                </div>
-               <button type="button" onClick={() => setShowTrendLine(!showTrendLine)} className={`w-full py-1.5 text-xs rounded-game border-2 transition-colors flex items-center justify-center gap-2 ${showTrendLine ? 'border-game-coin text-game-coin bg-game-coin/10' : 'border-game-outline/50 text-gray-500'}`}>
+               <button type="button" onClick={() => setShowTrendLine(!showTrendLine)} className={`w-full py-1.5 text-xs rounded-game border-[3px] transition-colors flex items-center justify-center gap-2 min-h-[44px] font-medium ${showTrendLine ? 'border-game-coin text-game-coin bg-game-coin/10' : 'border-game-outline text-gray-700'}`}>
                    {showTrendLine ? <Eye size={12} aria-hidden /> : <EyeOff size={12} aria-hidden />} 顯示平均趨勢線
                </button>
            </div>
 
            {stats && (
              <div className="card-base p-5">
-                <p className="text-gray-400 text-xs mb-1">近期變化 ({timeScale === 'daily' ? '較上筆' : '較上週'})</p>
+                <p className="text-gray-700 text-xs font-medium mb-1">近期變化 ({timeScale === 'daily' ? '較上筆' : '較上週'})</p>
                 <div className="flex items-end gap-2 mb-2">
-                    <span className="text-3xl font-bold text-white">{Number(stats.current).toFixed(2)}</span>
-                    <span className="text-sm text-gray-500 mb-1">{activeConfig.unit}</span>
+                    <span className="text-3xl font-bold text-gray-900">{Number(stats.current).toFixed(2)}</span>
+                    <span className="text-sm text-gray-700 font-medium mb-1">{activeConfig.unit}</span>
                 </div>
                 <div className={`flex items-center text-sm font-bold ${stats.isImprove ? 'text-game-grass' : 'text-game-coin'}`}>
                     {stats.diff > 0 ? <TrendingUp size={16} className="mr-1" aria-hidden /> : <TrendingDown size={16} className="mr-1" aria-hidden />}
                     {Math.abs(stats.diff)} ({Math.abs(stats.percent)}%)
                 </div>
-                <div className="mt-4 pt-4 border-t border-game-outline/50 flex justify-between text-xs text-gray-400">
-                    <div>最高: <span className="text-white">{stats.best}</span></div>
-                    <div>最低: <span className="text-white">{stats.worst}</span></div>
+                <div className="mt-4 pt-4 border-t-2 border-game-outline/50 flex justify-between text-xs font-medium text-gray-700">
+                    <div>最高: <span className="text-gray-900 font-bold">{stats.best}</span></div>
+                    <div>最低: <span className="text-gray-900 font-bold">{stats.worst}</span></div>
                 </div>
              </div>
            )}
@@ -404,42 +404,42 @@ export default function TrendAnalysisView() {
       </div>
 
       <div className="card-base rounded-game overflow-hidden">
-        <div className="p-4 bg-surface-800/60 border-b border-game-outline/50 font-bold text-white flex items-center gap-2">
+        <div className="p-4 border-b-2 border-game-outline bg-game-grass/15 font-bold text-gray-900 flex items-center gap-2">
            <Activity size={18} className="text-game-grass" aria-hidden /> 詳細紀錄 ({category === 'body' ? '身體數據' : '運動紀錄'})
         </div>
-        <div className="max-h-64 overflow-y-auto">
+        <div className="max-h-64 overflow-y-auto bg-[#fafaf8]">
            {category === 'body' ? (
-             <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
+             <table className="w-full text-left text-sm">
+                <thead className="bg-game-outline/10 text-xs uppercase font-bold text-gray-800 sticky top-0 border-b-2 border-game-outline/50">
                    <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">體重</th><th className="px-6 py-3">體脂率</th><th className="px-6 py-3 text-right">操作</th></tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700">
+                <tbody className="divide-y divide-game-outline/30">
                    {bodyLogs.slice().reverse().map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
-                         <td className="px-6 py-3 font-mono text-white">{log.date}</td>
+                      <tr key={log.id} className="hover:bg-game-grass/10 transition-colors">
+                         <td className="px-6 py-3 font-mono font-medium text-gray-900">{log.date}</td>
                          <td className="px-6 py-3 text-game-grass font-bold">{log.weight} kg</td>
                          <td className="px-6 py-3 text-game-coin font-bold">{log.bodyFat || '-'} %</td>
-                         <td className="px-6 py-3 text-right"><button type="button" onClick={() => handleDelete(log.id)} className="text-gray-500 hover:text-game-heart p-1 min-h-[44px]" aria-label="刪除"><Trash2 size={16} aria-hidden /></button></td>
+                         <td className="px-6 py-3 text-right"><button type="button" onClick={() => handleDelete(log.id)} className="text-gray-700 hover:text-game-heart p-1 min-h-[44px] font-medium" aria-label="刪除"><Trash2 size={16} aria-hidden /></button></td>
                       </tr>
                    ))}
                 </tbody>
              </table>
            ) : (
-             <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-gray-800/50 text-xs uppercase text-gray-500 sticky top-0">
+             <table className="w-full text-left text-sm">
+                <thead className="bg-game-outline/10 text-xs uppercase font-bold text-gray-800 sticky top-0 border-b-2 border-game-outline/50">
                    <tr><th className="px-6 py-3">日期</th><th className="px-6 py-3">項目</th><th className="px-6 py-3">關鍵數據</th><th className="px-6 py-3">狀態</th></tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700">
+                <tbody className="divide-y divide-game-outline/30">
                    {workoutLogs.filter(l => (category === 'run' ? l.type === 'run' : l.type === 'strength')).slice().reverse().map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-700/50 transition-colors">
-                         <td className="px-6 py-3 font-mono text-white">{log.date}</td>
-                         <td className="px-6 py-3 font-bold text-white">{log.title}</td>
-                         <td className="px-6 py-3 text-gray-300">
+                      <tr key={log.id} className="hover:bg-game-grass/10 transition-colors">
+                         <td className="px-6 py-3 font-mono font-medium text-gray-900">{log.date}</td>
+                         <td className="px-6 py-3 font-bold text-gray-900">{log.title}</td>
+                         <td className="px-6 py-3 text-gray-700 font-medium">
                              {log.type === 'run' 
                                 ? `${log.runDistance}km @ ${log.runPace}` 
                                 : `${log.exercises?.length || 0} 動作, ${calculateVolume(log.exercises)}kg Vol`}
                          </td>
-                         <td className="px-6 py-3"><span className="text-xs bg-game-grass/20 text-game-grass px-2 py-0.5 rounded-game border border-game-outline/50">完成</span></td>
+                         <td className="px-6 py-3"><span className="text-xs bg-game-grass/20 text-game-grass px-2 py-0.5 rounded-game border-2 border-game-outline/50 font-medium">完成</span></td>
                       </tr>
                    ))}
                 </tbody>

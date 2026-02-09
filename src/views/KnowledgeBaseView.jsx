@@ -148,7 +148,7 @@ export default function KnowledgeBaseView() {
       </div>
 
       {/* 新增表單 */}
-      <div className="card-base p-5 space-y-4">
+      <div className="card-base p-5 space-y-4 border-[3px] border-game-outline">
         <div className="flex items-center gap-2 mb-1">
           <Plus className="text-game-grass" size={18} aria-hidden />
           <h2 className="text-sm font-semibold text-gray-900">新增紀錄</h2>
@@ -205,7 +205,7 @@ export default function KnowledgeBaseView() {
       </div>
 
       {/* 篩選 & 列表 */}
-      <div className="card-base p-5">
+      <div className="card-base p-5 border-[3px] border-game-outline">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <Filter size={14} className="text-game-grass" aria-hidden />
@@ -216,10 +216,10 @@ export default function KnowledgeBaseView() {
                   key={opt.value}
                   type="button"
                   onClick={() => handleFilterChange(opt.value)}
-                  className={`px-3 py-1 rounded-game text-xs border-2 ${
+                  className={`px-3 py-2 rounded-game text-xs font-medium min-h-[44px] border-[3px] ${
                     filterType === opt.value
                       ? 'bg-game-grass border-game-grass text-game-outline'
-                      : 'bg-surface-900 border-game-outline/50 text-gray-700 hover:border-game-outline'
+                      : 'bg-[#fafaf8] border-game-outline text-gray-800 hover:bg-game-grass/10'
                   }`}
                 >
                   {opt.label}
@@ -252,28 +252,28 @@ export default function KnowledgeBaseView() {
               return (
                 <div
                   key={rec.id}
-                  className="flex items-start justify-between gap-3 bg-surface-900/60 border-2 border-game-outline/40 rounded-game px-3 py-2.5"
+                  className="flex items-start justify-between gap-3 bg-[#fafaf8] border-[3px] border-game-outline rounded-game px-4 py-3 shadow-card"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-xs text-gray-400">{date}</span>
-                      <span className="px-2 py-0.5 rounded-game text-[10px] bg-game-grass/20 text-game-grass border border-game-outline/50">
+                      <span className="text-xs font-medium text-gray-600">{date}</span>
+                      <span className="px-2 py-0.5 rounded-game text-[10px] font-medium bg-game-grass/20 text-game-grass border-2 border-game-outline/50">
                         {typeLabel}
                       </span>
                       {rec.metadata?.source === 'calendar' && (
-                        <span className="px-2 py-0.5 rounded-game text-[10px] bg-game-coin/10 text-game-coin border border-game-outline/50">
+                        <span className="px-2 py-0.5 rounded-game text-[10px] font-medium bg-game-coin/10 text-game-coin border-2 border-game-outline/50">
                           來自行事曆
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-200 whitespace-pre-wrap break-words">
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap break-words font-medium">
                       {rec.text}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleDelete(rec.id)}
-                    className="text-gray-700 hover:text-game-heart flex-shrink-0 p-1 rounded-game hover:bg-surface-800 min-h-[44px] font-medium"
+                    className="text-gray-700 hover:text-game-heart flex-shrink-0 p-2 rounded-game hover:bg-game-heart/10 border-2 border-game-outline/50 min-h-[44px] font-medium"
                     title="刪除紀錄"
                     aria-label="刪除此筆紀錄"
                   >

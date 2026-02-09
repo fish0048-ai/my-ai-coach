@@ -193,7 +193,7 @@ export default function GearView() {
                     <span className="text-gray-900">{usage} km</span>
                     <span className="text-gray-700">/ {gear.maxDistance} km</span>
                   </div>
-                  <div className="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
+                  <div className="w-full h-2.5 bg-game-outline/20 rounded-full overflow-hidden border-2 border-game-outline/50">
                     <div 
                       className={`h-full ${statusColor} transition-all duration-1000`} 
                       style={{ width: `${percent}%` }}
@@ -202,11 +202,11 @@ export default function GearView() {
                   <p className="text-xs font-medium text-gray-700 text-right">已使用 {Math.round(percent)}%</p>
                 </div>
 
-                <div className="flex gap-2 pt-4 border-t border-game-outline/50">
+                <div className="flex gap-2 pt-4 border-t-2 border-game-outline/50">
                    <button type="button" onClick={() => handleEditClick(gear)} className="btn-secondary flex-1 py-2 text-sm flex items-center justify-center gap-2">
                      <Edit2 size={14} aria-hidden /> 編輯
                    </button>
-                   <button type="button" onClick={() => handleDelete(gear.id)} className="px-3 py-2 bg-surface-700 hover:bg-game-heart/20 hover:text-game-heart text-gray-700 rounded-game border-2 border-game-outline/50 transition-colors min-h-[44px]" aria-label="刪除此裝備"><Trash2 size={16} aria-hidden /></button>
+                   <button type="button" onClick={() => handleDelete(gear.id)} className="px-3 py-2 bg-[#fafaf8] hover:bg-game-heart/20 hover:text-game-heart text-gray-700 rounded-game border-[3px] border-game-outline transition-colors min-h-[44px] font-medium" aria-label="刪除此裝備"><Trash2 size={16} aria-hidden /></button>
                 </div>
               </div>
             </div>
@@ -219,12 +219,12 @@ export default function GearView() {
                 tabIndex={0}
                 onClick={() => { setEditingGear(null); resetForm(); setShowModal(true); }}
                 onKeyDown={(e) => e.key === 'Enter' && (setEditingGear(null), resetForm(), setShowModal(true))}
-                className="bg-surface-800/50 rounded-game border-2 border-dashed border-game-outline flex flex-col items-center justify-center p-8 cursor-pointer hover:border-game-grass hover:bg-surface-800 transition-all group min-h-[200px]"
+                className="bg-[#fafaf8] rounded-game border-[3px] border-dashed border-game-outline flex flex-col items-center justify-center p-8 cursor-pointer hover:border-game-grass hover:bg-game-grass/10 transition-all group min-h-[200px]"
              >
-                <div className="w-12 h-12 bg-surface-700 rounded-full flex items-center justify-center mb-3 group-hover:bg-game-grass text-gray-300 group-hover:text-game-outline transition-colors">
+                <div className="w-12 h-12 bg-game-outline/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-game-grass text-gray-700 group-hover:text-game-outline transition-colors border-2 border-game-outline/50">
                    <Plus size={24} aria-hidden />
                 </div>
-                <p className="text-gray-300 font-medium">新增第一雙跑鞋</p>
+                <p className="text-gray-800 font-medium">新增第一雙跑鞋</p>
              </div>
         )}
       </div>
@@ -237,7 +237,7 @@ export default function GearView() {
             </h3>
             
             <div className="space-y-4">
-              <div className="bg-surface-800/60 p-3 rounded-game border-2 border-game-outline/50">
+              <div className="bg-surface-800/80 p-4 rounded-game border-[3px] border-game-outline">
                   <h4 className="text-xs text-gray-300 mb-2 flex items-center gap-1 font-medium"><Calculator size={12} aria-hidden /> 里程計算預覽</h4>
                   <div className="flex justify-between items-center text-sm mb-1">
                       <span>系統紀錄 (行事曆):</span>

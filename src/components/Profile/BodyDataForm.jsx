@@ -69,7 +69,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
             disabled={!isEditing}
             onChange={(e) => onProfileChange({...profile, bmr: e.target.value})}
             placeholder={calculatedTDEE && !profile.bmr ? `自動估算: ${Math.round(calculatedTDEE / parseFloat(profile.activity))}` : "InBody 測量值"}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none disabled:opacity-50 placeholder-gray-600"
+            className="input-base w-full disabled:opacity-50"
           />
         </div>
 
@@ -85,7 +85,7 @@ export default function BodyDataForm({ profile, isEditing, isSaving, calculatedT
             disabled={!isEditing}
             onChange={(e) => onProfileChange({...profile, maxHeartRate: e.target.value})}
             placeholder={profile.age ? `自動估算: ${220 - parseInt(profile.age)}` : "實測值"}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-blue-500 outline-none disabled:opacity-50 placeholder-gray-600"
+            className="input-base w-full disabled:opacity-50"
           />
         </div>
 

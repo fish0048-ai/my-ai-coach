@@ -61,10 +61,10 @@ const MUSCLE_LIST = [
 
 export default function BodyHeatmap({ data = {} }) {
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-gray-900 rounded-lg p-4 border border-gray-800 shadow-xl">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#fafaf8] rounded-game p-4 border-[3px] border-game-outline shadow-card">
       <div className="flex items-center gap-2 mb-4">
-        <Activity size={14} className="text-blue-500 shrink-0" />
-        <h3 className="text-white font-bold text-sm">肌群負荷</h3>
+        <Activity size={14} className="text-game-grass shrink-0" aria-hidden />
+        <h3 className="text-gray-900 font-bold text-sm">肌群負荷</h3>
       </div>
 
       <ul className="space-y-2 overflow-y-auto flex-1 min-h-0">
@@ -75,15 +75,16 @@ export default function BodyHeatmap({ data = {} }) {
           return (
             <li
               key={key}
-              className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-800/60 border border-gray-700/60"
+              className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-game bg-white/70 border-2 border-game-outline/50"
             >
-              <span className="text-gray-200 text-sm">{name}</span>
+              <span className="text-gray-900 text-sm font-bold">{name}</span>
               <div className="flex items-center gap-2">
-                <span className="text-gray-400 text-xs tabular-nums">{value}/10</span>
+                <span className="text-gray-800 text-xs tabular-nums font-bold">{value}/10</span>
                 <span
-                  className="w-2 h-2 rounded-full shrink-0"
+                  className="w-2.5 h-2.5 rounded-full shrink-0 border border-game-outline/50"
                   style={{ backgroundColor: color }}
                   title={label}
+                  aria-hidden
                 />
               </div>
             </li>
@@ -91,11 +92,11 @@ export default function BodyHeatmap({ data = {} }) {
         })}
       </ul>
 
-      <div className="mt-3 pt-3 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-gray-500">
-        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-500 align-middle mr-1" />無紀錄</span>
-        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 align-middle mr-1" />恢復</span>
-        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500 align-middle mr-1" />成長</span>
-        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 align-middle mr-1" />力竭</span>
+      <div className="mt-3 pt-3 border-t-2 border-game-outline/50 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-bold text-gray-800">
+        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-500 align-middle mr-1" aria-hidden />無紀錄</span>
+        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 align-middle mr-1" aria-hidden />恢復</span>
+        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500 align-middle mr-1" aria-hidden />成長</span>
+        <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 align-middle mr-1" aria-hidden />力竭</span>
       </div>
     </div>
   );

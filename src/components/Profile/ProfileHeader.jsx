@@ -27,13 +27,13 @@ export default function ProfileHeader({ userData, profile, calculatedTDEE }) {
         {calculatedTDEE > 0 && (
           <div className="w-full bg-[#fafaf8] rounded-game p-4 border-[3px] border-game-outline mt-2 shadow-card">
             <div className="text-xs text-gray-700 uppercase mb-1 font-medium">每日建議攝取</div>
-            <div className="text-2xl font-bold text-game-grass flex items-center justify-center gap-1">
-              <Flame size={20} fill="currentColor" aria-hidden />
+            <div className="text-2xl font-bold text-gray-900 flex items-center justify-center gap-1">
+              <Flame size={20} className="text-gray-800" aria-hidden />
               {targetCalories} <span className="text-sm text-gray-700 font-normal">kcal</span>
             </div>
             <div className="text-xs text-gray-700 mt-2 font-medium">
               基礎代謝 (BMR): {Math.round(calculatedTDEE / parseFloat(profile.activity))}
-              {profile.bmr && <span className="text-game-grass ml-1">(自訂)</span>}
+              {profile.bmr && <span className="text-gray-800 font-bold ml-1">(自訂)</span>}
             </div>
           </div>
         )}
@@ -42,8 +42,8 @@ export default function ProfileHeader({ userData, profile, calculatedTDEE }) {
           {profile.bodyFat && (
             <div className="bg-[#fafaf8] rounded-game p-3 border-[3px] border-game-outline shadow-card">
               <div className="text-xs text-gray-700 uppercase mb-1 font-medium">體脂率</div>
-              <div className="text-lg font-bold text-game-coin flex items-center justify-center gap-1">
-                <Percent size={14} aria-hidden />
+              <div className="text-lg font-bold text-gray-900 flex items-center justify-center gap-1">
+                <Percent size={14} className="text-gray-800" aria-hidden />
                 {profile.bodyFat}<span className="text-xs font-normal text-gray-700">%</span>
               </div>
             </div>
@@ -51,8 +51,8 @@ export default function ProfileHeader({ userData, profile, calculatedTDEE }) {
           {profile.muscleRate && (
             <div className="bg-[#fafaf8] rounded-game p-3 border-[3px] border-game-outline shadow-card">
               <div className="text-xs text-gray-700 uppercase mb-1 font-medium">肌肉率</div>
-              <div className="text-lg font-bold text-game-grass flex items-center justify-center gap-1">
-                <Activity size={14} aria-hidden />
+              <div className="text-lg font-bold text-gray-900 flex items-center justify-center gap-1">
+                <Activity size={14} className="text-gray-800" aria-hidden />
                 {profile.muscleRate}<span className="text-xs font-normal text-gray-700">%</span>
               </div>
             </div>

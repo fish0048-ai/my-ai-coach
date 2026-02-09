@@ -24,14 +24,14 @@ export default function WorkoutCard({ workout, gears, onEdit, onStatusToggle }) 
       className="card-base p-4 rounded-game cursor-pointer flex justify-between items-center group hover:border-game-grass transition-colors"
     >
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-game border-2 border-game-outline/50 ${isRun ? 'bg-game-coin/20 text-game-coin' : 'bg-game-grass/20 text-game-grass'}`}>
+        <div className={`p-3 rounded-game border-2 border-game-outline/50 ${isRun ? 'bg-game-coin/20 text-gray-900' : 'bg-game-grass/20 text-gray-900'}`}>
           {isRun ? <Activity size={24} aria-hidden /> : <Dumbbell size={24} aria-hidden />}
         </div>
         <div>
           <h3 className="font-bold text-gray-900">{workout.title || (isRun ? '跑步' : '訓練')}</h3>
           <p className="text-xs font-medium text-gray-700">{subtitle}</p>
           {usedGear && (
-            <div className="mt-1 flex items-center gap-1 text-xs font-medium text-game-grass">
+            <div className="mt-1 flex items-center gap-1 text-xs font-medium text-gray-800">
               <ShoppingBag size={10} aria-hidden /> {usedGear.brand} {usedGear.model}
             </div>
           )}
@@ -41,7 +41,7 @@ export default function WorkoutCard({ workout, gears, onEdit, onStatusToggle }) 
         <Edit3 size={18} className="text-gray-700 group-hover:text-gray-900" aria-hidden />
         <button
           onClick={(e) => onStatusToggle(e, workout)}
-          className={`p-2 rounded-game border-2 transition-colors ${workout.status === 'completed' ? 'text-game-grass bg-game-grass/20 border-game-grass/50' : 'text-gray-700 hover:text-gray-900 border-game-outline/50'}`}
+          className={`p-2 rounded-game border-2 transition-colors ${workout.status === 'completed' ? 'text-gray-900 bg-game-grass/20 border-game-grass/50' : 'text-gray-700 hover:text-gray-900 border-game-outline/50'}`}
           aria-label={workout.status === 'completed' ? '標記為未完成' : '標記為已完成'}
         >
           <CheckCircle2 size={24} fill={workout.status === 'completed' ? 'currentColor' : 'none'} aria-hidden />

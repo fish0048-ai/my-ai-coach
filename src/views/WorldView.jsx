@@ -48,7 +48,7 @@ export default function WorldView() {
   return (
     <div className="space-y-4 animate-fade-in h-full flex flex-col" role="region" aria-label="AI Coach 虛擬世界">
       <div className="card-base p-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-white" id="world-title">AI Coach World</h2>
+        <h2 className="text-lg font-bold text-gray-900" id="world-title">AI Coach World</h2>
         <div className="flex items-center gap-4 flex-wrap">
           {/* 快捷入口：統一 button-group-inline */}
           <nav className="button-group-inline" aria-label="快捷進入功能">

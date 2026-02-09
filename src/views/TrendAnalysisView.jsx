@@ -380,7 +380,7 @@ export default function TrendAnalysisView() {
                     <span className="text-3xl font-bold text-gray-900">{Number(stats.current).toFixed(2)}</span>
                     <span className="text-sm text-gray-700 font-medium mb-1">{activeConfig.unit}</span>
                 </div>
-                <div className={`flex items-center text-sm font-bold ${stats.isImprove ? 'text-game-grass' : 'text-game-coin'}`}>
+                <div className="flex items-center text-sm font-bold text-gray-900">
                     {stats.diff > 0 ? <TrendingUp size={16} className="mr-1" aria-hidden /> : <TrendingDown size={16} className="mr-1" aria-hidden />}
                     {Math.abs(stats.diff)} ({Math.abs(stats.percent)}%)
                 </div>
@@ -405,7 +405,7 @@ export default function TrendAnalysisView() {
 
       <div className="card-base rounded-game overflow-hidden">
         <div className="p-4 border-b-2 border-game-outline bg-game-grass/15 font-bold text-gray-900 flex items-center gap-2">
-           <Activity size={18} className="text-game-grass" aria-hidden /> 詳細紀錄 ({category === 'body' ? '身體數據' : '運動紀錄'})
+           <Activity size={18} className="text-gray-800" aria-hidden /> 詳細紀錄 ({category === 'body' ? '身體數據' : '運動紀錄'})
         </div>
         <div className="max-h-64 overflow-y-auto bg-[#fafaf8]">
            {category === 'body' ? (
@@ -417,8 +417,8 @@ export default function TrendAnalysisView() {
                    {bodyLogs.slice().reverse().map((log) => (
                       <tr key={log.id} className="hover:bg-game-grass/10 transition-colors">
                          <td className="px-6 py-3 font-mono font-medium text-gray-900">{log.date}</td>
-                         <td className="px-6 py-3 text-game-grass font-bold">{log.weight} kg</td>
-                         <td className="px-6 py-3 text-game-coin font-bold">{log.bodyFat || '-'} %</td>
+                         <td className="px-6 py-3 font-bold text-gray-900">{log.weight} kg</td>
+                         <td className="px-6 py-3 font-bold text-gray-900">{log.bodyFat || '-'} %</td>
                          <td className="px-6 py-3 text-right"><button type="button" onClick={() => handleDelete(log.id)} className="text-gray-700 hover:text-game-heart p-1 min-h-[44px] font-medium" aria-label="刪除"><Trash2 size={16} aria-hidden /></button></td>
                       </tr>
                    ))}

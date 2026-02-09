@@ -173,7 +173,7 @@ export default function GearView() {
               <div className="p-6 relative z-10">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-xs font-bold text-game-grass uppercase tracking-wider">{gear.brand}</span>
+                    <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">{gear.brand}</span>
                     <h3 className="text-xl font-bold text-gray-900 mt-1">{gear.model}</h3>
                     <p className="text-xs font-medium text-gray-700 mt-1 flex items-center gap-1">
                       <Calendar size={10} aria-hidden /> 啟用: {gear.startDate}
@@ -184,7 +184,7 @@ export default function GearView() {
                   ) : percent >= 100 ? (
                      <span className="px-2 py-1 bg-game-heart/20 text-game-heart text-xs rounded-game border-2 border-game-heart/50 flex items-center gap-1"><AlertTriangle size={10} aria-hidden /> 壽命已盡</span>
                   ) : (
-                     <span className="px-2 py-1 bg-game-grass/20 text-game-grass text-xs rounded-game border-2 border-game-grass/50 flex items-center gap-1"><CheckCircle size={10} aria-hidden /> 服役中</span>
+                     <span className="px-2 py-1 bg-game-grass/20 text-gray-900 text-xs font-bold rounded-game border-2 border-game-grass/50 flex items-center gap-1"><CheckCircle size={10} aria-hidden /> 服役中</span>
                   )}
                 </div>
 

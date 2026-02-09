@@ -40,10 +40,10 @@ export default function CalendarGrid({
           let textClass = 'text-gray-900';
           if (isDragOver) {
             bgClass = 'bg-game-grass/30 border-[3px] border-game-grass border-dashed scale-105 shadow-card';
-            textClass = 'text-game-grass';
+            textClass = 'text-gray-900';
           } else if (isSelected) {
             bgClass = 'bg-game-grass/20 border-[3px] border-game-grass';
-            textClass = 'text-game-grass';
+            textClass = 'text-gray-900';
           }
 
           return (
@@ -75,19 +75,19 @@ export default function CalendarGrid({
                       key={workout.id || wIdx}
                       draggable
                       onDragStart={(e) => onDragStart(e, workout)}
-                      className={`text-xs font-medium px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity ${
+                      className={`text-xs font-bold px-1 py-0.5 rounded truncate flex items-center gap-1 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity text-gray-900 ${
                         workout.status === 'planned'
-                          ? 'border-2 border-game-grass/50 text-game-grass border-dashed'
+                          ? 'border-2 border-game-grass/50 border-dashed bg-game-grass/10'
                           : isRun
-                            ? 'bg-game-coin/20 text-game-coin'
-                            : 'bg-game-grass/20 text-game-grass'
+                            ? 'bg-game-coin/20'
+                            : 'bg-game-grass/20'
                       }`}
                       title={title}
                     >
-                      {workout.status === 'planned' && <Clock size={8} />}
+                      {workout.status === 'planned' && <Clock size={8} className="text-gray-900" aria-hidden />}
                       {workout.title || (isRun ? '跑步' : '訓練')}
                       {isRun && workout.runType === 'Interval' && workout.runIntervalSets && (
-                        <span className="text-[10px] font-medium opacity-90">({workout.runIntervalSets}組)</span>
+                        <span className="text-[10px] font-bold text-gray-800">({workout.runIntervalSets}組)</span>
                       )}
                     </div>
                   );

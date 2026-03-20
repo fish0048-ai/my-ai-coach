@@ -199,6 +199,22 @@ export default function App() {
     return <LoginView />;
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/10c55791-95a0-4269-a0f8-94fa037a8f9e', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'd95b41' },
+    body: JSON.stringify({
+      sessionId: 'd95b41',
+      runId: 'pre-fix',
+      hypothesisId: 'H2',
+      location: 'src/App.jsx',
+      message: 'App isOnline value from viewStore',
+      data: { isOnline, navigatorOnLine: typeof navigator !== 'undefined' ? navigator.onLine : null },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   return (
     <>
       <ErrorToast />

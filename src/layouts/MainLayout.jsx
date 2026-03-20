@@ -36,6 +36,25 @@ const SidebarItem = ({ icon: Icon, text, active, onClick }) => (
 export default function MainLayout({ children, currentView, setCurrentView, user, setIsChatOpen }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/10c55791-95a0-4269-a0f8-94fa037a8f9e', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'd95b41' },
+    body: JSON.stringify({
+      sessionId: 'd95b41',
+      runId: 'pre-fix',
+      hypothesisId: 'H1',
+      location: 'src/layouts/MainLayout.jsx',
+      message: 'MainLayout props inspection (isOnline)',
+      data: {
+        passedIsOnline: arguments?.[0]?.isOnline,
+        passedPropKeys: Object.keys(arguments?.[0] || {}),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   const handleSignOut = () => signOut();
 
   return (

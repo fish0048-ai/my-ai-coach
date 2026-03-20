@@ -7,6 +7,7 @@ import { handleError } from '../services/core/errorService';
 import { usePoseDetection } from '../hooks/usePoseDetection';
 import { analyzeFormDeviations, generateFormCorrection } from '../services/ai/formCorrection';
 import { generateStrengthAnalysisFeedback } from '../services/ai/analysisService';
+import { useUserStore } from '../store/userStore';
 import { analyzePoseAngle } from '../services/analysis/poseAnalysis';
 import { calculateStrengthScore } from '../services/analysis/metricsCalculator';
 import { initDrawingUtils, createStrengthPoseCallback } from '../services/analysis/poseDrawing';
@@ -15,6 +16,10 @@ import MetricsPanel from '../components/Analysis/MetricsPanel';
 import StrengthDeviationPanel from '../components/Analysis/StrengthDeviationPanel';
 
 export default function StrengthAnalysisView() {
+  const userData = useUserStore((s) => s.userData);
+  /** 用於 P = m·g·h/t 的外在負重 (kg)，預設可由個人檔案體重帶入；臥推請改為槓鈴總重 */
+  const [powerLiftMassKg, setPowerLiftMassKg] = useState('');
+
   const [mode, setMode] = useState('bench'); 
   const [videoFile, setVideoFile] = useState(null); 
   const [isFitMode, setIsFitMode] = useState(false); 
@@ -167,8 +172,10 @@ export default function StrengthAnalysisView() {
       if (mode === 'bench') {
           m = {
               elbowAngle: { label: '手肘角度', value: capturedAngle.toString(), unit: '°', status: 'good', icon: Ruler },
-              barPath: { label: '軌跡偏移', value: '1.2', unit: 'cm', status: 'good', icon: Activity }, 
+              barPath: { label: '軌跡偏移', value: '1.2', unit: 'cm', status: 'good', icon: Activity },
               eccentricTime: { label: '離心時間', value: '1.8', unit: 's', status: 'warning', icon: Timer },
+              concentricTime: { label: '向心時間', value: '0.9', unit: 's', status: 'good', icon: Timer },
+              concentricDisplacement: { label: '向心垂直位移', value: '0.35', unit: 'm', status: 'good', icon: Ruler },
               stability: { label: '核心穩定度', value: '92', unit: '%', status: 'good', icon: Scale }
           };
       } else {
@@ -176,6 +183,7 @@ export default function StrengthAnalysisView() {
               kneeAngle: { label: '膝蓋角度', value: capturedAngle.toString(), unit: '°', status: 'good', icon: Ruler },
               hipDepth: { label: '髖關節深度', value: '低', unit: '', status: 'good', icon: Activity },
               concentricTime: { label: '向心時間', value: '0.8', unit: 's', status: 'good', icon: Timer },
+              concentricDisplacement: { label: '向心垂直位移', value: '0.42', unit: 'm', status: 'good', icon: Ruler },
           };
       }
       setMetrics(m);
@@ -253,16 +261,23 @@ export default function StrengthAnalysisView() {
         }
 
         if (shouldSave) {
+            const massFromProfile = parseFloat(userData?.weight);
+            const massInput = parseFloat(powerLiftMassKg);
+            const liftMassKg = Number.isFinite(massInput) && massInput > 0
+              ? massInput
+              : (Number.isFinite(massFromProfile) && massFromProfile > 0 ? massFromProfile : undefined);
+
             const analysisEntry = {
                 date: dateStr,
                 type: 'analysis',
                 subType: 'strength_analysis',
                 title: title,
                 feedback: aiFeedback,
-                metrics: metrics,     
-                score: score, 
+                metrics: metrics,
+                score: score,
                 status: 'completed',
-                updatedAt: now.toISOString()
+                updatedAt: now.toISOString(),
+                ...(liftMassKg !== undefined ? { liftMassKg } : {}),
             };
             if (docId) await upsertStrengthAnalysis(docId, analysisEntry);
             else await upsertStrengthAnalysis(null, { ...analysisEntry, createdAt: now.toISOString() });
@@ -374,7 +389,27 @@ export default function StrengthAnalysisView() {
            )}
 
            {metrics && (
-             <MetricsPanel metrics={metrics} title="動作資料" onUpdateMetric={updateMetric} />
+             <>
+               <div className="card-base p-4 rounded-game border-[3px] border-game-outline space-y-2">
+                 <label className="text-xs font-bold text-gray-800" htmlFor="power-lift-mass">
+                   平均功率用負重 (kg)
+                 </label>
+                 <p className="text-xs text-gray-600 font-medium">
+                   用於 P = m×9.8×位移/向心時間。臥推請填槓鈴＋槓片總重；深蹲常填槓上負重。留空則使用個人檔案體重。
+                 </p>
+                 <input
+                   id="power-lift-mass"
+                   type="number"
+                   min="0"
+                   step="0.1"
+                   value={powerLiftMassKg}
+                   onChange={(e) => setPowerLiftMassKg(e.target.value)}
+                   placeholder={userData?.weight ? `預設 ${userData.weight}` : '例如 60'}
+                   className="input-base w-full py-2 text-sm"
+                 />
+               </div>
+               <MetricsPanel metrics={metrics} title="動作資料" onUpdateMetric={updateMetric} />
+             </>
            )}
            {aiFeedback && (
                <div className="card-base p-5 bg-game-coin/10 border-[3px] border-game-coin/50">

@@ -194,3 +194,31 @@ export const generateRaceStrategy = ({ distanceKm, targetTime, courseType = 'fla
 export const generateHalfMarathonStrategy = ({ targetTime, courseType = 'flat' }) => {
   return generateRaceStrategy({ distanceKm: 21.1, targetTime, courseType });
 };
+
+/**
+ * 經典力學：向心階段平均功率（假設主要作功為克服重力將負荷垂直位移）
+ * Power = (mass × g × displacement) / time  [W]
+ *
+ * @param {number} mass - 重量 (kg)，通常為槓鈴＋槓片等外在負重
+ * @param {number} displacement - 向心階段垂直位移 (m)
+ * @param {number} time - 向心階段耗時 (s)，須 > 0
+ * @returns {{ watts: number, unit: 'W', display: string } | null} 四捨五入至小數第一位，display 含單位 W；參數無效時回傳 null
+ */
+export const calculateConcentricPower = (mass, displacement, time) => {
+  const g = 9.8; // m/s^2
+  const m = parseFloat(mass);
+  const d = parseFloat(displacement);
+  const t = parseFloat(time);
+
+  if (!Number.isFinite(m) || m <= 0) return null;
+  if (!Number.isFinite(d) || d <= 0) return null;
+  if (!Number.isFinite(t) || t <= 0) return null;
+
+  const wattsRaw = (m * g * d) / t;
+  const watts = Math.round(wattsRaw * 10) / 10;
+  return {
+    watts,
+    unit: 'W',
+    display: `${watts} W`,
+  };
+};

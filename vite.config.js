@@ -15,13 +15,6 @@ export default defineConfig({
       },
     }),
   ],
-  resolve: {
-    alias: {
-      // 一些套件仍引用舊版 three examples 路徑，將其導向新版 module 版本
-      'three/examples/js/libs/stats.min': 'three/examples/jsm/libs/stats.module.js',
-      // 保留 stats 路徑修正，其餘 drei 相關 alias 在移除使用後可刪除
-    },
-  },
   build: {
     chunkSizeWarningLimit: 1000, // 提高警告閾值到 1000KB（因為已使用 lazy loading）
     rollupOptions: {
@@ -63,10 +56,6 @@ export default defineConfig({
           // lucide-react 圖標庫（使用頻繁但較大）
           if (id.includes('node_modules/lucide-react')) {
             return 'icons-vendor';
-          }
-          // Three.js（僅 3D 城市視圖使用，lazy 載入）
-          if (id.includes('node_modules/three')) {
-            return 'three-vendor';
           }
           // 其他 node_modules 依賴
           if (id.includes('node_modules/')) {

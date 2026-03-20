@@ -1,7 +1,7 @@
 /**
- * 3D 虛擬城市世界腳本（資料驅動）
+ * 虛擬世界／地圖腳本（資料驅動）
  * 對應 .cursor/plans 專案狀態檢視中的 World DSL。
- * 供 World3DView 解析，生成 Three.js 場景。
+ * 供 World2DView（等角地圖）使用；Three.js 3D 已暫停，見 docs/FUTURE_3D_WORLD.md。
  */
 
 /** 建築物網格半徑（建築間距約 * 1.5） */
@@ -20,7 +20,7 @@ const BUILDING_POSITIONS = {
 
 /**
  * Kenney City Kit Industrial 模型對應（public/models/kenney/*.glb）
- * 有設定時 World3DView 會載入 GLB，否則使用程式生成的方塊。
+ * 未來若恢復 3D 場景可載入 GLB；目前僅作設定保留。
  */
 const KENNEY_MODEL = {
   calendar: 'building-a.glb',

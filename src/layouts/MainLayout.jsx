@@ -5,7 +5,7 @@ import KenneyBackground from '../components/KenneyBackground';
 
 const VIEW_TITLES = {
   'map': '基地地圖 Athletica',
-  'world-3d': '3D 城市 World',
+  'world-3d': '等角世界 World',
   'dashboard': '總覽 Dashboard',
   'calendar': '行事曆 Calendar',
   'nutrition': '智慧營養師 Nutrition',
@@ -87,7 +87,7 @@ export default function MainLayout({ children, currentView, setCurrentView, user
           />
           <SidebarItem 
             icon={Globe} 
-            text="3D 城市 World" 
+            text="等角世界 World" 
             active={currentView === 'world-3d'} 
             onClick={() => { setCurrentView('world-3d'); setIsSidebarOpen(false); }} 
           />

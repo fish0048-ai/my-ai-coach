@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import BodyHeatmap from '../components/BodyHeatmap.jsx';
 import WeatherWidget from '../components/WeatherWidget.jsx';
-import { Share2, Dumbbell, Zap } from 'lucide-react';
+import { Share2, Dumbbell, Zap, AlertTriangle } from 'lucide-react';
 import { getDefaultGameProfile } from '../services/game/gameProfileService';
 import { getCurrentUser } from '../services/authService';
 import { getDashboardStats } from '../services/workoutService';
@@ -17,6 +17,7 @@ import RunningStatsSection from '../components/Dashboard/RunningStatsSection';
 import TrainingAdviceSection from '../components/Dashboard/TrainingAdviceSection';
 import { useUserStore } from '../store/userStore';
 import { getBackupReminder } from '../services/backup/backupService';
+import { calculateACWR } from '../utils/statsCalculations';
 
 /** RPG 遊戲化：等級、經驗條、金幣（總覽司令部 HUD） */
 function GameProfileStrip({ gameProfile }) {
@@ -90,6 +91,11 @@ export default function DashboardView() {
   const z2Lower = Math.round(maxHR * 0.6);
   const z2Upper = Math.round(maxHR * 0.7);
 
+  const acwr = useMemo(() => {
+    const workoutsArray = Object.values(allWorkouts).flat();
+    return calculateACWR(workoutsArray);
+  }, [allWorkouts]);
+
   // 當訓練資料或用戶資料變更時，重新計算統計
   useEffect(() => {
     const calculateStats = async () => {
@@ -151,6 +157,28 @@ export default function DashboardView() {
             onDismiss={() => setHideBackupBanner(true)}
             onUpdate={(info) => setBackupReminder(info)}
           />
+        )}
+
+        {acwr.isDanger && acwr.acwrValue != null && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="card-base rounded-game border-[3px] border-game-heart bg-game-heart/10 p-4 flex gap-3 shadow-card"
+          >
+            <AlertTriangle className="shrink-0 text-game-heart mt-0.5" size={24} aria-hidden />
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-gray-900">ACWR 傷痛風險警示（危險區）</h2>
+              <p className="text-sm font-medium text-gray-800 mt-1">
+                您近 7 天與近 28 天基準的{' '}
+                <abbr title="Acute:Chronic Workload Ratio">ACWR</abbr> 為{' '}
+                <strong className="text-gray-900">{acwr.acwrValue.toFixed(2)}</strong>
+                （急性負荷 {acwr.acuteLoad} AU／慢性負荷基準 {acwr.chronicLoad} AU／週）。此比值高於 1.5 時，文獻顯示受傷風險顯著上升。
+              </p>
+              <p className="text-sm font-medium text-gray-800 mt-2">
+                建議：本週降低訓練量或強度、安排至少 1～2 天完整恢復，並避免在疲勞下進行高強度或競速訓練。若已出現疼痛應諮詢醫療專業人員。
+              </p>
+            </div>
+          </div>
         )}
 
         <TodaySchedule workouts={todayWorkouts} />

@@ -137,3 +137,146 @@ export const calculateMuscleFatigue = (muscleScore) => {
   });
   return normalizedFatigue;
 };
+
+/**
+ * 依訓練類型取得預設 RPE（1~10），用於無紀錄 RPE 時的 ACWR 估算
+ * @param {Object} doc - 單筆行事曆訓練
+ * @returns {number}
+ */
+export const getDefaultRPEForACWR = (doc) => {
+  const type = doc?.type;
+  if (type === 'run') {
+    const rt = doc.runType || '';
+    if (rt === 'Interval' || rt === '10-20-30') return 8;
+    if (rt === 'Easy') return 4;
+    if (rt === 'LSD') return 6;
+    if (rt === 'MP') return 7;
+    return 5;
+  }
+  if (type === 'strength') return 7;
+  return 5;
+};
+
+/**
+ * 單筆訓練負荷 Load (AU) = RPE × duration(min)
+ * @param {Object} doc
+ * @returns {number}
+ */
+const getSessionLoadAU = (doc) => {
+  const status = doc.status || 'completed';
+  if (status !== 'completed' || doc.type === 'analysis') return 0;
+
+  const duration = parseFloat(doc.runDuration ?? doc.duration ?? 0);
+  if (!Number.isFinite(duration) || duration <= 0) return 0;
+
+  let rpe = parseFloat(doc.rpe ?? doc.runRPE ?? NaN);
+  if (!Number.isFinite(rpe)) {
+    rpe = getDefaultRPEForACWR(doc);
+  }
+  rpe = Math.min(10, Math.max(1, rpe));
+
+  return rpe * duration;
+};
+
+/**
+ * 將 YYYY-MM-DD 加減天數（本地日曆）
+ * @param {string} dateStr
+ * @param {number} deltaDays
+ * @returns {string}
+ */
+const shiftLocalDateStr = (dateStr, deltaDays) => {
+  const parts = String(dateStr).split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return '';
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  d.setDate(d.getDate() + deltaDays);
+  return getLocalDateStr(d);
+};
+
+/**
+ * ACWR (Acute:Chronic Workload Ratio) — 以 RPE×時間估算負荷的簡化版傷痛預警
+ *
+ * - 每日負荷加總後，急性負荷 = 過去 7 天 Load 總和 (AU)
+ * - 慢性負荷 = 過去 28 天 Load 總和 ÷ 4（平均每週）(AU)
+ * - ACWR = 急性 / 慢性；慢性為 0 時無法計算
+ *
+ * @param {Array<Object>} workouts - 行事曆訓練紀錄（需含 date: YYYY-MM-DD）
+ * @returns {{
+ *   acwrValue: number|null,
+ *   status: string,
+ *   isDanger: boolean,
+ *   acuteLoad: number,
+ *   chronicLoad: number
+ * }}
+ */
+export const calculateACWR = (workouts) => {
+  const emptyResult = {
+    acwrValue: null,
+    status: 'Insufficient Data',
+    isDanger: false,
+    acuteLoad: 0,
+    chronicLoad: 0,
+  };
+
+  if (!Array.isArray(workouts) || workouts.length === 0) {
+    return emptyResult;
+  }
+
+  /** @type {Record<string, number>} */
+  const dailyLoads = {};
+  for (const doc of workouts) {
+    const load = getSessionLoadAU(doc);
+    if (load <= 0) continue;
+    const ds = doc.date;
+    if (!ds) continue;
+    dailyLoads[ds] = (dailyLoads[ds] || 0) + load;
+  }
+
+  const todayStr = getLocalDateStr(new Date());
+
+  let acuteLoad = 0;
+  for (let i = 0; i < 7; i++) {
+    const ds = shiftLocalDateStr(todayStr, -i);
+    acuteLoad += dailyLoads[ds] || 0;
+  }
+
+  let chronicSum28 = 0;
+  for (let i = 0; i < 28; i++) {
+    const ds = shiftLocalDateStr(todayStr, -i);
+    chronicSum28 += dailyLoads[ds] || 0;
+  }
+
+  const chronicLoad = chronicSum28 / 4;
+
+  if (chronicLoad <= 0) {
+    return {
+      ...emptyResult,
+      acuteLoad: Math.round(acuteLoad * 10) / 10,
+      chronicLoad: 0,
+    };
+  }
+
+  const acwrRaw = acuteLoad / chronicLoad;
+  const acwrValue = Math.round(acwrRaw * 100) / 100;
+
+  let status = 'Sweet Spot';
+  let isDanger = false;
+
+  if (acwrValue < 0.8) {
+    status = 'Under-training';
+  } else if (acwrValue <= 1.3) {
+    status = 'Sweet Spot';
+  } else if (acwrValue <= 1.5) {
+    status = 'Caution';
+  } else {
+    status = 'Danger Zone';
+    isDanger = true;
+  }
+
+  return {
+    acwrValue,
+    status,
+    isDanger,
+    acuteLoad: Math.round(acuteLoad * 10) / 10,
+    chronicLoad: Math.round(chronicLoad * 10) / 10,
+  };
+};

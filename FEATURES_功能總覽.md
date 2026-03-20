@@ -63,6 +63,16 @@
     - 綜合訓練建議：根據肌群負荷與跑步數據提供簡單建議。
     - PR 區塊與成就面板整合（見下節）。
 
+- **ACWR（急性：慢性負荷比）傷痛預警**
+  - 程式碼位置：`src/utils/statsCalculations.js`（`calculateACWR`、`getDefaultRPEForACWR`）、`src/views/DashboardView.jsx`
+  - 功能說明：
+    - 以 **RPE × 訓練時間(分)** 估算單次負荷（AU）；僅統計已完成且非 `analysis` 之紀錄。無 RPE 時依訓練類型給預設（例：間歇 / 10-20-30→8、輕鬆跑→4、LSD→6、MP→7、重訓→7）。
+    - **急性負荷**：含今天在內過去 **7 天** 之每日負荷加總。
+    - **慢性負荷**：含今天在內過去 **28 天** 負荷加總 **÷ 4**（平均每週 AU）。
+    - **ACWR** = 急性 ÷ 慢性；慢性無法計算時狀態為 `Insufficient Data`。
+    - 區間：&lt;0.8 訓練不足；0.8～1.3 甜區；1.3～1.5 注意；**&gt;1.5 為 Danger Zone**（`isDanger: true`）。
+    - 當 `isDanger === true` 時，總覽顯示 **紅框警示**（`role="alert"`、`aria-live="assertive"`），提醒受傷風險升高與恢復建議。
+
 - **個人紀錄（PR Tracker）**
   - 程式碼位置：
     - `src/components/Dashboard/PRTracker.jsx`
@@ -220,6 +230,10 @@
     - **AI 深度建議（選擇性）**：
       - 在偏差嚴重或多項問題時，呼叫 Gemini 生成詳細糾正計劃。
     - 可將分析結果（分數、指標、建議）儲存回 Calendar，之後在 Dashboard 的「動作優化建議」區塊呈現最近一次分析。
+    - **向心平均功率（經典力學 P = mgh/t）**：
+      - 程式碼位置：`src/utils/workoutCalculations.js` 的 `calculateConcentricPower(mass, displacement, time)`（`g = 9.8 m/s²`，結果四捨五入至小數一位，回傳 `watts`、`display` 如 `123.4 W`）。
+      - `src/services/analysisService.js`：`mergeStrengthAnalysisAveragePower()` 從 `metrics.concentricDisplacement`（m，支援 cm 換算）、`metrics.concentricTime`（s）與 **`liftMassKg`** 計算並寫入 **`averagePowerW`**、**`averagePowerDisplay`**、`averagePowerMeta`；**`upsertStrengthAnalysis`** 存檔前會自動合併。
+      - 畫面：`StrengthAnalysisView` 提供 **「平均功率用負重 (kg)」**（臥推填槓鈴總重等），未填則用個人檔案體重；指標含向心垂直位移與向心時間，供後續影片／演算法更新實測值。
 
 - **跑姿 AI 分析**
   - 程式碼位置：`src/views/RunAnalysisView.jsx`
@@ -287,9 +301,10 @@
 - **計算工具**
   - `src/utils/nutritionCalculations.js`：BMR / TDEE / 目標卡路里。
   - `src/utils/heartRateCalculations.js`：心率區間計算。
-  - `src/utils/statsCalculations.js`：訓練統計（Dashboard 用）。
+  - `src/utils/statsCalculations.js`：訓練統計（Dashboard 用）、**ACWR**（`calculateACWR` 等）。
   - `src/utils/cycleAnalysis.js`：訓練週期（增肌 / 減脂 / 維持 / 恢復）分析。
-  - `src/utils/trendCalculations.js`, `src/utils/workoutCalculations.js`：各種趨勢與訓練統計輔助。
+  - `src/utils/trendCalculations.js`：趨勢與訓練統計輔助。
+  - `src/utils/workoutCalculations.js`：配速／容量／TSS／賽事策略等；**向心平均功率** `calculateConcentricPower`（重訓分析存檔用）。
 
 - **驗證與錯誤處理**
   - `src/utils/formValidation.js`：表單欄位驗證規則。

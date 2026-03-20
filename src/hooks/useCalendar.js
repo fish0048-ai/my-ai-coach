@@ -62,7 +62,7 @@ export default function useCalendar() {
   const [fileLoading, setFileLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { workouts, initializeWorkouts } = useWorkoutStore();
+  const { workouts } = useWorkoutStore();
   const { gears } = useGears();
 
   const monthlyMileage = useMemo(() => {
@@ -95,7 +95,6 @@ export default function useCalendar() {
     e.stopPropagation();
     const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
     try {
-      useWorkoutStore.getState().updateWorkout(workout.id, { status: newStatus, updatedAt: new Date().toISOString() });
       await updateCalendarWorkout(workout.id, { status: newStatus, updatedAt: new Date().toISOString() });
       await updateAIContext();
       if (newStatus === 'completed') {
@@ -105,7 +104,6 @@ export default function useCalendar() {
       }
     } catch (err) {
       console.error(err);
-      initializeWorkouts();
     }
   };
 
@@ -247,11 +245,6 @@ export default function useCalendar() {
       if (isCopy) {
         await createCalendarWorkout(dataToSave);
       } else {
-        useWorkoutStore.getState().updateWorkout(draggedWorkout.id, {
-          date: targetDateStr,
-          status: dataToSave.status,
-          updatedAt: new Date().toISOString(),
-        });
         await updateCalendarWorkout(draggedWorkout.id, {
           date: targetDateStr,
           status: dataToSave.status,
@@ -325,7 +318,6 @@ export default function useCalendar() {
     const dataToSave = { ...editForm, date: dateStr, updatedAt: new Date().toISOString() };
     try {
       if (currentDocId) {
-        useWorkoutStore.getState().updateWorkout(currentDocId, dataToSave);
         await setCalendarWorkout(currentDocId, dataToSave);
       } else {
         await createCalendarWorkout(dataToSave);
@@ -335,20 +327,19 @@ export default function useCalendar() {
       saveKnowledgeRecord(dataToSave, dateStr);
       if (dataToSave.status === 'completed') checkAndUnlockAchievements().catch((err) => console.error('檢查成就失敗:', err));
     } catch (error) {
-      handleError(error, { context: 'CalendarView', operation: 'handleSave' });
+      // 實際錯誤提示已由 calendarService 內 handleError 處理（避免重複 Toast）
+      if (error) console.error('handleSave:', error);
     }
   };
 
   const handleDelete = async () => {
     if (!currentDocId || !window.confirm('確定刪除？')) return;
     try {
-      useWorkoutStore.getState().removeWorkout(currentDocId);
       await deleteCalendarWorkout(currentDocId);
       updateAIContext();
       setModalView('list');
     } catch (error) {
-      handleError(error, { context: 'CalendarView', operation: 'handleDelete' });
-      initializeWorkouts();
+      if (error) console.error('handleDelete:', error);
     }
   };
 

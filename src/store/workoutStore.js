@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { subscribeCalendarWorkouts } from '../services/calendarService';
+import { subscribeCalendarWorkouts } from '../api/workoutsImpl';
 
 /**
  * 訓練資料 Store
@@ -134,6 +134,23 @@ export const useWorkoutStore = create((set, get) => ({
       }
     });
 
+    set({ workouts: newWorkouts });
+  },
+
+  /**
+   * 將樂觀暫存 id 替換為 Firestore 返回的實際 id（避免 create 成功後重複鍵）
+   * @param {string} tempId
+   * @param {string} realId
+   * @param {Object} [extra] - 合併到該筆的額外欄位（如 trainingLoad）
+   */
+  replaceWorkoutId: (tempId, realId, extra = {}) => {
+    const { workouts } = get();
+    const newWorkouts = { ...workouts };
+    Object.keys(newWorkouts).forEach((date) => {
+      newWorkouts[date] = newWorkouts[date].map((workout) =>
+        workout.id === tempId ? { ...workout, ...extra, id: realId } : workout
+      );
+    });
     set({ workouts: newWorkouts });
   },
 

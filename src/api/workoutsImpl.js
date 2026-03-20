@@ -134,11 +134,13 @@ export const setCalendarWorkout = async (workoutId, data) => {
 export const createCalendarWorkout = async (data) => {
   const user = getCurrentUser();
   if (!user) throw new Error('請先登入');
-  const rpe = data.rpe || data.runRPE;
-  const duration = data.runDuration || data.duration;
-  if (rpe && duration) data.trainingLoad = calculateTrainingLoad(rpe, duration);
-  await addDoc(collection(db, 'users', user.uid, 'calendar'), data);
+  const payload = { ...data };
+  const rpe = payload.rpe || payload.runRPE;
+  const duration = payload.runDuration || payload.duration;
+  if (rpe && duration) payload.trainingLoad = calculateTrainingLoad(rpe, duration);
+  const docRef = await addDoc(collection(db, 'users', user.uid, 'calendar'), payload);
   clearCache(`calendar_${user.uid}`);
+  return docRef;
 };
 
 export const deleteCalendarWorkout = async (workoutId) => {

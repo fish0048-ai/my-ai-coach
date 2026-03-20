@@ -1,6 +1,6 @@
 import React, { useEffect, Suspense, useMemo, useCallback } from 'react';
 import { useUserStore } from './store/userStore';
-import { useViewStore } from './store/viewStore';
+import { useViewStore, initConnectivityListeners } from './store/viewStore';
 import { useWorkoutStore } from './store/workoutStore';
 import MainLayout from './layouts/MainLayout';
 // 移除靜態引入，改用 Lazy Load
@@ -99,7 +99,7 @@ const LoginView = () => {
 export default function App() {
   // 使用 zustand store 管理全局狀態
   const { user, userData, loading, initializeAuth } = useUserStore();
-  const { currentView, setCurrentView, isChatOpen, setIsChatOpen } = useViewStore();
+  const { currentView, setCurrentView, isChatOpen, setIsChatOpen, isOnline } = useViewStore();
 
   // 初始化認證監聽
   useEffect(() => {
@@ -108,6 +108,11 @@ export default function App() {
       if (unsubscribe) unsubscribe();
     };
   }, [initializeAuth]);
+
+  // 連線狀態（離線優先 UI 提示）
+  useEffect(() => {
+    return initConnectivityListeners();
+  }, []);
 
   // 登入後啟動行事曆 Firestore 訂閱，整段登入期間保持連線，確保趨勢與行事曆的歷史、新資料都即時同步；登出時清理
   useEffect(() => {
@@ -202,6 +207,7 @@ export default function App() {
         currentView={currentView} 
         setCurrentView={setCurrentView}
         setIsChatOpen={setIsChatOpen}
+        isOnline={isOnline}
       >
         {content}
       </MainLayout>

@@ -9,12 +9,14 @@ import {
   listTodayWorkouts,
   listCompletedWorkouts,
   listRunLogs,
-  updateCalendarWorkout,
-  setCalendarWorkout,
-  createCalendarWorkout,
-  deleteCalendarWorkout,
   subscribeCompletedWorkouts,
 } from './workoutsImpl';
+import {
+  createCalendarWorkout,
+  updateCalendarWorkout,
+  setCalendarWorkout,
+  deleteCalendarWorkout,
+} from '../services/calendarService';
 
 // 查詢
 export const fetchAllWorkouts = () => listCalendarWorkouts();

@@ -23,6 +23,8 @@ export const useViewStore = create((set) => ({
   currentView: 'dashboard',
   currentLocation: 'dashboard',
   isChatOpen: false,
+  /** 瀏覽器連線狀態（offline 時樂觀變更仍保留，將於恢復連線後與 Firestore 同步） */
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
 
   setCurrentView: (view) =>
     set({
@@ -30,4 +32,21 @@ export const useViewStore = create((set) => ({
       currentLocation: view,
     }),
   setIsChatOpen: (isOpen) => set({ isChatOpen: isOpen }),
+  setIsOnline: (isOnline) => set({ isOnline }),
 }));
+
+/** 註冊 window online/offline；請在 App 掛載時呼叫一次，回傳 cleanup */
+export function initConnectivityListeners() {
+  const sync = () => {
+    useViewStore.getState().setIsOnline(
+      typeof navigator !== 'undefined' ? navigator.onLine : true
+    );
+  };
+  sync();
+  window.addEventListener('online', sync);
+  window.addEventListener('offline', sync);
+  return () => {
+    window.removeEventListener('online', sync);
+    window.removeEventListener('offline', sync);
+  };
+}

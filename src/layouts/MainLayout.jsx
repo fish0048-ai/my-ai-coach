@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, WifiOff } from 'lucide-react';
 import { signOut } from '../services/authService';
 import KenneyBackground from '../components/KenneyBackground';
 
@@ -147,6 +147,16 @@ export default function MainLayout({ children, currentView, setCurrentView, user
           />
         </nav>
 
+        {!isOnline && (
+          <div
+            className="mx-3 mb-2 px-2 py-1.5 rounded-button border border-amber-600/40 bg-amber-50 text-[11px] leading-snug text-amber-900 flex items-start gap-1.5"
+            role="status"
+          >
+            <WifiOff size={14} className="shrink-0 mt-0.5" aria-hidden />
+            <span>離線模式：變更將於連線後同步</span>
+          </div>
+        )}
+
         <div className="p-4 border-t-[3px] border-game-outline shrink-0 bg-[#fafaf8]">
           <button
             onClick={handleSignOut}
@@ -189,6 +199,15 @@ export default function MainLayout({ children, currentView, setCurrentView, user
             <h1 className="text-lg font-semibold text-gray-900 truncate">
               {VIEW_TITLES[currentView] || 'My AI Coach'}
             </h1>
+            {isOnline === false && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-100/90 border border-amber-600/30 px-2 py-0.5 rounded-button shrink-0"
+                title="離線時本機變更將排程同步"
+              >
+                <WifiOff size={12} aria-hidden />
+                離線同步中
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 pl-4 border-l-[3px] border-game-outline">

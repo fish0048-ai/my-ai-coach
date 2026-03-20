@@ -3,17 +3,106 @@
  * 封裝 AI 生成單日和週課表的邏輯
  */
 
+import { z } from 'zod';
 import { getApiKey } from '../config/apiKeyService';
 import { getUserProfile } from '../userService';
 import { getAIContext } from '../../utils/contextManager';
 import { getHeadCoachPrompt, getWeeklySchedulerPrompt } from '../../utils/aiPrompts';
-import { runGemini } from '../../utils/gemini';
+import { runGeminiJsonValidated } from '../../utils/gemini';
 import { formatDate, getWeekDates } from '../../utils/date';
 import { cleanNumber } from '../../utils/number';
-import { parseLLMJson } from '../../utils/aiJson';
 import { handleError } from '../core/errorService';
 import { fetchWorkoutsByDateRange } from '../../api/workouts';
 import { getKnowledgeContextForQuery } from './knowledgeBaseService';
+
+/** 將 LLM 常用別名對齊為 distance(km)、duration(min)、calories(kcal) */
+export const normalizeAiWorkoutPayload = (raw) => {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const o = { ...raw };
+  if (o.distance == null && o.runDistance != null) o.distance = o.runDistance;
+  if (o.duration == null && o.runDuration != null) o.duration = o.runDuration;
+  if (o.calories == null && o.caloriesBurned != null) o.calories = o.caloriesBurned;
+  return o;
+};
+
+const nonNegMetricNumber = z.preprocess((v) => {
+  if (v === undefined || v === null || v === '') return 0;
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}, z.number().min(0));
+
+const workoutTypeEnum = z.enum(['run', 'strength', 'rest', 'analysis']);
+
+const runTypeMetricsRefine = (data, ctx) => {
+  if (data.type === 'run') {
+    const dist = Number(data.distance) || 0;
+    const dur = Number(data.duration) || 0;
+    if (dist <= 0 && dur <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'type 為 run 時，distance(km) 與 duration(min) 至少一項須大於 0',
+        path: ['distance'],
+      });
+    }
+  }
+};
+
+/**
+ * 單日總教練 JSON 之 Zod 防護（distance:km, duration:min, calories:kcal + type 列舉）
+ * 亦接受 runDistance / runDuration，於 preprocess 合併。
+ */
+export const workoutPlanSchema = z.preprocess(
+  normalizeAiWorkoutPayload,
+  z
+    .object({
+      type: workoutTypeEnum,
+      distance: nonNegMetricNumber,
+      duration: nonNegMetricNumber,
+      calories: nonNegMetricNumber,
+    })
+    .passthrough()
+    .superRefine(runTypeMetricsRefine),
+);
+
+/** 週課表陣列單筆 */
+export const weeklyWorkoutPlanItemSchema = z.preprocess(
+  normalizeAiWorkoutPayload,
+  z
+    .object({
+      type: workoutTypeEnum,
+      date: z.string().optional(),
+      distance: nonNegMetricNumber,
+      duration: nonNegMetricNumber,
+      calories: nonNegMetricNumber,
+    })
+    .passthrough()
+    .superRefine(runTypeMetricsRefine),
+);
+
+export const weeklyWorkoutPlanArraySchema = z.array(weeklyWorkoutPlanItemSchema);
+
+/** 訓練計劃推薦 root */
+export const trainingPlanWorkoutItemSchema = z.preprocess(
+  normalizeAiWorkoutPayload,
+  z
+    .object({
+      type: workoutTypeEnum,
+      week: z.preprocess((v) => (v === undefined || v === null ? undefined : v), z.coerce.number().optional()),
+      day: z.preprocess((v) => (v === undefined || v === null ? undefined : v), z.coerce.number().optional()),
+      distance: nonNegMetricNumber,
+      duration: nonNegMetricNumber,
+      calories: nonNegMetricNumber,
+    })
+    .passthrough()
+    .superRefine(runTypeMetricsRefine),
+);
+
+export const trainingPlanResponseSchema = z
+  .object({
+    workouts: z.array(trainingPlanWorkoutItemSchema),
+    tips: z.array(z.preprocess((v) => (v == null ? '' : String(v)), z.string())).optional(),
+  })
+  .passthrough();
 
 /**
  * 生成單日訓練課表
@@ -40,8 +129,11 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, prefe
     
     let prompt = getHeadCoachPrompt(userProfile, recentLogs, targetDateStr, monthlyStats, preferredRunType, knowledgeContext);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON.";
-    const response = await runGemini(prompt, apiKey);
-    const plan = parseLLMJson(response, { rootType: 'object' });
+    const plan = await runGeminiJsonValidated(prompt, apiKey, {
+      schema: workoutPlanSchema,
+      rootType: 'object',
+      maxRetries: 2,
+    });
 
     // 轉換為表單格式
     return {
@@ -50,8 +142,8 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, prefe
       title: plan.title || '',
       notes: `[總教練建議]\n${plan.advice || ''}`,
       exercises: plan.exercises || [],
-      runDistance: cleanNumber(plan.runDistance),
-      runDuration: cleanNumber(plan.runDuration),
+      runDistance: cleanNumber(plan.runDistance ?? plan.distance),
+      runDuration: cleanNumber(plan.runDuration ?? plan.duration),
       runPace: plan.runPace || '',
       runHeartRate: plan.runHeartRate || '',
       runType: plan.runType || '',
@@ -60,6 +152,7 @@ export const generateDailyWorkout = async ({ selectedDate, monthlyMileage, prefe
       runIntervalDuration: plan.runIntervalDuration ? String(plan.runIntervalDuration) : '', // 維持時間（秒）
       runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '', // 休息時間（秒）
       runIntervalPower: plan.runIntervalPower ? String(plan.runIntervalPower) : '', // 間歇功率
+      caloriesBurned: cleanNumber(plan.calories),
     };
   } catch (error) {
     handleError(error, { context: 'workoutGenerator', operation: 'generateDailyWorkout' });
@@ -182,8 +275,11 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
 
     let prompt = getWeeklySchedulerPrompt(userProfile, recentLogs, planningDates, weeklyPrefs, monthlyStats, completedSummary, recent30DaysSummary, knowledgeContext);
     prompt += "\n\nIMPORTANT: Output ONLY raw JSON Array.";
-    const response = await runGemini(prompt, apiKey);
-    const plans = parseLLMJson(response, { rootType: 'array' });
+    const plans = await runGeminiJsonValidated(prompt, apiKey, {
+      schema: weeklyWorkoutPlanArraySchema,
+      rootType: 'array',
+      maxRetries: 2,
+    });
 
     // 轉換為標準格式
     return plans
@@ -195,8 +291,8 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
         title: plan.title || 'AI 訓練計畫',
         notes: `[總教練週計畫]\n${plan.advice || ''}`,
         exercises: plan.exercises || [],
-        runDistance: cleanNumber(plan.runDistance),
-        runDuration: cleanNumber(plan.runDuration),
+        runDistance: cleanNumber(plan.runDistance ?? plan.distance),
+        runDuration: cleanNumber(plan.runDuration ?? plan.duration),
         runPace: plan.runPace || '',
         runHeartRate: plan.runHeartRate || '',
         runType: plan.runType || '',
@@ -204,6 +300,7 @@ export const generateWeeklyWorkout = async ({ currentDate, weeklyPrefs, monthlyM
         runIntervalRest: plan.runIntervalRest ? String(plan.runIntervalRest) : '',
         runIntervalPace: plan.runIntervalPace || '', // 每組配速
         runIntervalPower: plan.runIntervalPower ? String(plan.runIntervalPower) : '', // 間歇功率
+        caloriesBurned: cleanNumber(plan.calories),
         updatedAt: new Date().toISOString()
       }));
   } catch (error) {
@@ -330,8 +427,11 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4, targetP
       targetPB,
       targetRaceDate
     }, knowledgeContext);
-    const response = await runGemini(prompt, apiKey);
-    const planData = parseLLMJson(response, { rootType: 'object' });
+    const planData = await runGeminiJsonValidated(prompt, apiKey, {
+      schema: trainingPlanResponseSchema,
+      rootType: 'object',
+      maxRetries: 2,
+    });
 
     // 後處理：確保 workouts 是結構化數據，清理可能的文字說明
     const processedWorkouts = (planData.workouts || []).map(workout => {
@@ -344,10 +444,11 @@ export const generateTrainingPlan = async ({ planType = null, weeks = 4, targetP
         processed.notes = processed.notes.substring(0, 100);
       }
       
-      // 確保跑步訓練有必要的數值欄位
+      // 確保跑步訓練有必要的數值欄位（Zod 已要求 distance/duration；此處相容舊欄位名）
       if (processed.type === 'run') {
-        if (!processed.runDistance && !processed.runDuration) {
-          // 如果沒有數據，嘗試從 notes 或 title 提取（備用方案）
+        const dist = processed.runDistance ?? processed.distance;
+        const dur = processed.runDuration ?? processed.duration;
+        if (!dist && !dur) {
           console.warn('跑步訓練缺少距離/時間數據:', processed);
         }
       }
@@ -462,6 +563,7 @@ ${knowledgeContext ? `${knowledgeContext}` : ''}
 
 輸出結構化課表數據（非文字說明）：
 - workouts: 每週每天具體訓練數據
+  * 每一筆**必須**含 type: "run"|"strength"|"rest"|"analysis"，以及數字欄位 distance(公里 km)、duration(分鐘 min)、calories(大卡 kcal)；力量／休息日可填 0；跑步至少 distance 或 duration 一項 >0。可併用 runDistance/runDuration 對齊 distance/duration。
   * 力量訓練: 必須有 exercises 陣列，每個動作包含 name, sets, reps, weight, rest
   * 跑步訓練: 必須有 runDistance(km), runDuration(分鐘), runPace(格式如"5:30/km"), runHeartRate
   * title: 簡短標題（10字內）
@@ -475,6 +577,9 @@ JSON格式:
       "week": 1,
       "day": 1,
       "type": "strength",
+      "distance": 0,
+      "duration": 55,
+      "calories": 280,
       "title": "胸背訓練",
       "exercises": [{"name": "深蹲", "sets": 5, "reps": 5, "weight": "80kg", "rest": "90秒"}],
       "notes": "注意動作標準"
@@ -483,6 +588,9 @@ JSON格式:
       "week": 1,
       "day": 2,
       "type": "run",
+      "distance": 8,
+      "duration": 45,
+      "calories": 420,
       "title": "輕鬆跑",
       "runDistance": 8,
       "runDuration": 45,

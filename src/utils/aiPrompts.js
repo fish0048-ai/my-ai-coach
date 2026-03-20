@@ -46,9 +46,14 @@ export const getHeadCoachPrompt = (userProfile, recentLogs, targetDate, monthlyS
     [輸出任務]
     請回傳 JSON 物件 (Value 不包含單位，純數字)：
     {
-      "type": "run" 或 "strength",
+      "type": "run" | "strength" | "rest" | "analysis",
       "title": "標題",
       "advice": "短評",
+      
+      // **必填（系統 Zod 驗證）**：distance=公里(km)、duration=分鐘(min)、calories=大卡(kcal)；可與 runDistance/runDuration 同時提供，數字需一致或擇一填寫後由系統對齊
+      "distance": 數字,
+      "duration": 數字,
+      "calories": 數字,
       
       // 跑步欄位 (務必填寫)
       "runType": "LSD" | "Interval" | "Easy" | "MP" | "10-20-30",
@@ -136,9 +141,13 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     [
       {
         "date": "YYYY-MM-DD",
-        "type": "run" | "strength",
+        "type": "run" | "strength" | "rest" | "analysis",
         "title": "標題 (例: 早安輕鬆跑 / 晚間胸背訓練)",
         "advice": "規劃理由",
+        // **必填**：distance(km)、duration(min)、calories(kcal) 皆為數字；重訓／休息日可填 0；跑步至少 distance 或 duration 一項 >0
+        "distance": 數字,
+        "duration": 數字,
+        "calories": 數字,
         "runType": "LSD" | "Interval" | "Easy" | "MP" | "10-20-30",
         "runDistance": 數字, "runDuration": 數字, "runPace": "字串", "runHeartRate": "字串",
         // 間歇跑專用欄位 (僅當 runType === "Interval" 或 "10-20-30" 時填寫)
@@ -154,6 +163,9 @@ export const getWeeklySchedulerPrompt = (userProfile, contextSummary, planningDa
     如果是間歇跑，請提供完整資訊：
     {
       "type": "run",
+      "distance": 3.2,
+      "duration": 20,
+      "calories": 220,
       "runType": "Interval",
       "title": "400m 間歇跑",
       "runDistance": 3.2,

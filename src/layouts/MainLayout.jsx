@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen, Globe, Map } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, User, Menu, X, LogOut, MessageSquare, Calendar, Activity, Zap, LineChart, Utensils, ShoppingBag, BookOpen } from 'lucide-react';
 import { signOut } from '../services/authService';
 import KenneyBackground from '../components/KenneyBackground';
 
 const VIEW_TITLES = {
-  'map': '基地地圖 Athletica',
-  'world-3d': '等角世界 World',
   'dashboard': '總覽 Dashboard',
   'calendar': '行事曆 Calendar',
   'nutrition': '智慧營養師 Nutrition',
@@ -77,21 +75,6 @@ export default function MainLayout({ children, currentView, setCurrentView, user
 
         <nav className="flex-1 overflow-y-auto py-4 bg-[#fafaf8]" aria-label="主導航選單">
           <div className="px-4 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-            Athletica
-          </div>
-          <SidebarItem 
-            icon={Map} 
-            text="基地地圖" 
-            active={currentView === 'map'} 
-            onClick={() => { setCurrentView('map'); setIsSidebarOpen(false); }} 
-          />
-          <SidebarItem 
-            icon={Globe} 
-            text="等角世界 World" 
-            active={currentView === 'world-3d'} 
-            onClick={() => { setCurrentView('world-3d'); setIsSidebarOpen(false); }} 
-          />
-          <div className="px-4 mt-4 mb-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
             Menu
           </div>
           <SidebarItem 
@@ -191,16 +174,16 @@ export default function MainLayout({ children, currentView, setCurrentView, user
               <Menu size={24} aria-hidden />
             </button>
             {/* 回到地圖：非地圖頁時顯示 */}
-            {currentView !== 'map' && currentView !== 'world-3d' && (
+            {currentView !== 'dashboard' && (
               <button
                 type="button"
-                onClick={() => setCurrentView('map')}
+                onClick={() => setCurrentView('dashboard')}
                 className="flex items-center gap-2 px-2 sm:px-3 py-2 text-sm font-medium text-gray-600 hover:text-primary-600 hover:bg-game-grass/20 rounded-button transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] sm:min-h-0"
-                aria-label="回到基地地圖"
-                title="回到基地地圖"
+                aria-label="回到總覽"
+                title="回到總覽"
               >
-                <Map size={20} aria-hidden />
-                <span className="hidden sm:inline">回到地圖</span>
+                <LayoutDashboard size={20} aria-hidden />
+                <span className="hidden sm:inline">回到總覽</span>
               </button>
             )}
             <h1 className="text-lg font-semibold text-gray-900 truncate">

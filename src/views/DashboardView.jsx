@@ -18,7 +18,7 @@ import TrainingAdviceSection from '../components/Dashboard/TrainingAdviceSection
 import { useUserStore } from '../store/userStore';
 import { getBackupReminder } from '../services/backup/backupService';
 
-/** RPG 遊戲化：等級、經驗條、金幣（司令部用，與 WorldMap HUD 一致） */
+/** RPG 遊戲化：等級、經驗條、金幣（總覽司令部 HUD） */
 function GameProfileStrip({ gameProfile }) {
   const gp = gameProfile || getDefaultGameProfile();
   const level = gp.level ?? 1;
